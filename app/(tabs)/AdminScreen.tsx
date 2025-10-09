@@ -1,23 +1,23 @@
 // AdminScreen.tsx (Dark + responsivo completo, sin libs externas)
 import {
-  AlertTriangle,
-  Calendar,
-  CheckCircle,
-  Eye,
-  Search,
-  XCircle,
+    AlertTriangle,
+    Calendar,
+    CheckCircle,
+    Eye,
+    Search,
+    XCircle,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 /* ================== TIPOS ================== */

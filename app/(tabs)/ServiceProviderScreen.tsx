@@ -1,22 +1,22 @@
 // ServiceProviderScreen.tsx
 import {
-  Bell,
-  Calendar,
-  CheckCircle,
-  Clock,
-  Edit,
-  Eye,
-  Star,
-  XCircle,
+    Bell,
+    Calendar,
+    CheckCircle,
+    Clock,
+    Edit,
+    Eye,
+    Star,
+    XCircle,
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // ---------- DATA MOCK ----------

@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   inputContainer: {
-    width: '50%',  // Establecer un ancho fijo
+    width: '80%',  // Establecer un ancho fijo
     marginBottom: 20,
     alignItems: 'center',
   },

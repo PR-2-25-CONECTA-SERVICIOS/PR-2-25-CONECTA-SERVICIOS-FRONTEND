@@ -1,24 +1,24 @@
 // BusinessScreen.tsx
 import {
-  AlertTriangle,
-  Camera,
-  Clock,
-  Globe,
-  MapPin,
-  Phone,
-  Send,
-  Star,
+    AlertTriangle,
+    Camera,
+    Clock,
+    Globe,
+    MapPin,
+    Phone,
+    Send,
+    Star,
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 type Props = { onNext?: () => void };
