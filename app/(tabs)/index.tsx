@@ -1,6 +1,8 @@
 // app/pages/ServiceCatalogScreen.tsx
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import HeaderMenu from '../../components/HeaderMenu'; // ajusta la ruta si es distinta
+
+import { useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -235,15 +237,20 @@ export default function ServiceCatalogScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>¡Hola, María!</Text>
-          <Text style={styles.subGreeting}>¿Qué servicio necesitas hoy?</Text>
-        </View>
-        <View style={styles.userCircle}>
-          <Text style={styles.userInitials}>MA</Text>
-        </View>
-      </View>
+<View style={styles.header}>
+  <View>
+    <Text style={styles.greeting}>¡Hola, María!</Text>
+    <Text style={styles.subGreeting}>¿Qué servicio necesitas hoy?</Text>
+  </View>
+
+  <HeaderMenu
+    hasService={true}                 // o false si aún no registró servicios
+    onVerPerfil={() => console.log('Ver perfil')}
+    onAgregarServicio={() => console.log('Agregar servicio')}
+    onRegistrarLocal={() => console.log('Registrar local')}
+    onVerSolicitudes={() => console.log('Ver solicitudes de servicio')}
+  />
+</View>
 
       <View style={styles.searchContainer}>
         <TextInput
@@ -310,7 +317,7 @@ export default function ServiceCatalogScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.allServicesList}
       />
-    </View>
+    </View> 
   );
 }
 
@@ -320,7 +327,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', paddingHorizontal: 16, paddingTop: 50 },
   containerDetail: { flex: 1 },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 ,zIndex: 10, },
   greeting: { fontSize: 24, color: '#FFD700', fontWeight: 'bold' },
   subGreeting: { fontSize: 14, color: '#fff', opacity: 0.8 },
   userCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFD700', justifyContent: 'center', alignItems: 'center' },
