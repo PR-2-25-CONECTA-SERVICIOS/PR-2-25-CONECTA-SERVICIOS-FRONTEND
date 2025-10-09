@@ -1,12 +1,12 @@
-// components/HeaderMenu.tsx
+import { useRouter } from 'expo-router'; // Asegúrate de importar el hook de router
 import { Building2, ChevronDown, ListChecks, PlusCircle, User } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import {
-    LayoutChangeEvent,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Props = {
@@ -28,6 +28,7 @@ export default function HeaderMenu({
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState({ x: 0, y: 0, w: 0 });
   const btnRef = useRef<View>(null);
+  const router = useRouter(); // Usa el hook de router para navegar
 
   const toggle = () => setOpen((v) => !v);
   const close = () => setOpen(false);
@@ -35,6 +36,12 @@ export default function HeaderMenu({
   const onBtnLayout = (e: LayoutChangeEvent) => {
     const { x, y, width } = e.nativeEvent.layout;
     setAnchor({ x, y, w: width });
+  };
+
+  // Definir la función para navegar a la pantalla "ProfileViewScreen"
+  const navigateToProfile = () => {
+    close();
+router.push('/(tabs)/ProfileViewScreen'); // Ruta relativa desde la carpeta 'app'
   };
 
   return (
@@ -67,11 +74,7 @@ export default function HeaderMenu({
             <MenuItem
               icon={<User size={16} color="#e5e7eb" />}
               label="Ver perfil"
-              onPress={() => {
-                close();
-                
-                onVerPerfil?.();
-              }}
+              onPress={navigateToProfile} // Usamos la función para navegar a ProfileViewScreen
             />
             <MenuItem
               icon={<PlusCircle size={16} color="#e5e7eb" />}

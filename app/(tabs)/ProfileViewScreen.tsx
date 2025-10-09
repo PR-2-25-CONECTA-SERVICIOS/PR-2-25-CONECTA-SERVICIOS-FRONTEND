@@ -1,4 +1,4 @@
-// app/pages/ProfileViewScreen.tsx
+import { useRouter } from 'expo-router';
 import { ArrowLeft, Edit, Mail, Phone, ShieldCheck, Star } from 'lucide-react-native';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -31,6 +31,13 @@ export default function ProfileViewScreen({
   onBack?: () => void;
   onEdit?: () => void;
 }) {
+  const router = useRouter(); // Para navegación entre pantallas
+
+  // Maneja el clic en un servicio
+  const handleServiceClick = (serviceName: string) => {
+    router.push('/ServiceDetail'); // Navega a la vista de detalle con el nombre del servicio
+  };
+
   return (
     <View style={styles.screen}>
       {/* Header */}
@@ -102,9 +109,9 @@ export default function ProfileViewScreen({
           <Text style={styles.sectionTitle}>Servicios que ofrece</Text>
           <View style={styles.chipsWrap}>
             {profile.services.map((s, i) => (
-              <View key={`${s}-${i}`} style={styles.chip}>
+              <TouchableOpacity key={`${s}-${i}`} onPress={() => handleServiceClick(s)} style={styles.chip}>
                 <Text style={styles.chipText}>{s}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -121,7 +128,6 @@ export default function ProfileViewScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0b0b0b' },
-
   header: {
     paddingHorizontal: 12,
     paddingVertical: 12,
