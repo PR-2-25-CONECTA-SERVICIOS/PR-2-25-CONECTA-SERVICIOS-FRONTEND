@@ -1,8 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function EditProfileScreen() {
+  const router = useRouter();
+
   const [name, setName] = useState('Carlos Mendoza');
   const [phone, setPhone] = useState('+1 234 567 8900');
   const [email, setEmail] = useState('c.mendoza@email.com');
@@ -14,7 +18,7 @@ export default function EditProfileScreen() {
       description: 'Servicio profesional de plomería para casas y negocios.',
       location: 'Av. Principal 123, Ciudad',
       hours: 'Lunes a Domingo: 24 horas',
-      servicePhoto: 'https://via.placeholder.com/300x200', // Imagen del servicio
+      servicePhoto: 'https://via.placeholder.com/300x200',
     },
   ]);
 
@@ -31,6 +35,12 @@ export default function EditProfileScreen() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<any | null>(null);
 
+const handleBack = () => {
+    router.replace('/ProfileViewScreen'); // ✅ ruta absoluta y válida para TS
+
+};
+
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -40,7 +50,7 @@ export default function EditProfileScreen() {
     });
 
     if (result.assets && result.assets.length > 0) {
-      setPhoto(result.assets[0].uri); // Establece la nueva foto seleccionada
+      setPhoto(result.assets[0].uri);
     }
   };
 
@@ -53,7 +63,7 @@ export default function EditProfileScreen() {
     });
 
     if (result.assets && result.assets.length > 0) {
-      setNewService({ ...newService, servicePhoto: result.assets[0].uri }); // Establece la nueva foto del servicio
+      setNewService({ ...newService, servicePhoto: result.assets[0].uri });
     }
   };
 
@@ -87,75 +97,57 @@ export default function EditProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Editar Perfil</Text>
+      {/* HEADER con botón atrás */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
+          <ArrowLeft size={18} color="#e5e7eb" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Editar Perfil</Text>
+        <View style={{ width: 34 }} />
+      </View>
 
-      {/* Foto de perfil */}
-      <TouchableOpacity onPress={pickImage}>
-        <View style={styles.imagePicker}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.image} />
-          ) : (
-            <Text style={styles.selectImageText}>Selecciona una foto</Text>
-          )}
-        </View>
-      </TouchableOpacity>
-
-      {/* Campos editables */}
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre"
-        value={name}
-        onChangeText={setName}
-        placeholderTextColor="#aaa"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Teléfono"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-        placeholderTextColor="#aaa"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Correo Electrónico"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        placeholderTextColor="#aaa"
-      />
-
-      {/* Servicios */}
-      <Text style={styles.servicesTitle}>Servicios que ofrece:</Text>
-      <ScrollView style={styles.servicesContainer}>
-        {services.map((service, index) => (
-          <View key={index} style={styles.serviceItem}>
-            <Text style={styles.serviceItemText}>{service.name}</Text>
-            <TouchableOpacity
-              style={styles.removeServiceButton}
-              onPress={() => {
-                setServiceToDelete(service);
-                setShowDeleteConfirmation(true);
-              }}
-            >
-              <Text style={styles.removeServiceButtonText}>Eliminar</Text>
-            </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Foto de perfil */}
+        <TouchableOpacity onPress={pickImage}>
+          <View style={styles.imagePicker}>
+            {photo ? (
+              <Image source={{ uri: photo }} style={styles.image} />
+            ) : (
+              <Text style={styles.selectImageText}>Selecciona una foto</Text>
+            )}
           </View>
-        ))}
+        </TouchableOpacity>
+
+        {/* Campos editables */}
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre"
+          value={name}
+          onChangeText={setName}
+          placeholderTextColor="#aaa"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Teléfono"
+          keyboardType="phone-pad"
+          value={phone}
+          onChangeText={setPhone}
+          placeholderTextColor="#aaa"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Correo Electrónico"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+          placeholderTextColor="#aaa"
+        />
+
+        {/* Botón de guardar cambios */}
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Guardar Cambios</Text>
+        </TouchableOpacity>
       </ScrollView>
-
-      {/* Botón de agregar servicio */}
-      <TouchableOpacity
-        style={styles.addServiceButton}
-        onPress={() => setShowAddServiceModal(true)}
-      >
-        <Text style={styles.addServiceButtonText}>Agregar Servicio</Text>
-      </TouchableOpacity>
-
-      {/* Botón de guardar cambios */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>Guardar Cambios</Text>
-      </TouchableOpacity>
 
       {/* Modal de agregar servicio */}
       <Modal
@@ -254,19 +246,40 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     backgroundColor: '#121212',
     flex: 1,
-    justifyContent: 'center',
+  },
+
+  // Header
+  header: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#0f0f10',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(251,191,36,0.2)',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: '700',
-    marginBottom: 20,
-    textAlign: 'center',
+  headerTitle: { color: '#e5e7eb', fontWeight: '700', fontSize: 16 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: '#111113',
   },
+
+  // Contenido
+  content: {
+    padding: 20,
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+
   imagePicker: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -323,7 +336,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   removeServiceButton: {
-    backgroundColor: '#FF6347', // Rojo para eliminar
+    backgroundColor: '#FF6347',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 5,
@@ -333,7 +346,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   addServiceButton: {
-    backgroundColor: '#888', // Gris para agregar
+    backgroundColor: '#888',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
@@ -346,7 +359,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   saveButton: {
-    backgroundColor: '#FFD700', // Color amarillo brillante
+    backgroundColor: '#FFD700',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -396,6 +409,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelButton: {
-    backgroundColor: '#888', // Gris para cancelar
+    backgroundColor: '#888',
   },
 });

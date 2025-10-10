@@ -1,255 +1,536 @@
-import { ArrowLeft, Clock, Heart, MapPin, Phone, Share, Star } from 'lucide-react-native'; // Asegúrate de instalar la librería lucide-react-native
+import { useRouter } from 'expo-router';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Share,
+  Star,
+} from 'lucide-react-native';
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const mockService = {
   id: 1,
-  name: "Plomería Express",
-  category: "Plomería y Reparaciones",
+  name: 'Plomería Express',
+  category: 'Plomería y Reparaciones',
   rating: 4.8,
   reviews: 127,
-  distance: "0.8 km",
-  address: "Av. Principal 123, Ciudad",
-  phone: "+1 234 567 8900",
-  price: "$50-80/hora",
-  description: "Servicio de plomería profesional con más de 10 años de experiencia. Especialistas en reparaciones de emergencia, instalaciones y mantenimiento residencial y comercial.",
-  services: ["Destape de tuberías", "Reparación de grifos", "Instalación de sanitarios", "Calentadores de agua"],
-  hours: "Lunes a Domingo: 24 horas",
+  distance: '0.8 km',
+  address: 'Av. Principal 123, Ciudad',
+  phone: '+1 234 567 8900',
+  price: '$50-80/hora',
+  description:
+    'Servicio de plomería profesional con más de 10 años de experiencia. Especialistas en reparaciones de emergencia, instalaciones y mantenimiento residencial y comercial.',
+  services: [
+    'Destape de tuberías',
+    'Reparación de grifos',
+    'Instalación de sanitarios',
+    'Calentadores de agua',
+  ],
+  hours: 'Lunes a Domingo: 24 horas',
   available: true,
   owner: {
-    name: "Carlos Mendoza",
-    photo: "https://randomuser.me/api/portraits/men/32.jpg", // Usa una imagen de ejemplo
-    experience: "10 años",
-    verified: true
+    name: 'Carlos Mendoza',
+    photo: 'https://randomuser.me/api/portraits/men/32.jpg',
+    experience: '10 años',
+    verified: true,
   },
   gallery: [
-    "https://images.unsplash.com/photo-1604118600242-e7a6d23ec3a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZXJ2aWNlJTIwd29ya2VyJTIwcGx1bWJlcnxlbnwxfHx8fDE3NTY0MzgxNDB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+    'https://images.unsplash.com/photo-1604118600242-e7a6d23ec3a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZXJ2aWNlJTIwd29ya2VyJTIwcGx1bWJlcnxlbnwxfHx8fDE3NTY0MzgxNDB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
   ],
   recentReviews: [
-    { id: 1, user: "Ana García", rating: 2, comment: "Excelente servicio, muy puntual y profesional.", date: "Hace 2 días" },
-    { id: 2, user: "Pedro López", rating: 4, comment: "Buen trabajo, precio justo. Lo recomiendo.", date: "Hace 1 semana" },
-    { id: 3, user: "María Silva", rating: 5, comment: "Solucionó mi problema rápidamente. Muy satisfecha.", date: "Hace 2 semanas" }
-  ]
+    { id: 1, user: 'Ana García', rating: 4.5, comment: 'Excelente servicio, muy puntual y profesional.', date: 'Hace 2 días' },
+    { id: 2, user: 'Pedro López', rating: 4.5, comment: 'Buen trabajo, precio justo. Lo recomiendo.', date: 'Hace 1 semana' },
+    { id: 3, user: 'María Silva', rating: 5, comment: 'Solucionó mi problema rápidamente. Muy satisfecha.', date: 'Hace 2 semanas' },
+  ],
 };
 
-const ServiceDetailScreen = ({ onNext }: { onNext: () => void }) => {
+export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) {
+  const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentImageIndex] = useState(0);
 
-  // Función para generar las estrellas
+  // Estado de solicitud
+  const [requestModalVisible, setRequestModalVisible] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+
+  const handleBack = () => {
+    // @ts-ignore (algunas versiones no tipan canGoBack)
+    if (router.canGoBack?.()) router.back();
+    else router.replace('/(tabs)/explore');
+  };
+
+  const callNow = () => {
+    Linking.openURL(`tel:${mockService.phone.replace(/\s|\+/g, '')}`).catch(() => {});
+  };
+
+  const openWhatsApp = (msg: string) => {
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    Linking.openURL(url).catch(() => {});
+  };
+
+  const openWhatsAppToCoordinate = () =>
+    openWhatsApp(`Hola ${mockService.owner.name} 👋, acabo de enviar una solicitud para "${mockService.name}". ¿Podemos coordinar detalles por aquí?`);
+
   const renderStars = (rating: number) => {
-    const fullStars = Math.floor(rating); // Número entero de estrellas llenas
-    const halfStar = rating % 1 !== 0; // Si la calificación tiene decimales, añadir una estrella a la mitad
+    const full = Math.floor(rating);
+    const half = rating - full >= 0.5;
+    const stars = [];
+    for (let i = 0; i < full; i++) {
+      stars.push(<Star key={`s${i}`} size={16} color="#fbbf24" fill="#fbbf24" />);
+    }
+    if (half) stars.push(<Star key="half" size={16} color="#fbbf24" style={{ opacity: 0.5 }} />);
+    return stars;
+  };
 
-    return (
-      <>
-        {Array.from({ length: fullStars }).map((_, index) => (
-          <Star key={index} size={18} color="yellow" />
-        ))}
-        {halfStar && <Star size={18} color="yellow" style={{ opacity: 0.5 }} />}
-      </>
-    );
+  const handleRequest = () => {
+    // Aquí podrías llamar a tu backend
+    setRequestSent(true);
+    setRequestModalVisible(true);
   };
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header Image */}
-      <View style={styles.headerImageContainer}>
-        <Image
-          source={{ uri: mockService.gallery[currentImageIndex] }}
-          style={styles.headerImage}
-        />
-        
-        {/* Header Controls */}
-        <View style={styles.headerControls}>
-          <TouchableOpacity onPress={onNext} style={styles.iconButton}>
-            <ArrowLeft size={24} color="white" />
+    <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 32 }}>
+      {/* HEADER IMAGE */}
+      <View style={styles.headerImageWrap}>
+        <Image source={{ uri: mockService.gallery[currentImageIndex] }} style={styles.headerImage} />
+
+        {/* Overlay top controls */}
+        <View style={styles.headerOverlay}>
+          <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
+            <ArrowLeft size={18} color="#e5e7eb" />
           </TouchableOpacity>
-          
-          <View style={styles.iconGroup}>
-            <TouchableOpacity
-              onPress={() => setIsFavorite(!isFavorite)}
-              style={styles.iconButton}
-            >
-              <Heart size={24} color={isFavorite ? 'red' : 'white'} />
+
+          <View style={styles.iconRow}>
+            <TouchableOpacity onPress={() => setIsFavorite(v => !v)} style={styles.iconBtn}>
+              <Heart size={18} color={isFavorite ? '#ef4444' : '#e5e7eb'} />
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.iconButton}>
-              <Share size={24} color="white" />
+            <TouchableOpacity style={styles.iconBtn}>
+              <Share size={18} color="#e5e7eb" />
             </TouchableOpacity>
           </View>
         </View>
-        
-        {/* Availability Badge */}
+
+        {/* Availability badge */}
         <View style={styles.availabilityBadge}>
-          <Text style={mockService.available ? styles.available : styles.notAvailable}>
+          <Text style={mockService.available ? styles.availableText : styles.notAvailableText}>
             {mockService.available ? 'Disponible ahora' : 'No disponible'}
           </Text>
         </View>
       </View>
 
-      {/* Service Information */}
-      <View style={styles.infoContainer}>
-        <View style={styles.nameCategoryRow}>
-          <View>
-            <Text style={styles.serviceName}>{mockService.name}</Text>
-            <Text style={styles.serviceCategory}>{mockService.category}</Text>
+      {/* BODY */}
+      <View style={styles.body}>
+        {/* Card: Header info */}
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            <View>
+              <Text style={styles.serviceName}>{mockService.name}</Text>
+              <Text style={styles.serviceCategory}>{mockService.category}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.price}>{mockService.price}</Text>
+              <Text style={styles.perHour}>por hora</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.price}>{mockService.price}</Text>
-            <Text style={styles.perHour}>por hora</Text>
+
+          <View style={[styles.rowBetween, { marginTop: 10 }]}>
+            <View style={styles.rowCenter}>
+              <View style={styles.rowCenter}>{renderStars(mockService.rating)}</View>
+              <Text style={styles.ratingText}>
+                {mockService.rating.toFixed(1)} <Text style={styles.grayText}>({mockService.reviews})</Text>
+              </Text>
+            </View>
+            <View style={styles.rowCenter}>
+              <MapPin size={16} color="#e5e7eb" />
+              <Text style={[styles.grayText, { marginLeft: 6 }]}>{mockService.distance}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Rating & Distance */}
-        <View style={styles.ratingDistance}>
-          <View style={styles.ratingRow}>
-            {renderStars(mockService.rating)} 
-            <Text style={styles.ratingText}>{mockService.rating}</Text>
-            <Text style={styles.reviewsText}>({mockService.reviews} reseñas)</Text>
-          </View>
-          <View style={styles.distanceRow}>
-            <MapPin size={18} color="white" />
-            <Text style={styles.distanceText}>{mockService.distance}</Text>
+        {/* Quick actions */}
+        <View style={[styles.card, { paddingVertical: 14 }]}>
+          <View style={styles.quickRow}>
+            <TouchableOpacity
+              style={[styles.quickBtn, { backgroundColor: '#25D366' }]}
+              onPress={() => openWhatsApp(`Hola ${mockService.owner.name}, me interesa "${mockService.name}".`)}
+            >
+              <MessageCircle size={16} color="#111827" />
+              <Text style={styles.quickBtnText}>WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.quickBtn, { backgroundColor: '#fbbf24' }]} onPress={callNow}>
+              <Phone size={16} color="#111827" />
+              <Text style={styles.quickBtnText}>Llamar</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Phone size={20} color="black" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Owner Info */}
-        <View style={styles.ownerContainer}>
-          <Image source={{ uri: mockService.owner.photo }} style={styles.ownerPhoto} />
-          <View style={styles.ownerDetails}>
-            <Text style={styles.ownerName}>{mockService.owner.name}</Text>
-            {mockService.owner.verified && (
-              <Text style={styles.verifiedBadge}>Verificado</Text>
-            )}
-            <Text style={styles.ownerExperience}>{mockService.owner.experience} de experiencia</Text>
+        {/* Owner */}
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Image source={{ uri: mockService.owner.photo }} style={styles.ownerPhoto} />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <View style={styles.rowCenter}>
+                <Text style={styles.ownerName}>{mockService.owner.name}</Text>
+                {mockService.owner.verified && (
+                  <View style={styles.badgeSecondary}>
+                    <Text style={styles.badgeSecondaryText}>Verificado</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.grayText}>{mockService.owner.experience} de experiencia</Text>
+            </View>
           </View>
         </View>
 
         {/* Description */}
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionTitle}>Descripción</Text>
-          <Text style={styles.descriptionText}>{mockService.description}</Text>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Descripción</Text>
+          <Text style={styles.bodyText}>{mockService.description}</Text>
         </View>
 
-        {/* Services */}
-        <View style={styles.servicesContainer}>
-          <Text style={styles.servicesTitle}>Servicios</Text>
-          <View style={styles.servicesList}>
-            {mockService.services.map((service, index) => (
-              <View key={index} style={styles.serviceItem}>
-                <Text style={styles.serviceText}>{service}</Text>
+        {/* Services list */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Servicios</Text>
+          <View style={styles.chipsWrap}>
+            {mockService.services.map((s, i) => (
+              <View key={`${s}-${i}`} style={styles.chip}>
+                <Text style={styles.chipText}>{s}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* Location & Hours */}
-        <View style={styles.locationHoursContainer}>
-          <Text style={styles.locationTitle}>Ubicación</Text>
-          <View style={styles.locationRow}>
-            <MapPin size={18} color="white" />
-            <Text style={styles.locationText}>{mockService.address}</Text>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Ubicación</Text>
+          <View style={[styles.row, { marginTop: 6 }]}>
+            <MapPin size={16} color="#e5e7eb" />
+            <Text style={[styles.bodyText, { marginLeft: 8 }]}>{mockService.address}</Text>
           </View>
-          <Text style={styles.hoursTitle}>Horarios</Text>
-          <View style={styles.hoursRow}>
-            <Clock size={18} color="white" />
-            <Text style={styles.hoursText}>{mockService.hours}</Text>
+
+          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Horarios</Text>
+          <View style={[styles.row, { marginTop: 6 }]}>
+            <Clock size={16} color="#e5e7eb" />
+            <Text style={[styles.bodyText, { marginLeft: 8 }]}>{mockService.hours}</Text>
           </View>
         </View>
 
-        {/* Recent Reviews */}
-        <View style={styles.reviewsContainer}>
-          <Text style={styles.reviewsTitle}>Reseñas recientes</Text>
-          {mockService.recentReviews.map((review) => (
-            <View key={review.id} style={styles.reviewItem}>
-              <Text style={styles.reviewUser}>{review.user}</Text>
-              <View style={styles.reviewRating}>
-                {renderStars(review.rating)} {/* Mostrar las estrellas en las reseñas */}
+        {/* Reviews */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Reseñas recientes</Text>
+          <View style={{ gap: 10, marginTop: 8 }}>
+            {mockService.recentReviews.map(r => (
+              <View key={r.id} style={styles.reviewItem}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.reviewUser}>{r.user}</Text>
+                  <View style={styles.row}>{renderStars(r.rating)}</View>
+                </View>
+                <Text style={styles.reviewComment}>{r.comment}</Text>
+                <Text style={styles.reviewDate}>{r.date}</Text>
               </View>
-              <Text style={styles.reviewComment}>{review.comment}</Text>
-              <Text style={styles.reviewDate}>{review.date}</Text>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
 
-        {/* Request Service Button */}
-        <View style={styles.requestButtonContainer}>
-          <TouchableOpacity style={styles.requestButton}>
-            <Text style={styles.requestButtonText}>
-              {mockService.available ? 'Solicitar Servicio Ahora' : 'Servicio No Disponible'}
-            </Text>
-          </TouchableOpacity>
+        {/* CTA (cambia a "Solicitud enviada" cuando requestSent = true) */}
+        <View style={{ paddingHorizontal: 16 }}>
+          {!mockService.available ? (
+            <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
+              <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
+            </View>
+          ) : !requestSent ? (
+            <TouchableOpacity style={styles.ctaBtn} onPress={handleRequest}>
+              <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.ctaSent}>
+              <CheckCircle2 size={18} color="#fbbf24" />
+              <Text style={styles.ctaSentText}>Solicitud enviada</Text>
+            </View>
+          )}
         </View>
       </View>
+
+      {/* MODAL: SOLICITUD ENVIADA */}
+      <Modal
+        visible={requestModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRequestModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, styles.modalContainerLg]}>
+            <View style={styles.modalHeaderIcon}>
+              <CheckCircle2 size={28} color="#34d399" />
+            </View>
+
+            <Text style={styles.modalTitle}>¡Solicitud enviada!</Text>
+            <Text style={styles.modalSubtitle}>
+              Tu pedido para <Text style={{ fontWeight: '800', color: '#e5e7eb' }}>{mockService.name}</Text> fue enviado al proveedor.
+            </Text>
+
+            <View style={styles.modalDetails}>
+              <View style={styles.rowLine}>
+                <Text style={styles.rowLineLabel}>Proveedor</Text>
+                <Text style={styles.rowLineValue}>{mockService.owner.name}</Text>
+              </View>
+              <View style={styles.rowLine}>
+                <Text style={styles.rowLineLabel}>Tiempo de respuesta</Text>
+                <Text style={styles.rowLineValue}>~ 15 min</Text>
+              </View>
+              <View style={styles.rowLine}>
+                <Text style={styles.rowLineLabel}>Estado</Text>
+                <Text style={[styles.rowLineValue, { color: '#fbbf24' }]}>Pendiente de confirmación</Text>
+              </View>
+            </View>
+
+            <Text style={styles.modalHint}>
+              Permanece atent@ a las notificaciones. Si necesitas coordinar detalles, puedes escribir por WhatsApp:
+            </Text>
+
+            <TouchableOpacity style={styles.btnWhatsapp} onPress={openWhatsAppToCoordinate}>
+              <MessageCircle size={16} color="#fff" />
+              <Text style={styles.btnWhatsappText}>Chatear por WhatsApp</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.btnGhost} onPress={() => setRequestModalVisible(false)}>
+              <Text style={styles.btnGhostText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1F1F1F' },
-  headerImageContainer: { position: 'relative' },
-  headerImage: { width: '100%', height: 200 },
-  headerControls: { position: 'absolute', top: 10, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-between' },
-  iconButton: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 50 },
-  iconGroup: { flexDirection: 'row' },
-  availabilityBadge: { position: 'absolute', bottom: 10, left: 10 },
-  available: { backgroundColor: '#FFD700', color: 'black', padding: 5, borderRadius: 10 },
-  notAvailable: { backgroundColor: '#555', color: 'white', padding: 5, borderRadius: 10 },
-  infoContainer: { padding: 16 },
-  nameCategoryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  serviceName: { fontSize: 24, color: 'white', fontWeight: 'bold' },
-  serviceCategory: { fontSize: 14, color: 'gray' },
-  price: { fontSize: 20, color: '#FFD700', fontWeight: 'bold' },
-  perHour: { fontSize: 12, color: 'gray' },
-  ratingDistance: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center' },
-  ratingText: { marginLeft: 5, color: 'white' },
-  reviewsText: { color: 'gray' },
-  distanceRow: { flexDirection: 'row', alignItems: 'center' },
-  distanceText: { marginLeft: 5, color: 'white' },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  quickActionButton: { flex: 1, backgroundColor: '#FFD700', paddingVertical: 12, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  quickActionText: { color: 'black', fontWeight: 'bold' },
-  ownerContainer: { flexDirection: 'row', marginBottom: 20 },
-  ownerPhoto: { width: 50, height: 50, borderRadius: 25 },
-  ownerDetails: { flex: 1, marginLeft: 12 },
-  ownerName: { color: 'white', fontWeight: 'bold' },
-  verifiedBadge: { color: 'green', fontSize: 12 },
-  ownerExperience: { color: 'gray' },
-  descriptionContainer: { marginBottom: 20 },
-  descriptionTitle: { color: '#FFD700', fontWeight: 'bold' },
-  descriptionText: { color: 'white' },
-  servicesContainer: { marginBottom: 20 },
-  servicesTitle: { color: '#FFD700', fontWeight: 'bold' },
-  servicesList: { flexDirection: 'row', flexWrap: 'wrap' },
-  serviceItem: { backgroundColor: '#333', padding: 8, margin: 4, borderRadius: 8 },
-  serviceText: { color: 'white' },
-  locationHoursContainer: { marginBottom: 20 },
-  locationTitle: { color: '#FFD700', fontWeight: 'bold' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  locationText: { color: 'white', marginLeft: 5 },
-  hoursTitle: { color: '#FFD700', fontWeight: 'bold' },
-  hoursRow: { flexDirection: 'row', alignItems: 'center' },
-  hoursText: { color: 'white', marginLeft: 5 },
-  reviewsContainer: { marginBottom: 20 },
-  reviewsTitle: { color: '#FFD700', fontWeight: 'bold' },
-  reviewItem: { backgroundColor: '#444', padding: 10, borderRadius: 8, marginBottom: 10 },
-  reviewUser: { color: 'white', fontWeight: 'bold' },
-  reviewComment: { color: 'white' },
-  reviewDate: { color: 'gray' },
-  reviewRating: { flexDirection: 'row', marginTop: 5 },
-  requestButtonContainer: { marginBottom: 40 },
-  requestButton: { backgroundColor: '#FFD700', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  requestButtonText: { color: 'black', fontWeight: 'bold' },
-});
+  screen: { flex: 1, backgroundColor: '#0b0b0b' },
 
-export default ServiceDetailScreen;
+  headerImageWrap: { position: 'relative' },
+  headerImage: { width: '100%', height: 220 },
+
+  headerOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,17,19,0.75)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.25)',
+  },
+  iconRow: { flexDirection: 'row', gap: 8 },
+
+  availabilityBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(251,191,36,0.35)',
+  },
+  availableText: { color: '#fbbf24', fontWeight: '800', fontSize: 12 },
+  notAvailableText: { color: '#9ca3af', fontWeight: '700', fontSize: 12 },
+
+  body: { paddingTop: 12, gap: 12 },
+
+  card: {
+    backgroundColor: '#0f0f10',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.2)',
+  },
+
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowCenter: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  serviceName: { color: '#e5e7eb', fontWeight: '800', fontSize: 18 },
+  serviceCategory: { color: '#9ca3af', marginTop: 2 },
+
+  price: { color: '#fbbf24', fontWeight: '800', fontSize: 16 },
+  perHour: { color: '#9ca3af', fontSize: 12 },
+
+  ratingText: { color: '#e5e7eb', marginLeft: 8, fontWeight: '700', fontSize: 12 },
+  grayText: { color: '#9ca3af' },
+
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickBtnText: { color: '#111827', fontWeight: '800' },
+
+  ownerPhoto: { width: 48, height: 48, borderRadius: 999 },
+
+  ownerName: { color: '#e5e7eb', fontWeight: '800', fontSize: 15 },
+  badgeSecondary: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+  },
+  badgeSecondaryText: { color: '#fbbf24', fontSize: 10, fontWeight: '800' },
+
+  sectionTitle: { color: '#e5e7eb', fontWeight: '800', marginBottom: 8 },
+  bodyText: { color: '#e5e7eb', lineHeight: 20 },
+
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#374151',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+  },
+  chipText: { color: '#e5e7eb', fontSize: 12 },
+
+  reviewItem: {
+    backgroundColor: '#111113',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.2)',
+    borderRadius: 10,
+    padding: 10,
+    gap: 4,
+  },
+  reviewUser: { color: '#e5e7eb', fontWeight: '800' },
+  reviewComment: { color: '#e5e7eb' },
+  reviewDate: { color: '#9ca3af', fontSize: 12 },
+
+  ctaBtn: {
+    backgroundColor: '#fbbf24',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  ctaBtnText: { color: '#111827', fontWeight: '900' },
+
+  // Estado "Solicitud enviada"
+  ctaSent: {
+    marginTop: 2,
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.35)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ctaSentText: { color: '#fbbf24', fontWeight: '900' },
+
+  // ------- Modal: Solicitud Enviada -------
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 18,
+  },
+  modalContainer: {
+    backgroundColor: '#1b1b1b',
+    padding: 20,
+    borderRadius: 16,
+    width: '86%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  modalContainerLg: { gap: 10 },
+  modalHeaderIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  modalSubtitle: { color: '#cbd5e1', fontSize: 13, textAlign: 'center' },
+
+  modalDetails: {
+    alignSelf: 'stretch',
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    marginTop: 6,
+  },
+  rowLine: { flexDirection: 'row', justifyContent: 'space-between' },
+  rowLineLabel: { color: '#9ca3af', fontSize: 12 },
+  rowLineValue: { color: '#e5e7eb', fontWeight: '700', fontSize: 13 },
+
+  modalHint: { color: '#cbd5e1', fontSize: 13, textAlign: 'center', marginTop: 8 },
+
+  btnWhatsapp: {
+    alignSelf: 'stretch',
+    marginTop: 10,
+    backgroundColor: '#25D366',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  btnWhatsappText: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
+
+  btnGhost: {
+    alignSelf: 'stretch',
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnGhostText: { color: '#e5e7eb', fontWeight: '700' },
+});
