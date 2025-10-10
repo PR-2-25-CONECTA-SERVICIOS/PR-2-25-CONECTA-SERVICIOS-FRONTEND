@@ -1,6 +1,6 @@
 // app/(tabs)/map.tsx
 import * as Location from 'expo-location';
-import { Filter, List, MapPin, Navigation, Star, X } from 'lucide-react-native';
+import { Filter, MapPin, Navigation, Star, X } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
     Animated,
@@ -185,10 +185,7 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
         <View style={s.headerActions}>
-          <TouchableOpacity activeOpacity={0.9} style={chipStyles.chip} onPress={() => setListOpen(true)}>
-            <List size={16} color="#111827" />
-            <Text style={s.chipText}>  Lista</Text>
-          </TouchableOpacity>
+          
           <TouchableOpacity
             onPress={() => setFollowMe((v) => !v)}
             activeOpacity={0.9}
@@ -282,7 +279,7 @@ export default function MapScreen() {
             </View>
 
             <TouchableOpacity activeOpacity={0.9} style={s.primaryBtn}>
-              <Text style={s.primaryBtnText}>Solicitar Servicio</Text>
+              <Text style={s.primaryBtnText}>Ver detalle</Text>
             </TouchableOpacity>
           </View>
         )}
