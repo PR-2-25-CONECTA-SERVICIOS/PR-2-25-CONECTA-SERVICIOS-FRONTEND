@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Heart, MapPin, Search, Star } from 'lucide-react-native';
+import { Heart, MapPin, Search, SlidersHorizontal, Star } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   Dimensions,
@@ -43,19 +43,7 @@ const highlightedServices = [
       'https://images.unsplash.com/photo-1695654390723-479197a8c4a3?q=80&w=1134&auto=format&fit=crop',
     available: true,
   },
-    {
-    id: '3',
-    name: 'Delivery Rápido',
-    category: 'Delivery',
-    rating: 4.5,
-    reviews: 45,
-    distance: '2 km',
-    price: '$10-20/hora',
-    description: 'Entrega de productos en tiempo récord.',
-    image:
-      'https://images.unsplash.com/photo-1695654390723-479197a8c4a3?q=80&w=1134&auto=format&fit=crop',
-    available: true,
-  },
+  
   {
     id: '2',
     name: 'Limpieza Total',
@@ -239,6 +227,7 @@ export default function ServiceCatalogScreen() {
             />
           </View>
           <TouchableOpacity style={styles.filterBtn} activeOpacity={0.9}>
+            <SlidersHorizontal size={18} color="#111827" />
           </TouchableOpacity>
         </View>
 

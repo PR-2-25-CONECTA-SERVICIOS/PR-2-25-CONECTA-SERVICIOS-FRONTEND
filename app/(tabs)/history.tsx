@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
   useColorScheme,
+  useWindowDimensions,
 } from 'react-native';
 
 type Status = 'finalizado' | 'pendiente' | 'cancelado';
@@ -74,6 +75,8 @@ const palette = {
 export default function HistoryScreen() {
   const scheme = useColorScheme();
   const theme = scheme === 'dark' ? palette.dark : palette.light;
+  const { width } = useWindowDimensions();
+  const isSmall = width < 360;
 
   const [tab, setTab] = useState<(typeof TABS)[number]>('Todos');
 
@@ -90,7 +93,7 @@ export default function HistoryScreen() {
     can: DATA.filter(i => i.status === 'cancelado').length,
   }), []);
 
-  const s = styles(theme);
+  const s = styles(theme, isSmall);
 
   return (
     <View style={s.screen}>
@@ -107,7 +110,9 @@ export default function HistoryScreen() {
               activeOpacity={0.9}
               style={[s.tabBtn, tab === t && s.tabBtnActive]}
             >
-              <Text style={[s.tabText, tab === t && s.tabTextActive]}>{t}</Text>
+              <Text style={[s.tabText, tab === t && s.tabTextActive]} numberOfLines={1}>
+                {t}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -157,20 +162,19 @@ function HistoryCard({ item, s, theme }: { item: HistItem; s: ReturnType<typeof 
   return (
     <Animated.View style={[s.card, { transform: [{ scale: press }] }]}>
       <TouchableOpacity activeOpacity={0.9} onPressIn={onPressIn} onPressOut={onPressOut} style={{ flexDirection: 'row' }}>
+        {/* Miniatura */}
         <View style={s.thumbWrap}>
           {item.image ? <Image source={{ uri: item.image }} style={s.thumb} /> : <View style={[s.thumb, s.thumbFallback]} />}
         </View>
 
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={s.title}>{item.title}</Text>
-            <Text style={s.price}>{item.price}</Text>
-          </View>
-          <Text style={s.category}>{item.category}</Text>
-          <Text style={s.subtitle}>{item.subtitle}</Text>
+        {/* Columna central (contenido) */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.title} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
+          <Text style={s.category} numberOfLines={1}>{item.category}</Text>
+          <Text style={s.subtitle} numberOfLines={2}>{item.subtitle}</Text>
 
           <View style={s.metaRow}>
-            <Text style={s.metaText}>{item.date}</Text>
+            <Text style={s.metaText} numberOfLines={1}>{item.date}</Text>
             {!!item.rating && (
               <View style={s.ratingRow}>
                 <Star size={14} color="#F59E0B" fill="#F59E0B" />
@@ -182,7 +186,7 @@ function HistoryCard({ item, s, theme }: { item: HistItem; s: ReturnType<typeof 
           <View style={s.actionsRow}>
             {item.status === 'finalizado' && (
               <BtnOutline s={s}>
-                <Star size={14} color={theme === palette.dark ? '#e5e7eb' : '#111827'} />
+                <Star size={14} color={s.btnOutlineText.color as string} />
                 <Text style={s.btnOutlineText}>  Calificar</Text>
               </BtnOutline>
             )}
@@ -201,10 +205,14 @@ function HistoryCard({ item, s, theme }: { item: HistItem; s: ReturnType<typeof 
           </View>
         </View>
 
-        <View style={s.statusWrap}>
+        {/* Columna derecha (precio + estado) */}
+        <View style={s.rightCol}>
+          <Text style={s.price} numberOfLines={1}>{item.price}</Text>
           <View style={[s.pill, { borderColor: pill.color }]}>
             <pill.Icon size={12} color={pill.color} />
-            <Text style={[s.pillText, { color: pill.color }]}>{pill.text}</Text>
+            <Text style={[s.pillText, { color: pill.color }]} numberOfLines={1}>
+              {pill.text}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -236,65 +244,85 @@ function BtnGhost({ children, s }: { children: React.ReactNode; s: ReturnType<ty
   );
 }
 
-// ---------- dynamic styles (dependen del theme) ----------
-const styles = (t: typeof palette.light | typeof palette.dark) =>
+// ---------- dynamic styles ----------
+const styles = (
+  t: typeof palette.light | typeof palette.dark,
+  small: boolean,
+) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.bg },
 
     header: {
       backgroundColor: t.headerBg,
-      paddingTop: 18, paddingHorizontal: 16, paddingBottom: 12,
+      paddingTop: small ? 14 : 18,
+      paddingHorizontal: 16,
+      paddingBottom: small ? 10 : 12,
       borderBottomLeftRadius: 18, borderBottomRightRadius: 18,
     },
-    headerTitle: { color: '#fff', fontWeight: '800', fontSize: 18 },
-    headerSub: { color: t.headerSub, marginTop: 2, marginBottom: 10 },
+    headerTitle: { color: '#fff', fontWeight: '800', fontSize: small ? 16 : 18 },
+    headerSub: { color: t.headerSub, marginTop: 2, marginBottom: 10, fontSize: small ? 12 : 13 },
 
-    tabs: { flexDirection: 'row', backgroundColor: t.tabTrack, borderRadius: 999, padding: 4, gap: 6 },
-    tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 999, alignItems: 'center' },
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: t.tabTrack,
+      borderRadius: 999,
+      padding: 4,
+      gap: 6,
+    },
+    tabBtn: { flex: 1, paddingVertical: small ? 6 : 8, borderRadius: 999, alignItems: 'center' },
     tabBtnActive: { backgroundColor: t.tabActiveBg },
-    tabText: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: 12 },
+    tabText: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: small ? 11 : 12 },
     tabTextActive: { color: t.tabActiveText },
 
     card: {
-      backgroundColor: t.card, borderRadius: 14, padding: 12,
+      backgroundColor: t.card, borderRadius: 14, padding: small ? 10 : 12,
       borderWidth: StyleSheet.hairlineWidth, borderColor: t.border, ...t.shadow,
     },
 
-    thumbWrap: { width: 56, height: 56, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
+    thumbWrap: { width: small ? 50 : 56, height: small ? 50 : 56, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
     thumb: { width: '100%', height: '100%' },
     thumbFallback: { backgroundColor: t.ghost },
 
-    title: { fontWeight: '800', color: t.text, fontSize: 15, marginRight: 8 },
-    price: { color: t.text, fontWeight: '800' },
-    category: { color: t.sub, marginTop: 2 },
-    subtitle: { color: t.sub, marginTop: 2 },
+    title: { fontWeight: '800', color: t.text, fontSize: small ? 14 : 15 },
+    price: { color: t.text, fontWeight: '900', fontSize: small ? 14 : 16, marginBottom: 6, maxWidth: 80, textAlign: 'right' },
+    category: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
+    subtitle: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
 
     metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 },
-    metaText: { color: t.sub, fontSize: 12 },
+    metaText: { color: t.sub, fontSize: small ? 11 : 12, flexShrink: 1 },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    ratingText: { color: t.text, fontWeight: '700', fontSize: 12 },
+    ratingText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
 
     actionsRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
 
     btnOutline: {
-      borderWidth: 1, borderColor: t.border, paddingVertical: 6, paddingHorizontal: 10,
+      borderWidth: 1, borderColor: t.border, paddingVertical: small ? 5 : 6, paddingHorizontal: 10,
       borderRadius: 10, flexDirection: 'row', alignItems: 'center',
     },
-    btnOutlineText: { color: t.text, fontWeight: '700', fontSize: 12 },
+    btnOutlineText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
 
     btnGhost: {
-      paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: t.ghost,
+      paddingVertical: small ? 5 : 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: t.ghost,
       flexDirection: 'row', alignItems: 'center',
     },
-    btnGhostText: { color: t.text, fontWeight: '700', fontSize: 12 },
+    btnGhostText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
 
-    statusWrap: { marginLeft: 8, alignItems: 'flex-end' },
+    // NUEVO: columna derecha fija (no se contrae)
+    rightCol: {
+      marginLeft: 8,
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      paddingVertical: 2,
+      minWidth: 92,
+      flexShrink: 0,
+    },
+
     pill: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, alignSelf: 'flex-start',
-      backgroundColor: 'transparent',
+      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, alignSelf: 'flex-end',
+      backgroundColor: 'transparent', maxWidth: 120,
     },
-    pillText: { fontSize: 11, fontWeight: '800' },
+    pillText: { fontSize: small ? 10 : 11, fontWeight: '800' },
 
     summaryCard: {
       marginTop: 14, backgroundColor: t.card, borderRadius: 14, padding: 12,
@@ -303,6 +331,6 @@ const styles = (t: typeof palette.light | typeof palette.dark) =>
     summaryTitle: { fontWeight: '800', color: t.text, marginBottom: 8 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
     sumBox: { alignItems: 'center', flex: 1 },
-    sumValue: { fontSize: 22, fontWeight: '900' },
-    sumLabel: { color: t.sub, marginTop: 2 },
+    sumValue: { fontSize: small ? 20 : 22, fontWeight: '900' },
+    sumLabel: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
   });

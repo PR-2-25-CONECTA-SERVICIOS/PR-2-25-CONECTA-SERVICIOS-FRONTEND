@@ -1,19 +1,20 @@
 // app/(tabs)/map.tsx
 import * as Location from 'expo-location';
-import { Filter, MapPin, Navigation, Star, X } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, MapPin, Navigation, Star, X } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    Animated,
-    Easing,
-    FlatList,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Animated,
+  Easing,
+  FlatList,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
@@ -69,6 +70,7 @@ const palette = {
    Pantalla principal
    ========================= */
 export default function MapScreen() {
+  const router = useRouter();
   const scheme = useColorScheme();
   const t = scheme === 'dark' ? palette.dark : palette.light;
 
@@ -172,20 +174,30 @@ export default function MapScreen() {
     <View style={s.screen}>
       {/* Header */}
       <View style={s.header}>
-        <View style={s.searchWrap}>
-          <TextInput
-            placeholder="Buscar en el mapa..."
-            placeholderTextColor={t.sub}
-            style={s.searchInput}
-            value={search}
-            onChangeText={setSearch}
-          />
-          <TouchableOpacity activeOpacity={0.9} style={s.filterBtn}>
-            <Filter size={18} color="#111827" />
+        {/* FILA: back + search + filtro */}
+        <View style={s.headerRow}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => router.push('/LocalesScreen')}
+            style={s.backBtn}
+          >
+            <ArrowLeft size={18} color={t.text} />
           </TouchableOpacity>
+
+          <View style={s.searchWrap}>
+            <TextInput
+              placeholder="Buscar en el mapa..."
+              placeholderTextColor={t.sub}
+              style={s.searchInput}
+              value={search}
+              onChangeText={setSearch}
+            />
+
+          </View>
         </View>
+
+        {/* Acciones (Mi ubicación / Seguir) */}
         <View style={s.headerActions}>
-          
           <TouchableOpacity
             onPress={() => setFollowMe((v) => !v)}
             activeOpacity={0.9}
@@ -324,7 +336,7 @@ function LegendRow({ color, label }: { color: string; label: string }) {
 
 function UserPuck() {
   // Punto central más grande + anillos más pequeños
-  const BOX = 80; // contenedor (evita recortes)
+  const BOX = 80;
   const RING1 = 48;
   const RING2 = 40;
 
@@ -630,7 +642,22 @@ const styles = (t: typeof palette.light | typeof palette.dark) =>
       top: 0,
       zIndex: 2,
     },
-    searchWrap: { flexDirection: 'row', alignItems: 'center' },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
+    searchWrap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     searchInput: {
       flex: 1,
       height: 40,

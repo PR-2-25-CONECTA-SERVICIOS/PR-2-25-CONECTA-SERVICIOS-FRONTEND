@@ -1,24 +1,26 @@
-// BusinessScreen.tsx
+// app/(tabs)/BusinessScreen.tsx
+import { useRouter } from 'expo-router';
 import {
-    AlertTriangle,
-    Camera,
-    Clock,
-    Globe,
-    MapPin,
-    Phone,
-    Send,
-    Star,
+  AlertTriangle,
+  ArrowLeft,
+  Camera,
+  Clock,
+  MapPin,
+  Phone,
+  Send,
+  Star,
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type Props = { onNext?: () => void };
@@ -48,7 +50,14 @@ const mockBusiness = {
   isOwner: false,
 };
 
+// llamar (usa el mock)
+const callNow = () => {
+  Linking.openURL(`tel:${mockBusiness.phone.replace(/\s|\+/g, '')}`).catch(() => {});
+};
+
 export default function BusinessScreen({ onNext }: Props) {
+  const router = useRouter();
+
   const [open, setOpen] = useState(false);
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
@@ -74,6 +83,18 @@ export default function BusinessScreen({ onNext }: Props) {
       {/* HERO */}
       <View style={{ height: 190, backgroundColor: '#111827' }}>
         <ImageWithFallback src={mockBusiness.image} style={{ width: '100%', height: '100%' }} />
+
+        {/* Botón volver */}
+        <View style={{ position: 'absolute', top: 12, left: 12 }}>
+          <TouchableOpacity
+            onPress={() => router.push('/LocalesScreen')}
+            activeOpacity={0.9}
+            style={styles.backBtn}
+          >
+            <ArrowLeft size={18} color="#e5e7eb" />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.heroOverlay}>
           <Text style={styles.heroTitle}>{mockBusiness.name}</Text>
           <Text style={styles.heroSubtitle}>{mockBusiness.category}</Text>
@@ -91,7 +112,6 @@ export default function BusinessScreen({ onNext }: Props) {
                   <Text style={styles.textStrong}>{mockBusiness.rating}</Text>
                   <Text style={styles.textMuted}>({mockBusiness.reviews} reseñas)</Text>
                 </View>
-                <BadgeSecondary>{mockBusiness.priceRange}</BadgeSecondary>
               </View>
               <Text style={styles.textBody}>{mockBusiness.description}</Text>
             </View>
@@ -100,24 +120,13 @@ export default function BusinessScreen({ onNext }: Props) {
               <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>{mockBusiness.address}</RowIcon>
               <RowIcon icon={<Clock size={16} color="#9ca3af" />}>{mockBusiness.hours}</RowIcon>
               <RowIcon icon={<Phone size={16} color="#9ca3af" />}>{mockBusiness.phone}</RowIcon>
-              {!!mockBusiness.website && (
-                <RowIcon icon={<Globe size={16} color="#9ca3af" />}>
-                  <Text style={{ color: '#93c5fd' }}>{mockBusiness.website}</Text>
-                </RowIcon>
-              )}
             </View>
 
             <View style={[styles.row, { gap: 10, marginTop: 12 }]}>
-              <Btn onPress={() => {}}>
+              <Btn onPress={callNow}>
                 <View style={styles.row}>
                   <Phone size={16} color="#fff" />
                   <Text style={styles.btnText}>  Llamar</Text>
-                </View>
-              </Btn>
-              <Btn variant="outline" onPress={() => {}}>
-                <View style={styles.row}>
-                  <MapPin size={16} color="#e5e7eb" />
-                  <Text style={[styles.btnText, { color: '#e5e7eb' }]}>  Ubicación</Text>
                 </View>
               </Btn>
             </View>
@@ -178,21 +187,6 @@ export default function BusinessScreen({ onNext }: Props) {
           </View>
         </Card>
 
-        {/* SERVICIOS */}
-        <Card>
-          <CardHeader title="Servicios y Comodidades" />
-          <View style={{ padding: 12 }}>
-            <View style={styles.grid2}>
-              {mockBusiness.amenities.map((a, i) => (
-                <View key={i} style={styles.row}>
-                  <View style={styles.dot} />
-                  <Text style={styles.textBody}>{a}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </Card>
-
         {/* GALERÍA */}
         <Card>
           <CardHeader title="Galería" />
@@ -233,10 +227,6 @@ export default function BusinessScreen({ onNext }: Props) {
                 </Text>
               </View>
             </View>
-
-            <Btn variant="outline" size="sm" style={{ marginTop: 12 }}>
-              <Text style={[styles.btnText, { color: '#e5e7eb' }]}>Ver todas las reseñas</Text>
-            </Btn>
           </View>
         </Card>
 
@@ -438,7 +428,7 @@ function Btn({
   children,
   onPress,
   variant = 'default',
-  size = 'md',
+  size = 'sm',
   style,
   disabled,
 }: {
@@ -578,6 +568,18 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
+  // back button
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,39,0.85)', // #111827 con transparencia
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148,163,184,0.25)',
+  },
+
   // responsive propietario
   ownerRow: {
     flexDirection: 'row',
@@ -613,7 +615,6 @@ const styles = StyleSheet.create({
 
   grid2: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   grid2gap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  dot: { width: 8, height: 8, borderRadius: 999, backgroundColor: '#22c55e', marginRight: 6 },
 
   btnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 

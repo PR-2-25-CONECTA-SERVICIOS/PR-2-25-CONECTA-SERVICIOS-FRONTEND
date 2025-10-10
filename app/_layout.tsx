@@ -1,8 +1,10 @@
+// app/_layout.tsx
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -33,16 +35,19 @@ export default function RootLayout() {
   const theme = scheme === 'dark' ? Dark : Light;
 
   return (
-    <ThemeProvider value={theme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: 'modal', title: 'Modal' }}
-        />
-      </Stack>
+    <SafeAreaProvider>
+      {/* Respetamos el safe area en top/left/right (bottom lo maneja el TabBar) */}
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'left', 'right']}>
+        <ThemeProvider value={theme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
 
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-    </ThemeProvider>
+          {/* No translucente para que la app no se “meta” bajo la status bar */}
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} translucent={false} />
+        </ThemeProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

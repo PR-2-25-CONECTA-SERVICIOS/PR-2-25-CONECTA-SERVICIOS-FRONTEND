@@ -2,34 +2,35 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router'; // ✅ NUEVO
 import {
-    Camera,
-    Filter,
-    ImagePlus,
-    List,
-    MapPin,
-    Navigation,
-    Save,
-    Trash2,
-    X,
+  ArrowLeft,
+  Camera,
+  ImagePlus,
+  List,
+  MapPin,
+  Navigation,
+  Save,
+  Trash2,
+  X
 } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Easing,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Alert,
+  Animated,
+  Easing,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
@@ -101,6 +102,7 @@ const palette = {
    Pantalla
    ========================================================= */
 export default function MapAddScreen() {
+  const router = useRouter(); // ✅ NUEVO
   const scheme = useColorScheme();
   const t = scheme === 'dark' ? palette.dark : palette.light;
 
@@ -170,6 +172,10 @@ export default function MapAddScreen() {
       console.warn('No se pudo guardar JSON', e);
     }
   };
+
+const handleBack = () => {
+  router.push('/LocalesScreen');  // mantiene tu push()
+};
 
   // Seguir ubicación
   React.useEffect(() => {
@@ -260,10 +266,11 @@ export default function MapAddScreen() {
       {/* Header */}
       <View style={s.header}>
         <View style={s.searchWrap}>
-          <TextInput placeholder="Buscar (demo)" placeholderTextColor={t.sub} style={s.searchInput} />
-          <TouchableOpacity style={s.filterBtn} activeOpacity={0.9}>
-            <Filter size={18} color="#111827" />
+          <TouchableOpacity onPress={handleBack} style={s.iconBtn}>
+            <ArrowLeft size={18} color="#e5e7eb" />
           </TouchableOpacity>
+          <TextInput placeholder="Buscar (demo)" placeholderTextColor={t.sub} style={s.searchInput} />
+
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity onPress={() => setListOpen(true)} activeOpacity={0.9} style={chipStyles.chip}>
@@ -641,6 +648,16 @@ function UserPuck() {
    ========================================================= */
 const styles = (t: typeof palette.light | typeof palette.dark) =>
   StyleSheet.create({
+    iconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(17,17,19,0.75)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(148,163,184,0.25)',
+    },
     screen: { flex: 1, backgroundColor: t.bg },
     header: {
       paddingHorizontal: 12,
@@ -764,8 +781,7 @@ const styles = (t: typeof palette.light | typeof palette.dark) =>
       padding: 12,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space_between',
-      justifyContent: 'space-between',
+      justifyContent: 'space-between', // ✅ solo esta línea
     },
   });
 
