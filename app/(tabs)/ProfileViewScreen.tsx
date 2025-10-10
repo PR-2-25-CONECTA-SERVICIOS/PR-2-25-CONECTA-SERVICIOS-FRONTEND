@@ -171,6 +171,9 @@ export default function ProfileViewScreen({
   const handleEditProfile = () =>
     router.push('/(tabs)/profile-stack/edit-profile');
 
+    const handleCloseProfile = () =>
+    router.push('/(tabs)/Login/SplashScreen');
+
   /* ----------------- CREATE / EDIT SERVICE ----------------- */
   const openCreate = () => {
     setIsEditing(false);
@@ -555,6 +558,12 @@ export default function ProfileViewScreen({
         >
           <Edit size={16} color="#111827" />
           <Text style={styles.editBigBtnText}> Editar perfil</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.CloseBigBtn}
+          onPress={onEdit ?? handleCloseProfile}
+        >
+          <Text style={styles.editBigBtnText}> Cerrar Sesión</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -1053,6 +1062,15 @@ const styles = StyleSheet.create({
   editBigBtn: {
     marginTop: 8,
     backgroundColor: '#fbbf24',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row'
+  },
+    CloseBigBtn: {
+    marginTop: 8,
+    backgroundColor: '#e72910ff',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',

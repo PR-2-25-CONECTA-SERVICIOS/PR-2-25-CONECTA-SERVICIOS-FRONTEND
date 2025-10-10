@@ -92,7 +92,7 @@ const handleBack = () => {
   };
 
   const handleSave = () => {
-    console.log('Perfil actualizado:', { name, phone, email, photo, services });
+    router.replace('/ProfileViewScreen'); // ✅ ruta absoluta y válida para TS
   };
 
   return (

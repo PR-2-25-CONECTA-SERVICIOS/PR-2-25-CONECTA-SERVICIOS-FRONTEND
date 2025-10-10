@@ -387,7 +387,6 @@ const handleBack = () => {
             <View style={s.rowBetween}>
               <Text style={[s.title, { fontSize: 16 }]}>Nuevo lugar</Text>
               <TouchableOpacity onPress={closeForm}>
-                <X size={18} color={t.sub} />
               </TouchableOpacity>
             </View>
 

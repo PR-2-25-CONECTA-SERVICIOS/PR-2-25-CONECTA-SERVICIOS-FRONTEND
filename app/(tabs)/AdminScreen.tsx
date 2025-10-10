@@ -1,23 +1,23 @@
-// AdminScreen.tsx (Dark + responsivo completo, sin libs externas)
+// app/(tabs)/AdminScreen.tsx
 import {
-    AlertTriangle,
-    Calendar,
-    CheckCircle,
-    Eye,
-    Search,
-    XCircle,
+  AlertTriangle,
+  Calendar,
+  CheckCircle,
+  Eye,
+  Search,
+  XCircle,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from 'react-native';
 
 /* ================== TIPOS ================== */
@@ -54,7 +54,7 @@ const mockClaimRequests: ClaimRequest[] = [
     submittedDate: '2025-01-25',
     status: 'pending',
     businessImage:
-      'https://images.unsplash.com/photo-1620919811198-aeffd083ba77?auto=format&fit=crop&w=400&q=60',
+      'https://images.unsplash.com/photo-1620919811198-aeffd083ba77?auto=format&fit=crop&w=800&q=60',
     priority: 'high',
   },
   {
@@ -70,7 +70,7 @@ const mockClaimRequests: ClaimRequest[] = [
     submittedDate: '2025-01-24',
     status: 'pending',
     businessImage:
-      'https://images.unsplash.com/photo-1604118600242-e7a6d23ec3a9?auto=format&fit=crop&w=400&q=60',
+      'https://images.unsplash.com/photo-1604118600242-e7a6d23ec3a9?auto=format&fit=crop&w=800&q=60',
     priority: 'medium',
   },
   {
@@ -86,7 +86,7 @@ const mockClaimRequests: ClaimRequest[] = [
     submittedDate: '2025-01-23',
     status: 'approved',
     businessImage:
-      'https://images.unsplash.com/photo-1686178827149-6d55c72d81df?auto=format&fit=crop&w=400&q=60',
+      'https://images.unsplash.com/photo-1686178827149-6d55c72d81df?auto=format&fit=crop&w=800&q=60',
     priority: 'low',
   },
   {
@@ -102,7 +102,7 @@ const mockClaimRequests: ClaimRequest[] = [
     submittedDate: '2025-01-22',
     status: 'rejected',
     businessImage:
-      'https://images.unsplash.com/photo-1620455800201-7f00aeef12ed?auto=format&fit=crop&w=400&q=60',
+      'https://images.unsplash.com/photo-1620455800201-7f00aeef12ed?auto=format&fit=crop&w=800&q=60',
     priority: 'medium',
   },
 ];
@@ -122,17 +122,22 @@ export default function AdminScreen() {
   const { width } = useWindowDimensions();
 
   // Breakpoints simples
-  const isNarrow = width < 380;             // móvil chico: oculta foto y apila chips
-  const isMedium = width >= 380 && width < 520; // móvil medio: foto arriba
+  const isNarrow = width < 380; // móvil chico
+  const isMedium = width >= 380 && width < 520; // móvil medio
+  const isWide = width >= 900;
+
   // Grid KPIs: 1 / 2 / 3 columnas según ancho
-  const kpiBasis =
-    width >= 900 ? '33.333%' :
-    width >= 520 ? '48%' :
-    '100%';
+  const kpiBasis = isWide ? '33.333%' : width >= 520 ? '48%' : '100%';
 
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | Status>('all');
   const [selected, setSelected] = useState<ClaimRequest | null>(null);
+
+  // modal de confirmación
+  const [confirm, setConfirm] = useState<{
+    type: 'approve' | 'reject';
+    item: ClaimRequest | null;
+  } | null>(null);
 
   const stats = useMemo(
     () => ({
@@ -153,12 +158,14 @@ export default function AdminScreen() {
     return base.filter((r) => r.status === tab);
   }, [search, tab]);
 
-  const handleApprove = (id: number) => {
+  const finalizeApprove = (id: number) => {
     console.log('Approve', id);
+    setConfirm(null);
     setSelected(null);
   };
-  const handleReject = (id: number) => {
+  const finalizeReject = (id: number) => {
     console.log('Reject', id);
+    setConfirm(null);
     setSelected(null);
   };
 
@@ -186,37 +193,24 @@ export default function AdminScreen() {
             placeholder="Buscar por negocio o solicitante…"
             placeholderTextColor="#6b7280"
             style={styles.searchInput}
+            returnKeyType="search"
           />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: 24,
+          rowGap: 10,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* STATS (wrap responsivo) */}
         <View style={styles.kpiWrap}>
-          <Card style={{ flexBasis: kpiBasis, flexGrow: 1 }}>
-            <View style={styles.kpiCard}>
-              <Text style={{ color: '#fbbf24', fontSize: 22, fontWeight: '800' }}>
-                {stats.pending}
-              </Text>
-              <Text style={{ color: '#9ca3af', fontSize: 12 }}>Pendientes</Text>
-            </View>
-          </Card>
-          <Card style={{ flexBasis: kpiBasis, flexGrow: 1 }}>
-            <View style={styles.kpiCard}>
-              <Text style={{ color: '#34d399', fontSize: 22, fontWeight: '800' }}>
-                {stats.approved}
-              </Text>
-              <Text style={{ color: '#9ca3af', fontSize: 12 }}>Aprobados</Text>
-            </View>
-          </Card>
-          <Card style={{ flexBasis: kpiBasis, flexGrow: 1 }}>
-            <View style={styles.kpiCard}>
-              <Text style={{ color: '#f87171', fontSize: 22, fontWeight: '800' }}>
-                {stats.rejected}
-              </Text>
-              <Text style={{ color: '#9ca3af', fontSize: 12 }}>Rechazados</Text>
-            </View>
-          </Card>
+          <KpiCard label="Pendientes" value={stats.pending} color="#fbbf24" basis={kpiBasis} />
+          <KpiCard label="Aprobados" value={stats.approved} color="#34d399" basis={kpiBasis} />
+          <KpiCard label="Rechazados" value={stats.rejected} color="#f87171" basis={kpiBasis} />
         </View>
 
         {/* TABS */}
@@ -232,16 +226,16 @@ export default function AdminScreen() {
         />
 
         {/* LISTA */}
-        <View style={{ marginTop: 12, gap: 10 }}>
+        <View style={{ marginTop: 12, gap: 12 }}>
           {filtered.map((r) => {
-            // layout según ancho
-            const showThumbInline = !isNarrow && !isMedium; // grande: foto lateral
-            const showThumbAbove = isMedium;                 // medio: foto arriba
-            const hideThumb = isNarrow;                      // chico: sin foto
+            // disposición por ancho
+            const showThumbInline = width >= 520; // lateral a partir de 520
+            const showThumbAbove = !showThumbInline && !isNarrow; // arriba en medio
+            const hideThumb = isNarrow; // móvil muy chico
 
             return (
-              <Card key={r.id}>
-                <View style={{ padding: 12 }}>
+              <Card key={r.id} style={styles.cardShadow}>
+                <View style={{ padding: 14 }}>
                   {/* Foto arriba (móvil mediano) */}
                   {showThumbAbove && (
                     <ImageWithFallback src={r.businessImage} style={styles.thumbTop} />
@@ -249,24 +243,24 @@ export default function AdminScreen() {
 
                   <View
                     style={[
-                      { flexDirection: 'row', gap: 10 },
+                      { flexDirection: 'row', columnGap: 12 },
                       (hideThumb || showThumbAbove) && { flexDirection: 'column' },
                     ]}
                   >
-                    {/* Foto lateral (sólo ancho grande) */}
+                    {/* Foto lateral (>=520) */}
                     {showThumbInline && (
                       <ImageWithFallback src={r.businessImage} style={styles.thumb} />
                     )}
 
                     <View style={{ flex: 1 }}>
-                      {/* Cabecera: en angosto se apila a 2 líneas */}
+                      {/* Cabecera */}
                       <View
                         style={[
                           styles.titleRow,
                           (hideThumb || showThumbAbove) && {
                             flexDirection: 'column',
                             alignItems: 'flex-start',
-                            gap: 6,
+                            rowGap: 8,
                           },
                         ]}
                       >
@@ -278,9 +272,7 @@ export default function AdminScreen() {
                             </Badge>
                           </View>
                           <Text style={styles.muted}>{r.claimantName}</Text>
-                          <Text style={[styles.muted, { fontSize: 12 }]}>
-                            {r.claimantEmail}
-                          </Text>
+                          <Text style={[styles.muted, { fontSize: 12 }]}>{r.claimantEmail}</Text>
                         </View>
 
                         <View
@@ -291,8 +283,7 @@ export default function AdminScreen() {
                         >
                           <Badge
                             tone={
-                              r.status === 'pending' ? 'soft' :
-                              r.status === 'approved' ? 'ok' : 'danger'
+                              r.status === 'pending' ? 'soft' : r.status === 'approved' ? 'ok' : 'danger'
                             }
                           >
                             <Text style={styles.badgeText}>{statusText[r.status]}</Text>
@@ -301,7 +292,7 @@ export default function AdminScreen() {
                             style={{
                               color: priorityColor(r.priority),
                               fontSize: 12,
-                              fontWeight: '600',
+                              fontWeight: '700',
                               marginTop: 4,
                             }}
                           >
@@ -310,11 +301,11 @@ export default function AdminScreen() {
                         </View>
                       </View>
 
-                      <Text style={styles.body} numberOfLines={2}>
+                      <Text style={styles.body} numberOfLines={isNarrow ? 3 : 2}>
                         {r.message}
                       </Text>
 
-                      {/* Meta FECHA por encima de los botones */}
+                      {/* Meta FECHA */}
                       <View style={[styles.footerMeta, { marginTop: 10 }]}>
                         <Calendar size={12} color="#9ca3af" />
                         <Text style={styles.metaText}>
@@ -326,16 +317,14 @@ export default function AdminScreen() {
                           })}
                         </Text>
                         <Text style={styles.metaDot}> • </Text>
-                        <Text style={styles.metaText}>
-                          {r.documents.length} documento(s)
-                        </Text>
+                        <Text style={styles.metaText}>{r.documents.length} documento(s)</Text>
                       </View>
 
-                      {/* Botonera (WRAP) */}
+                      {/* Botonera */}
                       <View
                         style={[
                           styles.actionWrap,
-                          { marginTop: 8 },
+                          { marginTop: 10 },
                           (hideThumb || showThumbAbove) && { justifyContent: 'flex-start' },
                         ]}
                       >
@@ -349,16 +338,14 @@ export default function AdminScreen() {
                             <Btn
                               variant="outline"
                               size="sm"
-                              onPress={() => handleReject(r.id)}
+                              onPress={() => setConfirm({ type: 'reject', item: r })}
                             >
                               <XCircle size={12} color="#e5e7eb" />
                               <Text style={styles.btnText}> Rechazar</Text>
                             </Btn>
-                            <Btn size="sm" onPress={() => handleApprove(r.id)}>
+                            <Btn size="sm" onPress={() => setConfirm({ type: 'approve', item: r })}>
                               <CheckCircle size={12} color="#111827" />
-                              <Text style={[styles.btnText, { color: '#111827' }]}>
-                                {' '}Aprobar
-                              </Text>
+                              <Text style={[styles.btnText, { color: '#111827' }]}> Aprobar</Text>
                             </Btn>
                           </>
                         )}
@@ -372,21 +359,14 @@ export default function AdminScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL DETALLE */}
-      <Modal
-        visible={!!selected}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelected(null)}
-      >
+      {/* MODAL: DETALLE */}
+      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
         <View style={styles.modalOverlay} />
         {selected && (
           <View style={styles.modalCenter}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Detalles de Solicitud</Text>
-              <Text style={styles.modalDesc}>
-                Solicitud de reclamo para {selected.businessName}
-              </Text>
+              <Text style={styles.modalDesc}>Solicitud de reclamo para {selected.businessName}</Text>
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
                 <ImageWithFallback src={selected.businessImage} style={styles.thumbLg} />
@@ -394,10 +374,7 @@ export default function AdminScreen() {
                   <Text style={styles.title}>{selected.businessName}</Text>
                   <Text style={styles.muted}>{selected.category}</Text>
                   <Badge
-                    tone={
-                      selected.status === 'pending' ? 'soft' :
-                      selected.status === 'approved' ? 'ok' : 'danger'
-                    }
+                    tone={selected.status === 'pending' ? 'soft' : selected.status === 'approved' ? 'ok' : 'danger'}
                   >
                     <Text style={styles.badgeText}>{statusText[selected.status]}</Text>
                   </Badge>
@@ -407,15 +384,9 @@ export default function AdminScreen() {
               <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Información del solicitante</Text>
                 <View style={{ gap: 2 }}>
-                  <Text style={styles.bodySm}>
-                    <Text style={styles.bold}>Nombre:</Text> {selected.claimantName}
-                  </Text>
-                  <Text style={styles.bodySm}>
-                    <Text style={styles.bold}>Email:</Text> {selected.claimantEmail}
-                  </Text>
-                  <Text style={styles.bodySm}>
-                    <Text style={styles.bold}>Teléfono:</Text> {selected.claimantPhone}
-                  </Text>
+                  <Text style={styles.bodySm}><Text style={styles.bold}>Nombre:</Text> {selected.claimantName}</Text>
+                  <Text style={styles.bodySm}><Text style={styles.bold}>Email:</Text> {selected.claimantEmail}</Text>
+                  <Text style={styles.bodySm}><Text style={styles.bold}>Teléfono:</Text> {selected.claimantPhone}</Text>
                 </View>
               </View>
 
@@ -431,29 +402,54 @@ export default function AdminScreen() {
                 ))}
               </View>
 
-              {selected.status === 'pending' && (
-                <View style={[styles.actionWrap, { marginTop: 14 }]}>
-                  <Btn
-                    variant="outline"
-                    style={{ flex: 1 }}
-                    onPress={() => handleReject(selected.id)}
-                  >
-                    <XCircle size={14} color="#e5e7eb" />
-                    <Text style={styles.btnText}> Rechazar</Text>
-                  </Btn>
-                  <Btn
-                    style={{ flex: 1, backgroundColor: '#fbbf24', borderColor: '#fbbf24' }}
-                    onPress={() => handleApprove(selected.id)}
-                  >
-                    <CheckCircle size={14} color="#111827" />
-                    <Text style={[styles.btnText, { color: '#111827' }]}> Aprobar</Text>
-                  </Btn>
-                </View>
-              )}
-
-              <Btn variant="outline" style={{ marginTop: 10 }} onPress={() => setSelected(null)}>
+              <Btn variant="outline" style={{ marginTop: 14 }} onPress={() => setSelected(null)}>
                 <Text style={styles.btnText}>Cerrar</Text>
               </Btn>
+            </View>
+          </View>
+        )}
+      </Modal>
+
+      {/* MODAL: CONFIRMACIÓN APROBAR/RECHAZAR */}
+      <Modal visible={!!confirm} transparent animationType="fade" onRequestClose={() => setConfirm(null)}>
+        <View style={styles.modalOverlay} />
+        {confirm?.item && (
+          <View style={styles.modalCenter}>
+            <View style={[styles.modalCard, { maxWidth: 420 }]}>
+              <Text style={styles.modalTitle}>
+                {confirm.type === 'approve' ? 'Aprobar solicitud' : 'Rechazar solicitud'}
+              </Text>
+              <Text style={styles.modalDesc}>
+                ¿Estás seguro de {confirm.type === 'approve' ? 'aprobar' : 'rechazar'} la solicitud de{' '}
+                <Text style={styles.bold}>{confirm.item.businessName}</Text>?
+              </Text>
+
+              <View style={[styles.actionWrap, { marginTop: 14 }]}>
+                <Btn
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  onPress={() => setConfirm(null)}
+                >
+                  <Text style={styles.btnText}>Cancelar</Text>
+                </Btn>
+                <Btn
+                  style={{ flex: 1, backgroundColor: confirm.type === 'approve' ? '#34d399' : '#f87171', borderColor: 'transparent' }}
+                  onPress={() =>
+                    confirm.type === 'approve'
+                      ? finalizeApprove(confirm.item!.id)
+                      : finalizeReject(confirm.item!.id)
+                  }
+                >
+                  {confirm.type === 'approve' ? (
+                    <CheckCircle size={14} color="#111827" />
+                  ) : (
+                    <XCircle size={14} color="#111827" />
+                  )}
+                  <Text style={[styles.btnText, { color: '#111827' }]}>
+                    {' '}{confirm.type === 'approve' ? 'Confirmar' : 'Confirmar'}
+                  </Text>
+                </Btn>
+              </View>
             </View>
           </View>
         )}
@@ -469,15 +465,26 @@ function Card({ children, style }: { children: React.ReactNode; style?: any }) {
       style={[
         {
           backgroundColor: '#0f0f10',
-          borderRadius: 12,
+          borderRadius: 14,
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(148,163,184,0.2)',
+          borderColor: 'rgba(148,163,184,0.18)',
         },
         style,
       ]}
     >
       {children}
     </View>
+  );
+}
+
+function KpiCard({ label, value, color, basis }: { label: string; value: number; color: string; basis: string }) {
+  return (
+    <Card style={{ flexBasis: basis, flexGrow: 1 }}>
+      <View style={styles.kpiCard}>
+        <Text style={{ color, fontSize: 24, fontWeight: '900', letterSpacing: 0.2 }}>{value}</Text>
+        <Text style={{ color: '#a1a1aa', fontSize: 12 }}>{label}</Text>
+      </View>
+    </Card>
   );
 }
 
@@ -489,11 +496,11 @@ function Badge({
   tone?: 'soft' | 'ok' | 'danger' | 'warn' | 'outline';
 }) {
   const map = {
-    soft: { bg: 'rgba(148,163,184,0.12)', bd: 'rgba(148,163,184,0.25)', fg: '#e5e7eb' },
+    soft: { bg: 'rgba(148,163,184,0.12)', bd: 'rgba(148,163,184,0.2)', fg: '#e5e7eb' },
     ok: { bg: 'rgba(52,211,153,0.15)', bd: 'rgba(52,211,153,0.35)', fg: '#34d399' },
     danger: { bg: 'rgba(248,113,113,0.15)', bd: 'rgba(248,113,113,0.35)', fg: '#f87171' },
     warn: { bg: 'rgba(251,191,36,0.12)', bd: 'rgba(251,191,36,0.35)', fg: '#fbbf24' },
-    outline: { bg: 'transparent', bd: 'rgba(148,163,184,0.3)', fg: '#e5e7eb' },
+    outline: { bg: 'transparent', bd: 'rgba(148,163,184,0.28)', fg: '#e5e7eb' },
   }[tone];
   return (
     <View
@@ -503,8 +510,8 @@ function Badge({
         backgroundColor: map.bg,
         borderColor: map.bd,
         borderWidth: 1,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
         borderRadius: 999,
         alignSelf: 'flex-start',
       }}
@@ -533,10 +540,14 @@ function Segmented({
             onPress={() => onChange(it.key)}
             style={[
               styles.tabBtn,
-              active && { backgroundColor: '#111827', borderColor: 'rgba(148,163,184,0.25)' },
+              active && {
+                backgroundColor: '#111827',
+                borderColor: 'rgba(148,163,184,0.25)',
+              },
             ]}
+          
           >
-            <Text style={[styles.tabText, active && { color: '#fbbf24', fontWeight: '800' }]}>
+            <Text style={[styles.tabText, active && { color: '#fbbf24', fontWeight: '900' }]}>
               {it.label}
             </Text>
           </TouchableOpacity>
@@ -562,13 +573,13 @@ function Btn({
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.85}
+      activeOpacity={0.88}
       style={[
         {
-          borderRadius: 10,
+          borderRadius: 12,
           borderWidth: 1,
-          paddingVertical: size === 'sm' ? 8 : 10,
-          paddingHorizontal: size === 'sm' ? 10 : 14,
+          paddingVertical: size === 'sm' ? 8 : 11,
+          paddingHorizontal: size === 'sm' ? 12 : 16,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
@@ -576,15 +587,12 @@ function Btn({
         },
         variant === 'default'
           ? { backgroundColor: '#fbbf24', borderColor: '#fbbf24' }
-          : { backgroundColor: 'transparent', borderColor: '#374151' },
+          : { backgroundColor: 'transparent', borderColor: '#3f3f46' },
         style,
       ]}
+
     >
-      {typeof children === 'string' ? (
-        <Text style={styles.btnText}>{children}</Text>
-      ) : (
-        children
-      )}
+      {typeof children === 'string' ? <Text style={styles.btnText}>{children}</Text> : children}
     </TouchableOpacity>
   );
 }
@@ -601,15 +609,15 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#0f0f10',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(148,163,184,0.2)',
+    borderBottomColor: 'rgba(148,163,184,0.18)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  h1: { color: '#e5e7eb', fontSize: 18, fontWeight: '800' },
+  h1: { color: '#e5e7eb', fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
   h2: { color: '#9ca3af', fontSize: 12 },
 
-  badgeText: { color: '#e5e7eb', fontSize: 12, fontWeight: '700' },
+  badgeText: { color: '#e5e7eb', fontSize: 12, fontWeight: '800' },
 
   searchWrap: {
     flexDirection: 'row',
@@ -617,23 +625,23 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#111827',
     borderWidth: 1,
-    borderColor: '#374151',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 10
+    borderColor: '#30363d',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
   },
   searchInput: { color: '#e5e7eb', flex: 1, padding: 0 },
 
-  // KPIs: contenedor responsivo
+  // KPIs
   kpiWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
     marginBottom: 6,
   },
   kpiCard: {
-    padding: 12,
+    padding: 14,
     alignItems: 'center',
     width: '100%',
   },
@@ -655,52 +663,58 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'transparent',
   },
-  tabText: { color: '#e5e7eb', fontWeight: '600' },
+  tabText: { color: '#e5e7eb', fontWeight: '700' },
 
   // Thumbs
-  thumb: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#111827' },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  thumb: { width: 84, height: 84, borderRadius: 12, backgroundColor: '#111827' },
   thumbTop: {
     width: '100%',
-    height: 140,
-    borderRadius: 10,
+    height: 160,
+    borderRadius: 12,
     backgroundColor: '#111827',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  thumbLg: { width: 72, height: 72, borderRadius: 12, backgroundColor: '#111827' },
+  thumbLg: { width: 84, height: 84, borderRadius: 14, backgroundColor: '#111827' },
 
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  title: { color: '#e5e7eb', fontWeight: '800' },
+  title: { color: '#f3f4f6', fontWeight: '900', fontSize: 16 },
   muted: { color: '#9ca3af' },
-  body: { color: '#d1d5db', marginTop: 4 },
+  body: { color: '#d1d5db', marginTop: 4, lineHeight: 20 },
   bodySm: { color: '#cbd5e1', fontSize: 13 },
-  subTitle: { color: '#e5e7eb', fontWeight: '700', marginBottom: 4 },
-  bold: { fontWeight: '700', color: '#e5e7eb' },
+  subTitle: { color: '#e5e7eb', fontWeight: '800', marginBottom: 4 },
+  bold: { fontWeight: '800', color: '#e5e7eb' },
 
   footerMeta: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   metaText: { color: '#9ca3af', fontSize: 12 },
   metaDot: { color: '#6b7280', fontSize: 12 },
 
-  // Botonera RESPONSIVE
   actionWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
     justifyContent: 'flex-end',
   },
 
-  // Modal
-  modalOverlay: { position: 'absolute', inset: 0 as any, backgroundColor: 'rgba(0,0,0,0.7)' },
+  // Modales
+  modalOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.65)' },
   modalCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
   modalCard: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 520,
     backgroundColor: '#0f0f10',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(148,163,184,0.25)',
     padding: 16,
   },
-  modalTitle: { color: '#e5e7eb', fontWeight: '800', fontSize: 18 },
-  modalDesc: { color: '#9ca3af', marginTop: 4 },
-  btnText: { fontWeight: '700', color: '#e5e7eb', fontSize: 12 },
+  modalTitle: { color: '#f3f4f6', fontWeight: '900', fontSize: 18, letterSpacing: 0.2 },
+  modalDesc: { color: '#a1a1aa', marginTop: 6, lineHeight: 20 },
+  btnText: { fontWeight: '800', color: '#e5e7eb', fontSize: 12, letterSpacing: 0.2 },
 });

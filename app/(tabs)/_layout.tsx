@@ -2,12 +2,39 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = (colorScheme ?? 'light') === 'dark';
   const tint = Colors[colorScheme ?? 'light'].tint;
+  const isAdmin = true;
+
+  const pathname = usePathname(); // e.g. "/Login/SplashScreen" (¡sin (tabs)!)
+
+  // Rutas donde NO quieres TabBar (sin "(tabs)")
+  const HIDE_SET = new Set([
+    '/Login/LoginScreen',
+    '/Login/RegisterScreen',
+    '/Login/SplashScreen',
+  ]);
+
+  // También vale ocultar por prefijo para cualquier subruta bajo /Login
+  const hideTabs = HIDE_SET.has(pathname) || pathname.startsWith('/Login');
+
+  const baseTabBarStyle = {
+    position: 'relative' as const,
+    height: 56,
+    paddingTop: 6,
+    paddingBottom: 6,
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderRadius: 0,
+  };
 
   return (
     <Tabs
@@ -17,80 +44,66 @@ export default function TabLayout() {
         tabBarInactiveTintColor: isDark ? '#98a2b3' : '#64748b',
         tabBarShowLabel: true,
         tabBarHideOnKeyboard: true,
-
-        // Barra RELATIVE: no tapa contenido, no “tarjeta” de fondo
-        tabBarStyle: {
-          position: 'relative',
-          height: 56,
-          paddingTop: 6,
-          paddingBottom: 6,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-          marginHorizontal: 0,
-          marginBottom: 0,
-          borderRadius: 0,
-        },
+        tabBarStyle: hideTabs ? { display: 'none' } : baseTabBarStyle,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',
           lineHeight: 14,
           includeFontPadding: false as any,
         },
-        tabBarItemStyle: {
-          minWidth: 86,
-          paddingVertical: 4,
-        },
+        tabBarItemStyle: { minWidth: 86, paddingVertical: 4 },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size ?? 24} color={color} />,
-        }}
-      />
+<Tabs.Screen
+  name="index"
+  options={{
+    title: 'Home',
+    tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size ?? 24} color={color} />,
+  }}
+/>
 
-      <Tabs.Screen
-        name="LocalesScreen"
-        options={{
-          title: 'Locales',
-          // 👇 Ionicons no tiene storefront: usamos MaterialCommunityIcons
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="storefront-outline" size={size ?? 24} color={color} />
-          ),
-        }}
-      />
+<Tabs.Screen
+  name="LocalesScreen"
+  options={{
+    title: 'Locales',
+    tabBarIcon: ({ color, size }) => (
+      <MaterialCommunityIcons name="storefront-outline" size={size ?? 24} color={color} />
+    ),
+  }}
+/>
 
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Historial',
-          tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size ?? 24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile-stack"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size ?? 24} color={color} />,
-        }}
-      />
+<Tabs.Screen
+  name="history"
+  options={{
+    title: 'Historial',
+    tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size ?? 24} color={color} />,
+  }}
+/>
 
-      {/* Ocultas del TabBar */}
+<Tabs.Screen
+  name="AdminScreen"
+  options={{
+    title: 'Panel Admin',
+    tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size ?? 24} color={color} />,
+  }}
+/>
+
+
+
+      {/* Mantén rutas OCULTAS y con nombres anidados */}
       {[
-        'AdminScreen',
         'BusinessScreen',
         'CreateProfileScreen',
         'EditProfileScreen',
-        'LoginScreen',
         'ProfileViewScreen',
         'RatingScreen',
-        'RegisterScreen',
         'ServiceDetail',
         'ServiceProviderScreen',
-        'SplashScreen',
+
+        // 👇 ahora anidadas bajo la carpeta Login
+        'Login/LoginScreen',
+        'Login/RegisterScreen',
+        'Login/SplashScreen',
       ].map((name) => (
         <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}

@@ -1,40 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Button } from '../../components/ui/button'; // Asegúrate de que el botón esté importado correctamente
+import { Link, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Button } from '../../../components/ui/button'; // Asegúrate de que el botón esté importado correctamente
 
-export default function RegisterScreen({ onRegister }: { onRegister: () => void }) {
-  const [name, setName] = useState('');
+export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
-      {/* Logo como fondo */}
+      {/* Logo */}
       <Image
-        source={require('../../assets/images/logoGris2.png')}  // Asegúrate de poner la ruta correcta de la imagen
+        source={require('../../../assets/images/logoGris2.png')}  // Asegúrate de poner la ruta correcta de la imagen
         style={styles.logoBackground}
       />
 
-      <Text style={styles.title}>¡Regístrate!</Text>
-      <Text style={styles.subtitle}>Crea tu cuenta para comenzar a usar la app</Text>
+
+      <Text style={styles.title}>¡Bienvenido!</Text>
+      <Text style={styles.subtitle}>Ingresa tus datos para acceder a tu cuenta</Text>
 
       {/* Contenedor de los campos de input */}
       <View style={styles.inputContainer}>
-        {/* Campo de Nombre Completo */}
-        <View style={styles.inputField}>
-          <Ionicons name="person" size={20} color="gray" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Nombre Completo"
-            placeholderTextColor="gray"
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
-
         {/* Campo de Correo Electrónico */}
         <View style={styles.inputField}>
           <Ionicons name="mail" size={20} color="gray" style={styles.inputIcon} />
@@ -61,44 +49,36 @@ export default function RegisterScreen({ onRegister }: { onRegister: () => void 
           />
         </View>
 
-        {/* Confirmación de Contraseña */}
-        <View style={styles.inputField}>
-          <Ionicons name="lock-closed" size={20} color="gray" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirmar Contraseña"
-            placeholderTextColor="gray"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-        </View>
-
-        {/* Campo de Teléfono */}
-        <View style={styles.inputField}>
-          <Ionicons name="call" size={20} color="gray" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Teléfono (opcional)"
-            placeholderTextColor="gray"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-        </View>
-
-        {/* Botón de Registrar */}
-        <Button onPress={onRegister} style={styles.loginButton}>
-          Registrar
+        {/* Botón de Iniciar Sesión */}
+        <Button onPress={() => router.push('/(tabs)')} style={styles.loginButton}>
+          Iniciar Sesión
         </Button>
 
+        {/* Olvidaste tu contraseña */}
+        <TouchableOpacity>
+          <Text style={styles.forgotPassword}>Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Opción para registrarse */}
+      <View style={styles.registerContainer}>
+
+<View style={styles.registerContainer}>
+  <Text style={styles.registerText}>
+    ¿No tienes cuenta?{' '}
+    <Link href="/Login/RegisterScreen">
+      <Text style={styles.linkText}>Regístrate aquí</Text>
+    </Link>
+  </Text>
+</View>
 
       </View>
 
       {/* Footer */}
       <Text style={styles.footerText}>
-        ¿Ya tienes cuenta?{' '}
-        <Text style={styles.linkText}>Inicia sesión aquí</Text>
+        Al continuar, aceptas nuestros{' '}
+        <Text style={styles.linkText}>Términos de Servicio</Text> y{' '}
+        <Text style={styles.linkText}>Política de Privacidad</Text>
       </Text>
     </View>
   );
@@ -111,7 +91,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#111111',
     padding: 16,
-    position: 'relative', // Hacer que los elementos del fondo puedan colocarse por encima
+  },
+  logo: {
+    width: 150,  // Ajusta el tamaño de la imagen del logo
+    height: 150,  // Ajusta el tamaño de la imagen del logo
+    marginBottom: 40,  // Espacio entre el logo y el título
   },
     logoBackground: {
     position: 'absolute',  // Esto coloca el logo en la parte inferior como fondo
@@ -166,7 +150,8 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 20,
     textAlign: 'center',  // Centrar el texto
-    marginTop: 40,
+    justifyContent: 'center',  // Vertically center
+    alignItems: 'center',  // Horizontally center
   },
   forgotPassword: {
     color: '#FFEB3B',
@@ -185,10 +170,12 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#FFEB3B',
     fontWeight: 'bold',
+    paddingBottom: 10,
   },
   footerText: {
     color: 'gray',
     fontSize: 12,
     textAlign: 'center',
+    marginTop: 20
   },
 });

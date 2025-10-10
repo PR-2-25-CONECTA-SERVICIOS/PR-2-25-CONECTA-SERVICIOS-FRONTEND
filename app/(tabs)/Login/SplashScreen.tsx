@@ -1,12 +1,14 @@
 import { Image } from 'expo-image';
-import React, { useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { Button } from '../../components/ui/button'; // Asegúrate de que el Button esté bien importado
+import { Button } from '../../../components/ui/button'; // Asegúrate de que el Button esté bien importado
 
 export default function SplashScreen({ onNext }: { onNext: () => void }) {
   const circle1Animation = useRef(new Animated.Value(0)).current;
   const circle2Animation = useRef(new Animated.Value(0)).current;
   const squareAnimation = useRef(new Animated.Value(0)).current;
+  const router = useRouter();
 
   useEffect(() => {
     // Animaciones para las formas geométricas
@@ -48,7 +50,7 @@ export default function SplashScreen({ onNext }: { onNext: () => void }) {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
-          source={require('../../assets/images/logoBlanco.png')}
+          source={require('../../../assets/images/logoBlanco.png')}
           style={styles.logo}
           contentFit="contain"
         />
@@ -60,7 +62,7 @@ export default function SplashScreen({ onNext }: { onNext: () => void }) {
         <Text style={styles.subtitle}>
           Encuentra y conecta con los mejores servicios y negocios cerca de ti
         </Text>
-        <Button onPress={onNext} style={styles.button}>
+        <Button onPress={() => router.push('/Login/LoginScreen')} style={styles.button}>
           Comenzar
         </Button>
       </View>
