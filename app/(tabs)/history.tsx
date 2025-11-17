@@ -1,6 +1,11 @@
 // app/(tabs)/history.tsx
-import { CheckCircle, Clock, MessageSquare, Repeat2, Star, XCircle } from 'lucide-react-native';
-import React, { useMemo, useRef, useState } from 'react';
+import {
+  CheckCircle,
+  Clock,
+  XCircle
+} from "lucide-react-native";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -12,86 +17,160 @@ import {
   View,
   useColorScheme,
   useWindowDimensions,
-} from 'react-native';
+} from "react-native";
 
-type Status = 'finalizado' | 'pendiente' | 'cancelado';
+import { loadUserSession } from "../../utils/secureStore";
+
+// ---------------------
+// 🔥 TU BACKEND REAL
+// ---------------------
+const API_URL = "http://192.168.1.68:3000/api/usuarios";
+
+type Status = "finalizado" | "pendiente" | "cancelado";
+
 type HistItem = {
-  id: number; title: string; category: string; subtitle: string;
-  date: string; price: string; status: Status; rating?: number; image?: string;
+  id: string;
+  title: string;
+  category: string;
+  subtitle: string;
+  date: string;
+  price: string;
+  status: Status;
+  rating?: number;
+  image?: string;
 };
-
-const DATA: HistItem[] = [
-  { id: 1, title: 'Plomería Express', category: 'Plomería', subtitle: 'Reparación de tubería en cocina', date: '26 ene • 14:30', price: '$75', status: 'finalizado' },
-  { id: 2, title: 'Restaurante La Casa', category: 'Restaurante', subtitle: 'Cena para 2 personas', date: '25 ene • 19:00', price: '$45', status: 'finalizado', rating: 5,
-    image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=800&auto=format&fit=crop' },
-  { id: 3, title: 'Delivery Rápido', category: 'Delivery', subtitle: 'Entrega de documentos', date: '24 ene • 12:15', price: '$12', status: 'pendiente',
-    image: 'https://images.unsplash.com/photo-1592194882307-9f22f95a6ab1?q=80&w=800&auto=format&fit=crop' },
-  { id: 4, title: 'Limpieza ProClean', category: 'Limpieza', subtitle: 'Limpieza de apartamento', date: '23 ene • 09:00', price: '$60', status: 'cancelado',
-    image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=800&auto=format&fit=crop' },
-];
 
 const statusPill = (s: Status) => {
   switch (s) {
-    case 'finalizado': return { text: 'Finalizado', color: '#34D399', Icon: CheckCircle };
-    case 'pendiente':  return { text: 'Pendiente',  color: '#F59E0B', Icon: Clock };
-    case 'cancelado':  return { text: 'Cancelado',  color: '#EF4444', Icon: XCircle };
+    case "finalizado":
+      return { text: "Finalizado", color: "#34D399", Icon: CheckCircle };
+    case "pendiente":
+      return { text: "Pendiente", color: "#F59E0B", Icon: Clock };
+    case "cancelado":
+      return { text: "Cancelado", color: "#EF4444", Icon: XCircle };
   }
 };
 
-const TABS = ['Todos', 'Finalizados', 'Pendientes', 'Cancelados'] as const;
+const TABS = ["Todos", "Finalizados", "Pendientes", "Cancelados"] as const;
 
 // ---------- theme tokens ----------
 const palette = {
   light: {
-    bg: '#F4F6FA',
-    card: '#FFFFFF',
-    text: '#111827',
-    sub: '#6B7280',
-    border: '#E5E7EB',
-    ghost: '#F3F4F6',
-    headerBg: '#0C1221',
-    headerSub: 'rgba(255,255,255,0.75)',
-    tabTrack: '#0F1A33',
-    tabActiveBg: '#FFFFFF',
-    tabActiveText: '#0C1221',
-    shadow: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+    bg: "#F4F6FA",
+    card: "#FFFFFF",
+    text: "#111827",
+    sub: "#6B7280",
+    border: "#E5E7EB",
+    ghost: "#F3F4F6",
+    headerBg: "#0C1221",
+    headerSub: "rgba(255,255,255,0.75)",
+    tabTrack: "#0F1A33",
+    tabActiveBg: "#FFFFFF",
+    tabActiveText: "#0C1221",
+    shadow: {
+      shadowColor: "#000",
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+    },
   },
   dark: {
-    bg: '#0b0b0b',
-    card: '#0f0f10',
-    text: '#e5e7eb',
-    sub: '#9ca3af',
-    border: 'rgba(148,163,184,0.2)',
-    ghost: '#111827',
-    headerBg: '#0f0f10',
-    headerSub: 'rgba(255,255,255,0.75)',
-    tabTrack: '#111827',
-    tabActiveBg: '#e5e7eb',
-    tabActiveText: '#0b0b0b',
-    shadow: { shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    bg: "#0b0b0b",
+    card: "#0f0f10",
+    text: "#e5e7eb",
+    sub: "#9ca3af",
+    border: "rgba(148,163,184,0.2)",
+    ghost: "#111827",
+    headerBg: "#0f0f10",
+    headerSub: "rgba(255,255,255,0.75)",
+    tabTrack: "#111827",
+    tabActiveBg: "#e5e7eb",
+    tabActiveText: "#0b0b0b",
+    shadow: {
+      shadowColor: "#000",
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+    },
   },
 } as const;
 
 export default function HistoryScreen() {
   const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? palette.dark : palette.light;
+  const theme = scheme === "dark" ? palette.dark : palette.light;
   const { width } = useWindowDimensions();
   const isSmall = width < 360;
 
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Todos');
+  const [tab, setTab] =
+    useState<(typeof TABS)[number]>("Todos");
 
+  const [history, setHistory] = useState<HistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ----------------------------------------------------------
+  // 🔥 Cargar historial REAL del backend
+  // ----------------------------------------------------------
+  const loadHistory = async () => {
+    try {
+      const session = await loadUserSession();
+
+      const res = await fetch(
+        `${API_URL}/${session.id}/solicitudes`
+      );
+      const data = await res.json();
+
+      console.log("📥 HISTORIAL:", data);
+
+      const adapted: HistItem[] = data.map((req: any) => ({
+        id: req._id,
+        title: req.servicio?.nombre || "Servicio",
+        category: req.servicio?.categoria || "General",
+        subtitle: req.servicio?.descripcion || "",
+        date: `${req.fecha || "2025-01-01"} • ${req.hora || "12:00"}`,
+        price: `$${req.servicio?.precio || 0}`,
+        status:
+          req.estado === "completada"
+            ? "finalizado"
+            : req.estado === "pendiente"
+            ? "pendiente"
+            : "cancelado",
+        rating: req.calificacion || undefined,
+        image: req.servicio?.imagen,
+      }));
+
+      setHistory(adapted);
+    } catch (err) {
+      console.log("❌ Error cargando historial:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  // ----------------------------------------------------------
+  // 📌 Filtrado por tabs
+  // ----------------------------------------------------------
   const filtered = useMemo(() => {
-    if (tab === 'Todos') return DATA;
-    if (tab === 'Finalizados') return DATA.filter(i => i.status === 'finalizado');
-    if (tab === 'Pendientes') return DATA.filter(i => i.status === 'pendiente');
-    return DATA.filter(i => i.status === 'cancelado');
-  }, [tab]);
+    if (tab === "Todos") return history;
+    if (tab === "Finalizados")
+      return history.filter((i) => i.status === "finalizado");
+    if (tab === "Pendientes")
+      return history.filter((i) => i.status === "pendiente");
 
-  const counts = useMemo(() => ({
-    fin: DATA.filter(i => i.status === 'finalizado').length,
-    pen: DATA.filter(i => i.status === 'pendiente').length,
-    can: DATA.filter(i => i.status === 'cancelado').length,
-  }), []);
+    return history.filter((i) => i.status === "cancelado");
+  }, [tab, history]);
+
+  const counts = useMemo(
+    () => ({
+      fin: history.filter((i) => i.status === "finalizado").length,
+      pen: history.filter((i) => i.status === "pendiente").length,
+      can: history.filter((i) => i.status === "cancelado").length,
+    }),
+    [history]
+  );
 
   const s = styles(theme, isSmall);
 
@@ -100,17 +179,25 @@ export default function HistoryScreen() {
       {/* HEADER */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Mi Historial</Text>
-        <Text style={s.headerSub}>Revisa tus servicios contratados</Text>
+        <Text style={s.headerSub}>
+          Revisa tus servicios contratados
+        </Text>
 
         <View style={s.tabs}>
-          {TABS.map(t => (
+          {TABS.map((t) => (
             <TouchableOpacity
               key={t}
               onPress={() => setTab(t)}
               activeOpacity={0.9}
               style={[s.tabBtn, tab === t && s.tabBtnActive]}
             >
-              <Text style={[s.tabText, tab === t && s.tabTextActive]} numberOfLines={1}>
+              <Text
+                style={[
+                  s.tabText,
+                  tab === t && s.tabTextActive,
+                ]}
+                numberOfLines={1}
+              >
                 {t}
               </Text>
             </TouchableOpacity>
@@ -118,22 +205,49 @@ export default function HistoryScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 26 }}>
-        <View style={{ gap: 12 }}>
-          {filtered.map((item, idx) => (
-            <AnimatedCard key={item.id} index={idx}>
-              <HistoryCard item={item} s={s} theme={theme} />
-            </AnimatedCard>
-          ))}
-        </View>
+      {/* BODY */}
+      <ScrollView
+        contentContainerStyle={{
+          padding: 14,
+          paddingBottom: 26,
+        }}
+      >
+        {loading ? (
+          <Text style={{ color: theme.text, marginTop: 20 }}>
+            Cargando historial...
+          </Text>
+        ) : (
+          <View style={{ gap: 12 }}>
+            {filtered.map((item, idx) => (
+              <AnimatedCard key={item.id} index={idx}>
+                <HistoryCard item={item} s={s} theme={theme} />
+              </AnimatedCard>
+            ))}
+          </View>
+        )}
 
         {/* Resumen */}
         <View style={s.summaryCard}>
           <Text style={s.summaryTitle}>Resumen</Text>
           <View style={s.summaryRow}>
-            <SummaryBox s={s} label="Completados" value={counts.fin} color="#34D399" />
-            <SummaryBox s={s} label="Pendientes" value={counts.pen} color="#F59E0B" />
-            <SummaryBox s={s} label="Cancelados" value={counts.can} color="#EF4444" />
+            <SummaryBox
+              s={s}
+              label="Completados"
+              value={counts.fin}
+              color="#34D399"
+            />
+            <SummaryBox
+              s={s}
+              label="Pendientes"
+              value={counts.pen}
+              color="#F59E0B"
+            />
+            <SummaryBox
+              s={s}
+              label="Cancelados"
+              value={counts.can}
+              color="#EF4444"
+            />
           </View>
         </View>
       </ScrollView>
@@ -141,86 +255,101 @@ export default function HistoryScreen() {
   );
 }
 
-function AnimatedCard({ children, index }: { children: React.ReactNode; index: number }) {
+function AnimatedCard({
+  children,
+  index,
+}: {
+  children: React.ReactNode;
+  index: number;
+}) {
   const a = useRef(new Animated.Value(0)).current;
+
   React.useEffect(() => {
-    Animated.timing(a, { toValue: 1, duration: 350, delay: index * 70, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
-  }, [a, index]);
+    Animated.timing(a, {
+      toValue: 1,
+      duration: 350,
+      delay: index * 70,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   return (
-    <Animated.View style={{ opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
+    <Animated.View
+      style={{
+        opacity: a,
+        transform: [
+          {
+            translateY: a.interpolate({
+              inputRange: [0, 1],
+              outputRange: [14, 0],
+            }),
+          },
+        ],
+      }}
+    >
       {children}
     </Animated.View>
   );
 }
 
-function HistoryCard({ item, s, theme }: { item: HistItem; s: ReturnType<typeof styles>; theme: any }) {
+function HistoryCard({
+  item,
+  s,
+  theme,
+}: {
+  item: HistItem;
+  s: ReturnType<typeof styles>;
+  theme: any;
+}) {
   const pill = statusPill(item.status);
-  const press = useRef(new Animated.Value(1)).current;
-  const onPressIn = () => Animated.spring(press, { toValue: 0.98, useNativeDriver: true, friction: 6 }).start();
-  const onPressOut = () => Animated.spring(press, { toValue: 1, useNativeDriver: true, friction: 6 }).start();
 
   return (
-    <Animated.View style={[s.card, { transform: [{ scale: press }] }]}>
-      <TouchableOpacity activeOpacity={0.9} onPressIn={onPressIn} onPressOut={onPressOut} style={{ flexDirection: 'row' }}>
-        {/* Miniatura */}
+    <View style={s.card}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={{ flexDirection: "row" }}
+      >
+        {/* IMG */}
         <View style={s.thumbWrap}>
-          {item.image ? <Image source={{ uri: item.image }} style={s.thumb} /> : <View style={[s.thumb, s.thumbFallback]} />}
+          {item.image ? (
+            <Image source={{ uri: item.image }} style={s.thumb} />
+          ) : (
+            <View style={[s.thumb, s.thumbFallback]} />
+          )}
         </View>
 
-        {/* Columna central (contenido) */}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.title} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
-          <Text style={s.category} numberOfLines={1}>{item.category}</Text>
-          <Text style={s.subtitle} numberOfLines={2}>{item.subtitle}</Text>
+        {/* INFO */}
+        <View style={{ flex: 1 }}>
+          <Text
+            style={s.title}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
 
-          <View style={s.metaRow}>
-            <Text style={s.metaText} numberOfLines={1}>{item.date}</Text>
-            {!!item.rating && (
-              <View style={s.ratingRow}>
-                <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                <Text style={s.ratingText}>{item.rating}</Text>
-              </View>
-            )}
-          </View>
+          <Text style={s.category}>{item.category}</Text>
+          <Text style={s.subtitle}>{item.subtitle}</Text>
 
-          <View style={s.actionsRow}>
-            {item.status === 'finalizado' && (
-              <BtnOutline s={s}>
-                <Star size={14} color={s.btnOutlineText.color as string} />
-                <Text style={s.btnOutlineText}>  Calificar</Text>
-              </BtnOutline>
-            )}
-            {item.status !== 'cancelado' && (
-              <BtnGhost s={s}>
-                <Repeat2 size={14} color={s.btnGhostText.color as string} />
-                <Text style={s.btnGhostText}>  Repetir</Text>
-              </BtnGhost>
-            )}
-            {item.status === 'pendiente' && (
-              <BtnGhost s={s}>
-                <MessageSquare size={14} color={s.btnGhostText.color as string} />
-                <Text style={s.btnGhostText}>  Chat</Text>
-              </BtnGhost>
-            )}
-          </View>
+          <Text style={s.metaText}>{item.date}</Text>
         </View>
 
-        {/* Columna derecha (precio + estado) */}
+        {/* RIGHT */}
         <View style={s.rightCol}>
-          <Text style={s.price} numberOfLines={1}>{item.price}</Text>
+          <Text style={s.price}>{item.price}</Text>
           <View style={[s.pill, { borderColor: pill.color }]}>
             <pill.Icon size={12} color={pill.color} />
-            <Text style={[s.pillText, { color: pill.color }]} numberOfLines={1}>
+            <Text style={[s.pillText, { color: pill.color }]}>
               {pill.text}
             </Text>
           </View>
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
-function SummaryBox({ s, label, value, color }: { s: ReturnType<typeof styles>; label: string; value: number; color: string }) {
+function SummaryBox({ s, label, value, color }: any) {
   return (
     <View style={s.sumBox}>
       <Text style={[s.sumValue, { color }]}>{value}</Text>
@@ -229,26 +358,8 @@ function SummaryBox({ s, label, value, color }: { s: ReturnType<typeof styles>; 
   );
 }
 
-function BtnOutline({ children, s }: { children: React.ReactNode; s: ReturnType<typeof styles> }) {
-  return (
-    <TouchableOpacity activeOpacity={0.9} style={s.btnOutline}>
-      {children}
-    </TouchableOpacity>
-  );
-}
-function BtnGhost({ children, s }: { children: React.ReactNode; s: ReturnType<typeof styles> }) {
-  return (
-    <TouchableOpacity activeOpacity={0.9} style={s.btnGhost}>
-      {children}
-    </TouchableOpacity>
-  );
-}
-
-// ---------- dynamic styles ----------
-const styles = (
-  t: typeof palette.light | typeof palette.dark,
-  small: boolean,
-) =>
+// ---------- ESTILOS (IGUAL QUE TU DISEÑO) ----------
+const styles = (t: any, small: boolean) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.bg },
 
@@ -257,80 +368,131 @@ const styles = (
       paddingTop: small ? 14 : 18,
       paddingHorizontal: 16,
       paddingBottom: small ? 10 : 12,
-      borderBottomLeftRadius: 18, borderBottomRightRadius: 18,
+      borderBottomLeftRadius: 18,
+      borderBottomRightRadius: 18,
     },
-    headerTitle: { color: '#fff', fontWeight: '800', fontSize: small ? 16 : 18 },
-    headerSub: { color: t.headerSub, marginTop: 2, marginBottom: 10, fontSize: small ? 12 : 13 },
+
+    headerTitle: {
+      color: "#fff",
+      fontWeight: "800",
+      fontSize: small ? 16 : 18,
+    },
+
+    headerSub: {
+      color: t.headerSub,
+      marginTop: 2,
+      marginBottom: 10,
+      fontSize: small ? 12 : 13,
+    },
 
     tabs: {
-      flexDirection: 'row',
+      flexDirection: "row",
       backgroundColor: t.tabTrack,
       borderRadius: 999,
       padding: 4,
       gap: 6,
     },
-    tabBtn: { flex: 1, paddingVertical: small ? 6 : 8, borderRadius: 999, alignItems: 'center' },
+
+    tabBtn: {
+      flex: 1,
+      paddingVertical: small ? 6 : 8,
+      borderRadius: 999,
+      alignItems: "center",
+    },
+
     tabBtnActive: { backgroundColor: t.tabActiveBg },
-    tabText: { color: 'rgba(255,255,255,0.85)', fontWeight: '700', fontSize: small ? 11 : 12 },
+
+    tabText: {
+      color: "rgba(255,255,255,0.85)",
+      fontWeight: "700",
+      fontSize: small ? 11 : 12,
+    },
+
     tabTextActive: { color: t.tabActiveText },
 
+    // Tarjetas
     card: {
-      backgroundColor: t.card, borderRadius: 14, padding: small ? 10 : 12,
-      borderWidth: StyleSheet.hairlineWidth, borderColor: t.border, ...t.shadow,
+      backgroundColor: t.card,
+      borderRadius: 14,
+      padding: small ? 10 : 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      ...t.shadow,
     },
 
-    thumbWrap: { width: small ? 50 : 56, height: small ? 50 : 56, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
-    thumb: { width: '100%', height: '100%' },
+    thumbWrap: {
+      width: small ? 50 : 56,
+      height: small ? 50 : 56,
+      marginRight: 10,
+      borderRadius: 10,
+      overflow: "hidden",
+    },
+
+    thumb: { width: "100%", height: "100%" },
     thumbFallback: { backgroundColor: t.ghost },
 
-    title: { fontWeight: '800', color: t.text, fontSize: small ? 14 : 15 },
-    price: { color: t.text, fontWeight: '900', fontSize: small ? 14 : 16, marginBottom: 6, maxWidth: 80, textAlign: 'right' },
-    category: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
-    subtitle: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
-
-    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 },
-    metaText: { color: t.sub, fontSize: small ? 11 : 12, flexShrink: 1 },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    ratingText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
-
-    actionsRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-
-    btnOutline: {
-      borderWidth: 1, borderColor: t.border, paddingVertical: small ? 5 : 6, paddingHorizontal: 10,
-      borderRadius: 10, flexDirection: 'row', alignItems: 'center',
+    title: {
+      fontWeight: "800",
+      color: t.text,
+      fontSize: small ? 14 : 15,
     },
-    btnOutlineText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
 
-    btnGhost: {
-      paddingVertical: small ? 5 : 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: t.ghost,
-      flexDirection: 'row', alignItems: 'center',
+    category: { color: t.sub, fontSize: 12 },
+    subtitle: { color: t.sub, fontSize: 12 },
+
+    metaText: {
+      marginTop: 6,
+      color: t.sub,
+      fontSize: 12,
     },
-    btnGhostText: { color: t.text, fontWeight: '700', fontSize: small ? 11 : 12 },
 
-    // NUEVO: columna derecha fija (no se contrae)
     rightCol: {
-      marginLeft: 8,
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-      paddingVertical: 2,
-      minWidth: 92,
-      flexShrink: 0,
+      alignItems: "flex-end",
+      justifyContent: "center",
+      minWidth: 90,
+    },
+
+    price: {
+      color: t.text,
+      fontWeight: "900",
+      fontSize: 15,
+      marginBottom: 5,
     },
 
     pill: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, alignSelf: 'flex-end',
-      backgroundColor: 'transparent', maxWidth: 120,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 999,
+      borderWidth: 1,
     },
-    pillText: { fontSize: small ? 10 : 11, fontWeight: '800' },
+
+    pillText: { fontSize: 11, fontWeight: "800" },
 
     summaryCard: {
-      marginTop: 14, backgroundColor: t.card, borderRadius: 14, padding: 12,
-      borderWidth: StyleSheet.hairlineWidth, borderColor: t.border, ...t.shadow,
+      marginTop: 14,
+      backgroundColor: t.card,
+      borderRadius: 14,
+      padding: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      ...t.shadow,
     },
-    summaryTitle: { fontWeight: '800', color: t.text, marginBottom: 8 },
-    summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
-    sumBox: { alignItems: 'center', flex: 1 },
-    sumValue: { fontSize: small ? 20 : 22, fontWeight: '900' },
-    sumLabel: { color: t.sub, marginTop: 2, fontSize: small ? 12 : 13 },
+
+    summaryTitle: {
+      fontWeight: "800",
+      color: t.text,
+      marginBottom: 8,
+    },
+
+    summaryRow: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+    },
+
+    sumBox: { alignItems: "center", flex: 1 },
+    sumValue: { fontSize: 22, fontWeight: "900" },
+    sumLabel: { color: t.sub, fontSize: 13 },
   });

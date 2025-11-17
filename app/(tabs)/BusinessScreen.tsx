@@ -1,16 +1,16 @@
 // app/(tabs)/BusinessScreen.tsx
-import { useRouter } from 'expo-router';
+import * as DocumentPicker from "expo-document-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertTriangle,
   ArrowLeft,
   Camera,
   Clock,
   MapPin,
-  Phone,
   Send,
-  Star,
-} from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+  Star
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -21,74 +21,133 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-type Props = { onNext?: () => void };
+const API_URL = "http://192.168.1.68:3000/api/locales";
 
-// ---- MOCK ----
-const mockBusiness = {
-  id: 1,
-  name: 'Restaurante La Casa',
-  category: 'Restaurante',
-  description:
-    'Comida casera tradicional con los mejores ingredientes frescos. Especialidad en carnes a la parrilla y platos típicos regionales.',
-  address: 'Av. Principal 789, Centro',
-  phone: '+1 234 567 8901',
-  website: 'www.restaurantelacasa.com',
-  hours: 'Mar-Dom: 12:00-22:00, Lun: Cerrado',
-  rating: 4.6,
-  reviews: 189,
-  priceRange: '$15-30 por persona',
-  image:
-    'https://images.unsplash.com/photo-1620919811198-aeffd083ba77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZm9vZCUyMHNlcnZpY2V8ZW58MXx8fHwxNzU2NDM4MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-  gallery: [
-    'https://images.unsplash.com/photo-1620919811198-aeffd083ba77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZm9vZCUyMHNlcnZpY2V8ZW58MXx8fHwxNzU2NDM4MTQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-  ],
-  owner: { name: 'Roberto García', avatar: '', verified: false, joinDate: '2023' },
-  amenities: ['WiFi gratis', 'Estacionamiento', 'Aire acondicionado', 'Música en vivo', 'Terraza'],
-  specialties: ['Parrillas', 'Platos tradicionales', 'Postres caseros', 'Bebidas artesanales'],
-  isOwner: false,
-};
+// --------------------------
+// 🔥 Types basados en tu modelo
+// --------------------------
+interface IHours {
+  open: string;
+  close: string;
+}
+interface ILocal {
+  _id: string;
+  nombre: string;
+  categoria: string;
+  calificacion: number;
+  reseñas: number;
+  distancia?: string;
+  imagen?: string;
+  telefono?: string;
+  reclamos?: any[];   // 👈 AGREGAR ESTO
 
-// llamar (usa el mock)
-const callNow = () => {
-  Linking.openURL(`tel:${mockBusiness.phone.replace(/\s|\+/g, '')}`).catch(() => {});
-};
+  verificado: boolean;
+  destacado: boolean;
+  horas?: {
+    mon?: IHours;
+    tue?: IHours;
+    wed?: IHours;
+    thu?: IHours;
+    fri?: IHours;
+    sat?: IHours;
+    sun?: IHours;
+  };
+  direccion?: string;
+  creadoPor?: any;
+}
 
-export default function BusinessScreen({ onNext }: Props) {
+export default function BusinessScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
 
+  const [local, setLocal] = useState<ILocal | null>(null);
   const [open, setOpen] = useState(false);
-  const [ownerName, setOwnerName] = useState('');
-  const [email, setEmail] = useState('');
-  const [tel, setTel] = useState('');
-  const [msg, setMsg] = useState('');
+
+  // Formulario reclamo
+  const [ownerName, setOwnerName] = useState("");
+  const [email, setEmail] = useState("");
+  const [tel, setTel] = useState("");
+  const [msg, setMsg] = useState("");
   const [docs, setDocs] = useState<string[]>([]);
+
   const canSubmit = ownerName.trim() && email.trim();
 
-  // responsive para la fila del propietario
-  const [isOwnerNarrow, setIsOwnerNarrow] = useState(false);
+  // --------------------------
+  // 🔥 Cargar local desde backend
+  // --------------------------
+  useEffect(() => {
+    if (id) loadLocal();
+  }, [id]);
 
-  useEffect(() => {}, [open]);
-
-  const handleSubmit = () => {
-    setOpen(false);
-    onNext?.();
+  const loadLocal = async () => {
+    try {
+      const res = await fetch(`${API_URL}/${id}`);
+      const json = await res.json();
+      setLocal(json);
+    } catch (err) {
+      console.log("❌ Error cargando local:", err);
+    }
   };
 
-  const handleUpload = () => setDocs((p) => [...p, `documento_${Date.now()}.pdf`]);
+  // --------------------------
+  // 📤 Enviar reclamo de negocio
+  // --------------------------
+  const submitClaim = async () => {
+    try {
+      const res = await fetch(`${API_URL}/${id}/reclamar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombrePropietario: ownerName,
+          correo: email,
+          telefono: tel,
+          mensaje: msg,
+          documentos: docs,
+        }),
+      });
+
+      const json = await res.json();
+      console.log("📩 Reclamo enviado:", json);
+
+      setOpen(false);
+      setOwnerName("");
+      setEmail("");
+      setTel("");
+      setMsg("");
+      setDocs([]);
+    } catch (err) {
+      console.log("❌ Error enviando reclamo:", err);
+    }
+  };
+
+  const callNow = () => {
+    const phone = local?.telefono || "00000000";
+    Linking.openURL(`tel:${phone}`).catch(() => {});
+  };
+
+  if (!local) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0b0b0b", alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#fff" }}>Cargando local...</Text>
+      </View>
+    );
+  }
+const alreadyClaimed = local.reclamos && local.reclamos.length > 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0b0b0b' }}>
+    <View style={{ flex: 1, backgroundColor: "#0b0b0b" }}>
       {/* HERO */}
-      <View style={{ height: 190, backgroundColor: '#111827' }}>
-        <ImageWithFallback src={mockBusiness.image} style={{ width: '100%', height: '100%' }} />
+      <View style={{ height: 190, backgroundColor: "#111827" }}>
+        <Image
+          source={{ uri: local.imagen }}
+          style={{ width: "100%", height: "100%" }}
+        />
 
-        {/* Botón volver */}
-        <View style={{ position: 'absolute', top: 12, left: 12 }}>
+        <View style={{ position: "absolute", top: 12, left: 12 }}>
           <TouchableOpacity
-            onPress={() => router.push('/LocalesScreen')}
-            activeOpacity={0.9}
+            onPress={() => router.push("/LocalesScreen")}
             style={styles.backBtn}
           >
             <ArrowLeft size={18} color="#e5e7eb" />
@@ -96,158 +155,84 @@ export default function BusinessScreen({ onNext }: Props) {
         </View>
 
         <View style={styles.heroOverlay}>
-          <Text style={styles.heroTitle}>{mockBusiness.name}</Text>
-          <Text style={styles.heroSubtitle}>{mockBusiness.category}</Text>
+          <Text style={styles.heroTitle}>{local.nombre}</Text>
+          <Text style={styles.heroSubtitle}>{local.categoria}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
-        {/* INFO BÁSICA */}
+        {/* INFO */}
         <Card>
           <View style={{ padding: 12 }}>
-            <View style={{ marginBottom: 10 }}>
-              <View style={[styles.row, { gap: 12, marginBottom: 8 }]}>
-                <View style={[styles.row, { gap: 6 }]}>
-                  <Star size={16} color="#fbbf24" fill="#fbbf24" />
-                  <Text style={styles.textStrong}>{mockBusiness.rating}</Text>
-                  <Text style={styles.textMuted}>({mockBusiness.reviews} reseñas)</Text>
-                </View>
-              </View>
-              <Text style={styles.textBody}>{mockBusiness.description}</Text>
+            <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
+              <Star size={16} color="#fbbf24" fill="#fbbf24" />
+              <Text style={styles.textStrong}>{local.calificacion}</Text>
+              <Text style={styles.textMuted}>({local.reseñas} reseñas)</Text>
             </View>
 
-            <View style={{ gap: 8 }}>
-              <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>{mockBusiness.address}</RowIcon>
-              <RowIcon icon={<Clock size={16} color="#9ca3af" />}>{mockBusiness.hours}</RowIcon>
-              <RowIcon icon={<Phone size={16} color="#9ca3af" />}>{mockBusiness.phone}</RowIcon>
-            </View>
+            <Text style={styles.textBody}>
+              Dirección: {local.direccion || "No especificada"}
+            </Text>
 
-            <View style={[styles.row, { gap: 10, marginTop: 12 }]}>
-              <Btn onPress={callNow}>
-                <View style={styles.row}>
-                  <Phone size={16} color="#fff" />
-                  <Text style={styles.btnText}>  Llamar</Text>
-                </View>
-              </Btn>
+            <View style={{ gap: 10, marginTop: 12 }}>
+              <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>
+                {local.direccion || "No definida"}
+              </RowIcon>
+
+              <RowIcon icon={<Clock size={16} color="#9ca3af" />}>
+                {local.horas?.mon
+                  ? `${local.horas.mon.open} - ${local.horas.mon.close}`
+                  : "Horario no disponible"}
+              </RowIcon>
             </View>
           </View>
         </Card>
 
-        {/* PROPIETARIO (responsive) */}
+        {/* PROPIETARIO */}
         <Card>
           <View style={{ padding: 12 }}>
-            <View
-              onLayout={(e) => {
-                const w = e.nativeEvent.layout.width;
-                setIsOwnerNarrow(w < 360); // si es chico, apila en columna
-              }}
-              style={[styles.ownerRow, isOwnerNarrow && styles.ownerRowNarrow]}
-            >
+            <View style={[styles.rowBetween, { marginBottom: 8 }]}>
               <View style={styles.row}>
-                <Avatar initials="RG" />
+                <Avatar initials={"D"} />
                 <View style={{ marginLeft: 10 }}>
-                  <View style={[styles.row, { gap: 6 }]}>
-                    <Text style={styles.textStrong}>{mockBusiness.owner.name}</Text>
-                    {!mockBusiness.owner.verified && (
-                      <BadgeSecondary small>No verificado</BadgeSecondary>
-                    )}
-                  </View>
-                  <Text style={styles.textMuted}>Miembro desde {mockBusiness.owner.joinDate}</Text>
+                  <Text style={styles.textStrong}>
+                    {local.creadoPor?.nombre || "Propietario desconocido"}
+                  </Text>
+                  <Text style={styles.textMuted}>
+                    {local.verificado ? "Verificado" : "No verificado"}
+                  </Text>
                 </View>
               </View>
+{!local.verificado && !alreadyClaimed && (
+  <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
+    <AlertTriangle size={14} color="#e5e7eb" />
+    <Text style={[styles.btnText, { color: "#e5e7eb" }]}>
+      {"  "}Reclamar negocio
+    </Text>
+  </Btn>
+)}
 
-              {!mockBusiness.isOwner && (
-                <Btn
-                  variant="outline"
-                  size="sm"
-                  onPress={() => setOpen(true)}
-                  style={isOwnerNarrow ? styles.ownerButtonNarrow : undefined}
-                >
-                  <View style={styles.row}>
-                    <AlertTriangle size={14} color="#e5e7eb" />
-                    <Text style={[styles.btnText, { color: '#e5e7eb' }]}>  Reclamar negocio</Text>
-                  </View>
-                </Btn>
-              )}
-            </View>
-          </View>
-        </Card>
-
-        {/* ESPECIALIDADES */}
-        <Card>
-          <CardHeader title="Especialidades" />
-          <View style={{ padding: 12 }}>
-            <View style={styles.grid2}>
-              {mockBusiness.specialties.map((s, i) => (
-                <BadgeSecondary key={i} center>
-                  {s}
-                </BadgeSecondary>
-              ))}
-            </View>
-          </View>
-        </Card>
-
-        {/* GALERÍA */}
-        <Card>
-          <CardHeader title="Galería" />
-          <View style={{ padding: 12 }}>
-            <View style={styles.grid2gap}>
-              {mockBusiness.gallery.map((src, i) => (
-                <ImageWithFallback
-                  key={i}
-                  src={src}
-                  style={{ aspectRatio: 1, borderRadius: 10, backgroundColor: '#1f2937' }}
-                />
-              ))}
-              <View style={styles.uploadBox}>
-                <Camera size={22} color="#9ca3af" />
-                <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 6 }}>Más fotos</Text>
-              </View>
-            </View>
-          </View>
-        </Card>
-
-        {/* RESEÑAS */}
-        <Card>
-          <CardHeader title="Reseñas Recientes" />
-          <View style={{ padding: 12 }}>
-            <View style={[styles.row, { alignItems: 'flex-start' }]}>
-              <Avatar initials="MR" small />
-              <View style={{ marginLeft: 10, flex: 1 }}>
-                <View style={[styles.row, { gap: 6, marginBottom: 4 }]}>
-                  <Text style={styles.textStrongSm}>María Rodríguez</Text>
-                  <View style={styles.row}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={12} color="#fbbf24" fill="#fbbf24" />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.textBody}>
-                  "Excelente comida y muy buen servicio. El ambiente es muy acogedor."
-                </Text>
-              </View>
             </View>
           </View>
         </Card>
 
         {/* ADVERTENCIA */}
-        {!mockBusiness.owner.verified && (
+        {!local.verificado && (
           <Card
             style={{
-              borderColor: 'rgba(251,191,36,0.35)',
-              backgroundColor: 'rgba(251,191,36,0.06)',
+              borderColor: "rgba(251,191,36,0.35)",
+              backgroundColor: "rgba(251,191,36,0.06)",
             }}
           >
             <View style={{ padding: 12 }}>
-              <View style={[styles.row, { alignItems: 'flex-start', gap: 8 }]}>
+              <View style={[styles.row, { alignItems: "flex-start", gap: 8 }]}>
                 <AlertTriangle size={18} color="#fbbf24" />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fbbf24', fontWeight: '700' }}>
+                  <Text style={{ color: "#fbbf24", fontWeight: "700" }}>
                     Negocio no verificado
                   </Text>
-                  <Text style={{ color: '#eab308', marginTop: 2, fontSize: 13 }}>
-                    Este negocio aún no ha sido verificado por el propietario. La información podría
-                    no estar actualizada.
+                  <Text style={{ color: "#eab308", marginTop: 2, fontSize: 13 }}>
+                    El propietario aún no ha reclamado este negocio.
                   </Text>
                 </View>
               </View>
@@ -256,101 +241,87 @@ export default function BusinessScreen({ onNext }: Props) {
         )}
       </ScrollView>
 
-      {/* MODAL RECLAMAR NEGOCIO */}
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.modalOverlay} />
-        <View style={styles.modalCenter}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Reclamar Negocio</Text>
-            <Text style={styles.modalDesc}>
-              Si eres el dueño de este negocio, completa el formulario para verificar tu propiedad.
-            </Text>
+      {/* MODAL RECLAMO */}
+      <Modal visible={open} transparent animationType="fade">
+  <View style={styles.modalOverlay} />
 
-            <View style={{ gap: 10, marginTop: 10 }}>
-              <Field label="Nombre completo">
-                <Input
-                  value={ownerName}
-                  onChangeText={setOwnerName}
-                  placeholder="Tu nombre completo"
-                />
-              </Field>
+  <View style={styles.modalCenter}>
+    <View style={styles.claimModalCard}>
 
-              <Field label="Correo electrónico">
-                <Input
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="tu@email.com"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-              </Field>
+      <Text style={styles.claimTitle}>Reclamar Negocio</Text>
+      <Text style={styles.claimSubtitle}>
+        Completa los datos para verificar que eres el propietario.
+      </Text>
 
-              <Field label="Teléfono">
-                <Input
-                  value={tel}
-                  onChangeText={setTel}
-                  placeholder="+1 234 567 8900"
-                  keyboardType="phone-pad"
-                />
-              </Field>
+      <Field label="Nombre completo">
+        <Input value={ownerName} onChangeText={setOwnerName} style={styles.claimInput} />
+      </Field>
 
-              <Field label="Mensaje adicional">
-                <Textarea
-                  value={msg}
-                  onChangeText={setMsg}
-                  placeholder="Explica por qué eres el dueño legítimo de este negocio..."
-                />
-              </Field>
+      <Field label="Correo">
+        <Input value={email} onChangeText={setEmail} style={styles.claimInput} />
+      </Field>
 
-              <Text style={styles.inputLabel}>Documentos de verificación</Text>
-              <Btn variant="outline" size="sm" onPress={handleUpload}>
-                <View style={styles.row}>
-                  <Camera size={16} color="#e5e7eb" />
-                  <Text style={[styles.btnText, { color: '#e5e7eb' }]}>
-                    {'  '}Subir documento
-                  </Text>
-                </View>
-              </Btn>
-              {docs.length > 0 && (
-                <View style={{ marginTop: 6 }}>
-                  {docs.map((d, i) => (
-                    <Text key={i} style={{ color: '#9ca3af', fontSize: 13 }}>
-                      📄 {d}
-                    </Text>
-                  ))}
-                </View>
-              )}
+      <Field label="Teléfono">
+        <Input value={tel} onChangeText={setTel} style={styles.claimInput} />
+      </Field>
 
-              <View style={[styles.row, { gap: 10, marginTop: 8 }]}>
-                <Btn variant="outline" style={{ flex: 1 }} onPress={() => setOpen(false)}>
-                  <Text style={[styles.btnText, { color: '#e5e7eb' }]}>Cancelar</Text>
-                </Btn>
-                <Btn
-                  style={{
-                    flex: 1,
-                    opacity: canSubmit ? 1 : 0.5,
-                    backgroundColor: '#fbbf24',
-                    borderColor: '#fbbf24',
-                  }}
-                  disabled={!canSubmit}
-                  onPress={handleSubmit}
-                >
-                  <View style={styles.row}>
-                    <Send size={16} color="#111827" />
-                    <Text style={[styles.btnText, { color: '#111827' }]}>
-                      {'  '}Enviar solicitud
-                    </Text>
-                  </View>
-                </Btn>
-              </View>
+      <Field label="Mensaje">
+        <Textarea value={msg} onChangeText={setMsg} style={styles.claimTextarea} />
+      </Field>
 
-              <Text style={styles.modalNote}>
-                Tu solicitud será revisada por un administrador en un plazo de 2-3 días hábiles.
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* SUBIR DOCUMENTO */}
+<TouchableOpacity
+  style={styles.uploadDocBtn}
+  onPress={async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (!res.canceled) {
+        setDocs((prev) => [...prev, res.assets[0].uri]);
+      }
+    } catch (err) {
+      console.log("❌ Error seleccionando documento:", err);
+    }
+  }}
+>
+  <Camera size={18} color="#fbbf24" />
+  <Text style={styles.uploadDocText}>  Subir documento</Text>
+</TouchableOpacity>
+
+      {/* LISTA DOCS */}
+      <View style={{ marginTop: 14 }}>
+        {docs.map((d, i) => (
+          <Text key={i} style={styles.docItem}>📄 {d}</Text>
+        ))}
+      </View>
+
+      {/* BOTONES */}
+      <View style={styles.modalBtnRow}>
+        <Btn variant="outline" style={{ flex: 1 }} onPress={() => setOpen(false)}>
+          <Text style={[styles.btnText, { color: "#e5e7eb" }]}>Cancelar</Text>
+        </Btn>
+
+        <Btn
+          style={[
+            styles.sendBtn,
+            { flex: 1, opacity: canSubmit ? 1 : 0.5 },
+          ]}
+          disabled={!canSubmit}
+          onPress={submitClaim}
+        >
+          <Send size={16} color="#111827" />
+          <Text style={styles.sendBtnText}>  Enviar</Text>
+        </Btn>
+      </View>
+
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 }
@@ -645,6 +616,76 @@ const styles = StyleSheet.create({
   modalTitle: { fontWeight: '800', fontSize: 18, color: '#e5e7eb' },
   modalDesc: { color: '#9ca3af', marginTop: 4 },
   modalNote: { textAlign: 'center', color: '#9ca3af', fontSize: 12, marginTop: 8 },
+claimModalCard: {
+  width: "100%",
+  maxWidth: 430,
+  backgroundColor: "#111827",
+  padding: 20,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: "rgba(148,163,184,0.25)",
+},
+
+claimTitle: {
+  color: "#fff",
+  fontSize: 20,
+  fontWeight: "800",
+},
+
+claimSubtitle: {
+  color: "#9ca3af",
+  fontSize: 13,
+  marginTop: 4,
+  marginBottom: 16,
+},
+
+claimInput: {
+  marginBottom: 16,
+  height: 48,
+},
+
+claimTextarea: {
+  marginBottom: 18,
+  minHeight: 100,
+},
+
+uploadDocBtn: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "rgba(251,191,36,0.1)",
+  borderWidth: 1,
+  borderColor: "#fbbf24",
+  borderRadius: 10,
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+  marginTop: 4,
+},
+
+uploadDocText: {
+  color: "#fbbf24",
+  fontWeight: "700",
+},
+
+docItem: {
+  color: "#9ca3af",
+  marginTop: 4,
+},
+
+modalBtnRow: {
+  flexDirection: "row",
+  gap: 10,
+  marginTop: 20,
+},
+
+sendBtn: {
+  backgroundColor: "#fbbf24",
+  borderColor: "#fbbf24",
+},
+
+sendBtnText: {
+  color: "#111827",
+  fontWeight: "900",
+},
 
   inputLabel: { color: '#e5e7eb', fontSize: 12, marginBottom: 6, fontWeight: '600' },
 });

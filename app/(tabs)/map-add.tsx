@@ -1,8 +1,7 @@
 // app/(tabs)/map-add.tsx
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router'; // ✅ NUEVO
+import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Camera,
@@ -12,7 +11,7 @@ import {
   Navigation,
   Save,
   Trash2,
-  X
+  X,
 } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
@@ -33,9 +32,13 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { loadUserSession } from '../../utils/secureStore';
+
+// 🔗 Backend
+const API_URL = 'http://192.168.1.68:3000/api/locales';
 
 /* =========================================================
-   Tipos
+   Tipos (modelo de la UI)
    ========================================================= */
 type Place = {
   id: string;
@@ -46,29 +49,6 @@ type Place = {
   coord: { latitude: number; longitude: number };
   createdAt: number;
 };
-
-/* =========================================================
-   FileSystem (TIP-SAFE: sin errores de TS)
-   ========================================================= */
-// Algunos tipados viejos de expo-file-system no exponen estas props.
-// Usamos un cast controlado y fallbacks para web.
-const FS_ANY = FileSystem as unknown as {
-  documentDirectory?: string | null;
-  cacheDirectory?: string | null;
-};
-
-const DOC_DIR = FS_ANY.documentDirectory ?? null;
-const CACHE_DIR = FS_ANY.cacheDirectory ?? null;
-
-// En web documentDirectory suele ser null; preferimos cacheDirectory.
-// En nativo preferimos documentDirectory.
-const BASE_DIR =
-  Platform.OS === 'web'
-    ? (CACHE_DIR ?? '')
-    : (DOC_DIR ?? CACHE_DIR ?? '');
-
-// Si BASE_DIR es '', no escribimos en disco (solo memoria).
-const SAVE_PATH = BASE_DIR ? `${BASE_DIR}SavedPlaces.json` : '';
 
 /* =========================================================
    Paleta
@@ -99,10 +79,25 @@ const palette = {
 } as const;
 
 /* =========================================================
+   Helpers
+   ========================================================= */
+function mapLocalToPlace(local: any): Place {
+  return {
+    id: local._id,
+    title: local.nombre ?? '',
+    phone: local.telefono ?? '',
+    description: local.direccion ?? '',
+    imageUri: local.imagen,
+    coord: { latitude: local.lat ?? -17.3835, longitude: local.lng ?? -66.163 },
+    createdAt: local.createdAt ? new Date(local.createdAt).getTime() : Date.now(),
+  };
+}
+
+/* =========================================================
    Pantalla
    ========================================================= */
 export default function MapAddScreen() {
-  const router = useRouter(); // ✅ NUEVO
+  const router = useRouter();
   const scheme = useColorScheme();
   const t = scheme === 'dark' ? palette.dark : palette.light;
 
@@ -123,6 +118,9 @@ export default function MapAddScreen() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
   const [listOpen, setListOpen] = useState(false);
+
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const mapRef = useRef<MapView | null>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
@@ -146,36 +144,47 @@ export default function MapAddScreen() {
   const closeDetail = () =>
     Animated.timing(detail, { toValue: 0, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start();
 
-  // Cargar JSON
+  /* =========================================================
+     Cargar usuario + locales desde el backend
+     ========================================================= */
   React.useEffect(() => {
     (async () => {
       try {
-        if (!SAVE_PATH) return;
-        const info = await FileSystem.getInfoAsync(SAVE_PATH);
-        if (info.exists) {
-          const raw = await FileSystem.readAsStringAsync(SAVE_PATH);
-          const arr: Place[] = JSON.parse(raw || '[]');
-          setPlaces(arr);
+        const user = await loadUserSession();
+        if (!user || !user._id) {
+          console.log('No hay usuario en sesión');
+          return;
         }
+        setCurrentUser(user);
+
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.log('Error al obtener locales', data);
+          return;
+        }
+
+        // Solo locales creados por este usuario
+        const mios = (data as any[]).filter((l) => {
+          const creador = l.creadoPor;
+          if (!creador) return false;
+          if (typeof creador === 'string') return creador === user._id;
+          // por si viene populado
+          return creador._id === user._id;
+        });
+
+        const mapped = mios.map(mapLocalToPlace);
+        setPlaces(mapped);
       } catch (e) {
-        console.warn('No se pudo leer SavedPlaces.json', e);
+        console.warn('No se pudieron cargar los locales del backend', e);
       }
     })();
   }, []);
 
-  const persist = async (arr: Place[]) => {
-    setPlaces(arr);
-    try {
-      if (!SAVE_PATH) return;
-      await FileSystem.writeAsStringAsync(SAVE_PATH, JSON.stringify(arr));
-    } catch (e) {
-      console.warn('No se pudo guardar JSON', e);
-    }
+  const handleBack = () => {
+    router.push('/LocalesScreen');
   };
-
-const handleBack = () => {
-  router.push('/LocalesScreen');  // mantiene tu push()
-};
 
   // Seguir ubicación
   React.useEffect(() => {
@@ -214,6 +223,7 @@ const handleBack = () => {
     setPhone('');
     setDescription('');
     setImageUri(undefined);
+    setEditingId(null); // nuevo local, no edición
     openForm();
   };
 
@@ -233,28 +243,97 @@ const handleBack = () => {
       Alert.alert('Falta nombre', 'Pon un nombre para el lugar.');
       return;
     }
-    const item: Place = {
-      id: String(Date.now()),
-      title: title.trim(),
-      phone: phone.trim(),
-      description: description.trim(),
-      imageUri,
-      coord: draftCoord,
-      createdAt: Date.now(),
+    if (!currentUser || !currentUser._id) {
+      Alert.alert('Sesión requerida', 'Debes iniciar sesión para crear locales.');
+      return;
+    }
+
+    const payload = {
+      nombre: title.trim(),
+      categoria: 'General', // valor por defecto para cumplir el schema
+      telefono: phone.trim(),
+      direccion: description.trim(),
+      imagen: imageUri ?? '',
+      lat: draftCoord.latitude,
+      lng: draftCoord.longitude,
+      creadoPor: currentUser._id,
+      userId: currentUser._id,
+
     };
-    const arr = [item, ...places];
-    await persist(arr);
-    closeForm();
-    setSelected(item);
-    openDetail();
-    animateTo(item.coord);
+
+    try {
+      if (!editingId) {
+        // ➕ Crear local
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.log('Error al crear local', data);
+          Alert.alert('Error', data.mensaje || 'No se pudo crear el local.');
+          return;
+        }
+
+        const saved = data.local;
+        const item = mapLocalToPlace(saved);
+        const arr = [item, ...places];
+        setPlaces(arr);
+        closeForm();
+        setSelected(item);
+        openDetail();
+        animateTo(item.coord);
+      } else {
+        // ✏️ Editar local
+        const res = await fetch(`${API_URL}/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.log('Error al actualizar local', data);
+          Alert.alert('Error', data.mensaje || 'No se pudo actualizar el local.');
+          return;
+        }
+
+        const updated = mapLocalToPlace(data.local);
+        const arr = places.map((p) => (p.id === updated.id ? updated : p));
+        setPlaces(arr);
+        closeForm();
+        setSelected(updated);
+        openDetail();
+        animateTo(updated.coord);
+        setEditingId(null);
+      }
+    } catch (e) {
+      console.log('Error en handleSave', e);
+      Alert.alert('Error', 'No se pudo conectar al servidor.');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    const arr = places.filter((p) => p.id !== id);
-    await persist(arr);
-    closeDetail();
-    setSelected(null);
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.log('Error al eliminar local', data);
+        Alert.alert('Error', data.mensaje || 'No se pudo eliminar el local.');
+        return;
+      }
+
+      const arr = places.filter((p) => p.id !== id);
+      setPlaces(arr);
+      closeDetail();
+      setSelected(null);
+    } catch (e) {
+      console.log('Error en handleDelete', e);
+      Alert.alert('Error', 'No se pudo conectar al servidor.');
+    }
   };
 
   const s = styles(t);
@@ -270,7 +349,6 @@ const handleBack = () => {
             <ArrowLeft size={18} color="#e5e7eb" />
           </TouchableOpacity>
           <TextInput placeholder="Buscar (demo)" placeholderTextColor={t.sub} style={s.searchInput} />
-
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity onPress={() => setListOpen(true)} activeOpacity={0.9} style={chipStyles.chip}>
@@ -367,6 +445,7 @@ const handleBack = () => {
                   setPhone(selected.phone);
                   setDescription(selected.description);
                   setImageUri(selected.imageUri);
+                  setEditingId(selected.id);
                   openForm();
                 }}
                 style={s.btnOutlineSm}
@@ -386,8 +465,7 @@ const handleBack = () => {
           <View style={s.formCard}>
             <View style={s.rowBetween}>
               <Text style={[s.title, { fontSize: 16 }]}>Nuevo lugar</Text>
-              <TouchableOpacity onPress={closeForm}>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={closeForm}></TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
@@ -477,9 +555,7 @@ const handleBack = () => {
                         </Text>
                       </View>
                     </View>
-                    <Text style={[s.sub, { fontSize: 12 }]}>
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </Text>
+                    <Text style={[s.sub, { fontSize: 12 }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                   </TouchableOpacity>
                 )}
               />
@@ -780,7 +856,7 @@ const styles = (t: typeof palette.light | typeof palette.dark) =>
       padding: 12,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between', // ✅ solo esta línea
+      justifyContent: 'space-between',
     },
   });
 

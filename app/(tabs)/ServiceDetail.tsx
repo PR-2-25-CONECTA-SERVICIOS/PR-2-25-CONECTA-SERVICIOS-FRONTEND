@@ -1,16 +1,16 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   CheckCircle2,
-  Clock,
   Heart,
   MapPin,
   MessageCircle,
   Phone,
   Share,
-  Star,
-} from 'lucide-react-native';
-import { useState } from 'react';
+  Star
+} from "lucide-react-native";
+
+import { useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -20,61 +20,86 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-const mockService = {
-  id: 1,
-  name: 'Plomería Express',
-  category: 'Plomería y Reparaciones',
-  rating: 4.8,
-  reviews: 127,
-  distance: '0.8 km',
-  address: 'Av. Principal 123, Ciudad',
-  phone: '+1 234 567 8900',
-  price: '$50-80/hora',
-  description:
-    'Servicio de plomería profesional con más de 10 años de experiencia. Especialistas en reparaciones de emergencia, instalaciones y mantenimiento residencial y comercial.',
-  services: [
-    'Destape de tuberías',
-    'Reparación de grifos',
-    'Instalación de sanitarios',
-    'Calentadores de agua',
-  ],
-  hours: 'Lunes a Domingo: 24 horas',
-  available: true,
-  owner: {
-    name: 'Carlos Mendoza',
-    photo: 'https://randomuser.me/api/portraits/men/32.jpg',
-    experience: '10 años',
-    verified: true,
-  },
-  gallery: [
-    'https://images.unsplash.com/photo-1604118600242-e7a6d23ec3a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZXJ2aWNlJTIwd29ya2VyJTIwcGx1bWJlcnxlbnwxfHx8fDE3NTY0MzgxNDB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-  ],
-  recentReviews: [
-    { id: 1, user: 'Ana García', rating: 4.5, comment: 'Excelente servicio, muy puntual y profesional.', date: 'Hace 2 días' },
-    { id: 2, user: 'Pedro López', rating: 4.5, comment: 'Buen trabajo, precio justo. Lo recomiendo.', date: 'Hace 1 semana' },
-    { id: 3, user: 'María Silva', rating: 5, comment: 'Solucionó mi problema rápidamente. Muy satisfecha.', date: 'Hace 2 semanas' },
-  ],
-};
+const API_URL = "http://192.168.1.68:3000/api/servicios";
 
-export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) {
+interface IService {
+  _id: string;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  precio: string;
+  imagen: string;
+  destacado?: boolean;
+  disponible?: boolean;
+  calificacion?: number;
+  opiniones?: number;
+  reseñas?: Array<{
+    usuario: string;
+    comentario: string;
+    calificacion: number;
+  }>;
+}
+
+export default function ServiceDetailScreen() {
   const router = useRouter();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [currentImageIndex] = useState(0);
+  const { id } = useLocalSearchParams();
 
-  // Estado de solicitud
+  const [service, setService] = useState<IService | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+
   const [requestModalVisible, setRequestModalVisible] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
 
-  const handleBack = () => {
-    // @ts-ignore (algunas versiones no tipan canGoBack)
-    if (router.canGoBack?.()) router.back();
-    else router.replace('/(tabs)/explore');
+  // ----------------------------------------
+  // 🔥 Cargar servicio desde el backend
+  // ----------------------------------------
+  useEffect(() => {
+    if (id) loadService();
+  }, [id]);
+
+  const loadService = async () => {
+    try {
+      const res = await fetch(`${API_URL}/${id}`);
+      const json = await res.json();
+      setService(json);
+    } catch (err) {
+      console.log("❌ Error cargando servicio:", err);
+    }
   };
 
+  // ----------------------------------------
+  // 🔥 Enviar solicitud al proveedor
+  // ----------------------------------------
+  const sendServiceRequest = async () => {
+    try {
+      const res = await fetch(`${API_URL}/${id}/solicitud`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente: "Usuario Demo",
+          mensaje: "Estoy interesado en su servicio",
+        }),
+      });
+
+      const json = await res.json();
+
+      console.log("📩 Solicitud enviada:", json);
+
+      setRequestSent(true);
+      setRequestModalVisible(true);
+    } catch (err) {
+      console.log("❌ Error enviando solicitud:", err);
+    }
+  };
+
+  // ----------------------------------------
+  // Utilidades
+  // ----------------------------------------
   const callNow = () => {
-    Linking.openURL(`tel:${mockService.phone.replace(/\s|\+/g, '')}`).catch(() => {});
+    // No tienes teléfono en la BD así que usamos un demo:
+    Linking.openURL(`tel:00000000`).catch(() => {});
   };
 
   const openWhatsApp = (msg: string) => {
@@ -82,41 +107,39 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
     Linking.openURL(url).catch(() => {});
   };
 
-  const openWhatsAppToCoordinate = () =>
-    openWhatsApp(`Hola ${mockService.owner.name} 👋, acabo de enviar una solicitud para "${mockService.name}". ¿Podemos coordinar detalles por aquí?`);
-
   const renderStars = (rating: number) => {
     const full = Math.floor(rating);
     const half = rating - full >= 0.5;
     const stars = [];
     for (let i = 0; i < full; i++) {
-      stars.push(<Star key={`s${i}`} size={16} color="#fbbf24" fill="#fbbf24" />);
+      stars.push(<Star key={i} size={16} color="#fbbf24" fill="#fbbf24" />);
     }
-    if (half) stars.push(<Star key="half" size={16} color="#fbbf24" style={{ opacity: 0.5 }} />);
+    if (half) stars.push(<Star key="half" size={16} color="#fbbf24" />);
     return stars;
   };
 
-  const handleRequest = () => {
-    // Aquí podrías llamar a tu backend
-    setRequestSent(true);
-    setRequestModalVisible(true);
-  };
+  if (!service) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0b0b0b", alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#fff" }}>Cargando servicio...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* HEADER IMAGE */}
+      {/* 🔥 HEADER IMAGE */}
       <View style={styles.headerImageWrap}>
-        <Image source={{ uri: mockService.gallery[currentImageIndex] }} style={styles.headerImage} />
+        <Image source={{ uri: service.imagen }} style={styles.headerImage} />
 
-        {/* Overlay top controls */}
         <View style={styles.headerOverlay}>
-          <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
             <ArrowLeft size={18} color="#e5e7eb" />
           </TouchableOpacity>
 
           <View style={styles.iconRow}>
-            <TouchableOpacity onPress={() => setIsFavorite(v => !v)} style={styles.iconBtn}>
-              <Heart size={18} color={isFavorite ? '#ef4444' : '#e5e7eb'} />
+            <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)} style={styles.iconBtn}>
+              <Heart size={18} color={isFavorite ? "#ef4444" : "#e5e7eb"} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconBtn}>
               <Share size={18} color="#e5e7eb" />
@@ -124,39 +147,39 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
           </View>
         </View>
 
-        {/* Availability badge */}
         <View style={styles.availabilityBadge}>
-          <Text style={mockService.available ? styles.availableText : styles.notAvailableText}>
-            {mockService.available ? 'Disponible ahora' : 'No disponible'}
+          <Text style={service.disponible ? styles.availableText : styles.notAvailableText}>
+            {service.disponible ? "Disponible" : "No disponible"}
           </Text>
         </View>
       </View>
 
-      {/* BODY */}
+      {/* 🔥 BODY */}
       <View style={styles.body}>
-        {/* Card: Header info */}
+        {/* Header card */}
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <View>
-              <Text style={styles.serviceName}>{mockService.name}</Text>
-              <Text style={styles.serviceCategory}>{mockService.category}</Text>
+              <Text style={styles.serviceName}>{service.nombre}</Text>
+              <Text style={styles.serviceCategory}>{service.categoria}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.price}>{mockService.price}</Text>
-              <Text style={styles.perHour}>por hora</Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.price}>{service.precio}</Text>
+              <Text style={styles.grayText}>por hora</Text>
             </View>
           </View>
 
           <View style={[styles.rowBetween, { marginTop: 10 }]}>
             <View style={styles.rowCenter}>
-              <View style={styles.rowCenter}>{renderStars(mockService.rating)}</View>
+              {renderStars(Number(service.calificacion || 0))}
               <Text style={styles.ratingText}>
-                {mockService.rating.toFixed(1)} <Text style={styles.grayText}>({mockService.reviews})</Text>
+                {service.calificacion || 0}{" "}
+                <Text style={styles.grayText}>({service.opiniones || 0})</Text>
               </Text>
             </View>
             <View style={styles.rowCenter}>
               <MapPin size={16} color="#e5e7eb" />
-              <Text style={[styles.grayText, { marginLeft: 6 }]}>{mockService.distance}</Text>
+              <Text style={[styles.grayText, { marginLeft: 6 }]}>1 km</Text>
             </View>
           </View>
         </View>
@@ -165,95 +188,54 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
         <View style={[styles.card, { paddingVertical: 14 }]}>
           <View style={styles.quickRow}>
             <TouchableOpacity
-              style={[styles.quickBtn, { backgroundColor: '#25D366' }]}
-              onPress={() => openWhatsApp(`Hola ${mockService.owner.name}, me interesa "${mockService.name}".`)}
+              style={[styles.quickBtn, { backgroundColor: "#25D366" }]}
+              onPress={() => openWhatsApp(`Hola, me interesa el servicio: ${service.nombre}`)}
             >
               <MessageCircle size={16} color="#111827" />
               <Text style={styles.quickBtnText}>WhatsApp</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.quickBtn, { backgroundColor: '#fbbf24' }]} onPress={callNow}>
+
+            <TouchableOpacity style={[styles.quickBtn, { backgroundColor: "#fbbf24" }]} onPress={callNow}>
               <Phone size={16} color="#111827" />
               <Text style={styles.quickBtnText}>Llamar</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Owner */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Image source={{ uri: mockService.owner.photo }} style={styles.ownerPhoto} />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <View style={styles.rowCenter}>
-                <Text style={styles.ownerName}>{mockService.owner.name}</Text>
-                {mockService.owner.verified && (
-                  <View style={styles.badgeSecondary}>
-                    <Text style={styles.badgeSecondaryText}>Verificado</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.grayText}>{mockService.owner.experience} de experiencia</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Description */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Descripción</Text>
-          <Text style={styles.bodyText}>{mockService.description}</Text>
+          <Text style={styles.bodyText}>{service.descripcion}</Text>
         </View>
 
-        {/* Services list */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Servicios</Text>
-          <View style={styles.chipsWrap}>
-            {mockService.services.map((s, i) => (
-              <View key={`${s}-${i}`} style={styles.chip}>
-                <Text style={styles.chipText}>{s}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Location & Hours */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Ubicación</Text>
-          <View style={[styles.row, { marginTop: 6 }]}>
-            <MapPin size={16} color="#e5e7eb" />
-            <Text style={[styles.bodyText, { marginLeft: 8 }]}>{mockService.address}</Text>
-          </View>
-
-          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Horarios</Text>
-          <View style={[styles.row, { marginTop: 6 }]}>
-            <Clock size={16} color="#e5e7eb" />
-            <Text style={[styles.bodyText, { marginLeft: 8 }]}>{mockService.hours}</Text>
-          </View>
-        </View>
-
-        {/* Reviews */}
+        {/* Reseñas */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Reseñas recientes</Text>
-          <View style={{ gap: 10, marginTop: 8 }}>
-            {mockService.recentReviews.map(r => (
-              <View key={r.id} style={styles.reviewItem}>
+
+          {service.reseñas && service.reseñas.length > 0 ? (
+            service.reseñas.map((r, i) => (
+              <View key={i} style={styles.reviewItem}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.reviewUser}>{r.user}</Text>
-                  <View style={styles.row}>{renderStars(r.rating)}</View>
+                  <Text style={styles.reviewUser}>{r.usuario}</Text>
+                  <View style={styles.row}>{renderStars(r.calificacion)}</View>
                 </View>
-                <Text style={styles.reviewComment}>{r.comment}</Text>
-                <Text style={styles.reviewDate}>{r.date}</Text>
+
+                <Text style={styles.reviewComment}>{r.comentario}</Text>
               </View>
-            ))}
-          </View>
+            ))
+          ) : (
+            <Text style={{ color: "#9ca3af" }}>Aún no hay reseñas.</Text>
+          )}
         </View>
 
-        {/* CTA (cambia a "Solicitud enviada" cuando requestSent = true) */}
+        {/* CTA */}
         <View style={{ paddingHorizontal: 16 }}>
-          {!mockService.available ? (
+          {!service.disponible ? (
             <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
               <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
             </View>
           ) : !requestSent ? (
-            <TouchableOpacity style={styles.ctaBtn} onPress={handleRequest}>
+            <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
               <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
             </TouchableOpacity>
           ) : (
@@ -265,13 +247,8 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
         </View>
       </View>
 
-      {/* MODAL: SOLICITUD ENVIADA */}
-      <Modal
-        visible={requestModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRequestModalVisible(false)}
-      >
+      {/* MODAL */}
+      <Modal visible={requestModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, styles.modalContainerLg]}>
             <View style={styles.modalHeaderIcon}>
@@ -279,33 +256,6 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
             </View>
 
             <Text style={styles.modalTitle}>¡Solicitud enviada!</Text>
-            <Text style={styles.modalSubtitle}>
-              Tu pedido para <Text style={{ fontWeight: '800', color: '#e5e7eb' }}>{mockService.name}</Text> fue enviado al proveedor.
-            </Text>
-
-            <View style={styles.modalDetails}>
-              <View style={styles.rowLine}>
-                <Text style={styles.rowLineLabel}>Proveedor</Text>
-                <Text style={styles.rowLineValue}>{mockService.owner.name}</Text>
-              </View>
-              <View style={styles.rowLine}>
-                <Text style={styles.rowLineLabel}>Tiempo de respuesta</Text>
-                <Text style={styles.rowLineValue}>~ 15 min</Text>
-              </View>
-              <View style={styles.rowLine}>
-                <Text style={styles.rowLineLabel}>Estado</Text>
-                <Text style={[styles.rowLineValue, { color: '#fbbf24' }]}>Pendiente de confirmación</Text>
-              </View>
-            </View>
-
-            <Text style={styles.modalHint}>
-              Permanece atent@ a las notificaciones. Si necesitas coordinar detalles, puedes escribir por WhatsApp:
-            </Text>
-
-            <TouchableOpacity style={styles.btnWhatsapp} onPress={openWhatsAppToCoordinate}>
-              <MessageCircle size={16} color="#fff" />
-              <Text style={styles.btnWhatsappText}>Chatear por WhatsApp</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity style={styles.btnGhost} onPress={() => setRequestModalVisible(false)}>
               <Text style={styles.btnGhostText}>Cerrar</Text>
@@ -316,6 +266,7 @@ export default function ServiceDetailScreen({ onNext }: { onNext: () => void }) 
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0b0b0b' },

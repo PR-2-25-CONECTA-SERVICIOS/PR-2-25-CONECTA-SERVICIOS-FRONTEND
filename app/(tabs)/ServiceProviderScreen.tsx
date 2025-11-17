@@ -1,5 +1,5 @@
-// ServiceProviderScreen.tsx
-import { useRouter } from 'expo-router';
+// app/ServiceProviderScreen.tsx
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   Bell,
@@ -12,8 +12,8 @@ import {
   MessageCircle,
   Star,
   XCircle,
-} from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+} from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
@@ -24,32 +24,19 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-// ---------- DATA MOCK ----------
-const providerData = {
-  name: 'Carlos Mendoza',
-  service: 'Plomería Express',
-  category: 'Plomería y Reparaciones',
-  rating: 4.8,
-  reviews: 127,
-  avatar: '',
-  verified: true,
-  active: true,
-  phone: '+1 234 567 8900',
-  experience: '10 años',
-  completedJobs: 345,
-  responseTime: '15 min promedio',
-};
+const API_BASE = "http://192.168.1.68:3000";
+const SERVICES_API = `${API_BASE}/api/servicios`;
 
-type RequestStatus = 'pending' | 'accepted' | 'completed' | 'cancelled';
+type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";
 
 type Req = {
-  id: number;
+  id: string;
   client: string;
   service: string;
-  date: string;  // YYYY-MM-DD
-  time: string;  // HH:mm
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
   status: RequestStatus;
   price: string;
   location: string;
@@ -57,75 +44,264 @@ type Req = {
   urgent?: boolean;
 };
 
-const initialRequests: Req[] = [
-  {
-    id: 1,
-    client: 'Ana García',
-    service: 'Reparación de grifo',
-    date: '2025-01-28',
-    time: '14:00',
-    status: 'pending',
-    price: '$65',
-    location: 'Av. Central 456',
-    urgent: true,
-  },
-  {
-    id: 2,
-    client: 'Pedro López',
-    service: 'Destape de tubería',
-    date: '2025-01-28',
-    time: '16:30',
-    status: 'accepted',
-    price: '$80',
-    location: 'Calle 123, Apto 4B',
-  },
-  {
-    id: 3,
-    client: 'María Silva',
-    service: 'Instalación sanitario',
-    date: '2025-01-27',
-    time: '10:00',
-    status: 'completed',
-    price: '$120',
-    location: 'Sector Norte, Casa 15',
-  },
-];
+type ProviderData = {
+  name: string;
+  service: string;
+  category: string;
+  rating: number;
+  reviews: number;
+  avatar: string;
+  verified: boolean;
+  active: boolean;
+  phone: string;
+  experience: string;
+  completedJobs: number;
+  responseTime: string;
+};
 
-// ---------- HELPERS ----------
-const getStatusPill = (status: RequestStatus) => {
-  switch (status) {
-    case 'pending':
-      return { text: 'Pendiente', color: '#fbbf24', Icon: Clock };
-    case 'accepted':
-      return { text: 'Aceptado', color: '#60a5fa', Icon: CheckCircle };
-    case 'completed':
-      return { text: 'Completado', color: '#34d399', Icon: CheckCircle };
-    case 'cancelled':
-      return { text: 'Cancelado', color: '#f87171', Icon: XCircle };
+const EMPTY_PROVIDER: ProviderData = {
+  name: "",
+  service: "",
+  category: "",
+  rating: 0,
+  reviews: 0,
+  avatar: "",
+  verified: false,
+  active: true,
+  phone: "",
+  experience: "",
+  completedJobs: 0,
+  responseTime: "15 min promedio",
+};
+
+const mapEstadoToStatus = (estado: string): RequestStatus => {
+  switch (estado) {
+    case "pendiente":
+      return "pending";
+    case "aceptado":
+      return "accepted";
+    case "finalizado":
+      return "completed";
+    case "cancelado":
+      return "cancelled";
     default:
-      return { text: 'Desconocido', color: '#9ca3af', Icon: Clock };
+      return "pending";
   }
 };
 
-export default function ServiceProviderScreen({ onNext }: { onNext: () => void }) {
-  const router = useRouter();
-  const [isActive, setIsActive] = useState(providerData.active);
-  const [tab, setTab] = useState<'requests' | 'profile' | 'analytics'>('requests');
-  const [requests, setRequests] = useState<Req[]>(initialRequests);
+const mapStatusToEstado = (status: RequestStatus): string => {
+  switch (status) {
+    case "pending":
+      return "pendiente";
+    case "accepted":
+      return "aceptado";
+    case "completed":
+      return "finalizado";
+    case "cancelled":
+      return "cancelado";
+    default:
+      return "pendiente";
+  }
+};
 
-  // Back (a prueba de balas)
-  const handleBack = () => {
-    router.replace('/ProfileViewScreen');
-  };
+const getStatusPill = (status: RequestStatus) => {
+  switch (status) {
+    case "pending":
+      return { text: "Pendiente", color: "#fbbf24", Icon: Clock };
+    case "accepted":
+      return { text: "Aceptado", color: "#60a5fa", Icon: CheckCircle };
+    case "completed":
+      return { text: "Completado", color: "#34d399", Icon: CheckCircle };
+    case "cancelled":
+      return { text: "Cancelado", color: "#f87171", Icon: XCircle };
+    default:
+      return { text: "Desconocido", color: "#9ca3af", Icon: Clock };
+  }
+};
+
+export default function ServiceProviderScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const serviceId = id as string | undefined;
+
+  const [providerData, setProviderData] = useState<ProviderData>(EMPTY_PROVIDER);
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [tab, setTab] =
+    useState<"requests" | "profile" | "analytics">("requests");
+  const [requests, setRequests] = useState<Req[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // ---------- ACEPTAR: modal + whatsapp ----------
   const [acceptedModalVisible, setAcceptedModalVisible] = useState(false);
   const [acceptedRequest, setAcceptedRequest] = useState<Req | null>(null);
 
+  // ---------- PROGRAMAR: modal + whatsapp ----------
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [scheduleRequest, setScheduleRequest] = useState<Req | null>(null);
+
+  const [schedDate, setSchedDate] = useState(""); // YYYY-MM-DD
+  const [schedTime, setSchedTime] = useState(""); // HH:mm
+  const [schedDuration, setSchedDuration] = useState("2");
+  const [schedLocation, setSchedLocation] = useState("");
+  const [schedNote, setSchedNote] = useState("");
+
+  // BACK: volver al perfil
+  const handleBack = () => {
+    router.replace("/ProfileViewScreen");
+  };
+
+  // ====================================================
+  // CARGAR DETALLE DEL SERVICIO + SOLICITUDES
+  // ====================================================
+  useEffect(() => {
+    if (!serviceId) {
+      setLoading(false);
+      return;
+    }
+
+    const loadData = async () => {
+      try {
+        // 1) Detalle del servicio
+        const resService = await fetch(`${SERVICES_API}/${serviceId}`);
+        const rawService = await resService.text();
+        console.log("📥 Detalle servicio:", resService.status, rawService);
+
+        if (!resService.ok) throw new Error("HTTP " + resService.status);
+        const s = JSON.parse(rawService);
+
+        const header: ProviderData = {
+          name: s.propietario?.nombre || "Proveedor",
+          service: s.nombre || "Servicio",
+          category: s.categoria || "General",
+          rating: s.calificacion || 0,
+          reviews: s.opiniones || 0,
+          avatar: s.propietario?.foto || s.imagen || "",
+          verified: s.propietario?.verificado ?? false,
+          active: s.disponible ?? true,
+          phone: s.telefono || "",
+          experience: s.propietario?.experiencia || "",
+          completedJobs: s.trabajosCompletados || 0,
+          responseTime: s.tiempoRespuesta || "15 min promedio",
+        };
+
+        setProviderData(header);
+        setIsActive(header.active);
+
+        // 2) Solicitudes de este servicio
+        const resReq = await fetch(`${SERVICES_API}/${serviceId}/solicitudes`);
+        const rawReq = await resReq.text();
+        console.log("📥 Solicitudes:", resReq.status, rawReq);
+
+        if (!resReq.ok) {
+          // si aún no hay solicitudes, puede devolver 404 o similar, no rompemos
+          try {
+            const errObj = JSON.parse(rawReq);
+            console.log("Info solicitudes:", errObj);
+          } catch {
+            console.log("Sin solicitudes o error leve");
+          }
+        } else {
+          const dataReq = JSON.parse(rawReq);
+          const mapped: Req[] = dataReq.map((r: any) => ({
+            id: r._id,
+            client: r.cliente?.nombre || "Cliente",
+            service: r.descripcion || s.nombre || "Servicio",
+            date:
+              r.fechaCita ||
+              (r.fechaSolicitud
+                ? String(r.fechaSolicitud).slice(0, 10)
+                : ""),
+            time: r.horaCita || "",
+            status: mapEstadoToStatus(r.estado),
+            price: r.precio || s.precio || "",
+            location: r.categoria || "Sin dirección",
+            clientAvatar: r.cliente?.avatar || "",
+            urgent: false,
+          }));
+          setRequests(mapped);
+        }
+      } catch (err) {
+        console.log("❌ Error cargando ServiceProviderScreen:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [serviceId]);
+
+  // ====================================================
+  // TOGGLE DISPONIBILIDAD DEL SERVICIO
+  // ====================================================
+  const handleToggleActive = async () => {
+    if (!serviceId) return;
+    const next = !isActive;
+    setIsActive(next); // optimista
+
+    try {
+      const res = await fetch(`${SERVICES_API}/${serviceId}/toggle`, {
+        method: "PATCH",
+      });
+      const raw = await res.text();
+      console.log("📥 toggle disponibilidad:", res.status, raw);
+
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+    } catch (err) {
+      console.log("❌ Error al cambiar disponibilidad:", err);
+      // revertir si falla
+      setIsActive((prev) => !prev);
+    }
+  };
+
+  // ====================================================
+  // ACEPTAR / RECHAZAR SOLICITUD
+  // ====================================================
+  const updateRequestStatusBackend = async (
+    req: Req,
+    status: RequestStatus
+  ) => {
+    if (!serviceId) return;
+    try {
+      const res = await fetch(
+        `${SERVICES_API}/${serviceId}/solicitudes/${req.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ estado: mapStatusToEstado(status) }),
+        }
+      );
+      const raw = await res.text();
+      console.log("📥 update solicitud:", res.status, raw);
+
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+    } catch (err) {
+      console.log("❌ Error actualizando solicitud:", err);
+    }
+  };
+
   const handleAccept = (req: Req) => {
-    setRequests(prev => prev.map(r => (r.id === req.id ? { ...r, status: 'accepted' } : r)));
-    setAcceptedRequest({ ...req, status: 'accepted' });
+    // actualizar UI
+    setRequests((prev) =>
+      prev.map((r) => (r.id === req.id ? { ...r, status: "accepted" } : r))
+    );
+
+    const accepted = { ...req, status: "accepted" as RequestStatus };
+    setAcceptedRequest(accepted);
     setAcceptedModalVisible(true);
+
+    // backend
+    updateRequestStatusBackend(req, "accepted");
+  };
+
+  const handleReject = (req: Req) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === req.id ? { ...r, status: "cancelled" } : r))
+    );
+    updateRequestStatusBackend(req, "cancelled");
   };
 
   const openWhatsAppAcceptance = (req: Req) => {
@@ -134,42 +310,114 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
     Linking.openURL(url).catch(() => {});
   };
 
-  // ---------- PROGRAMAR: modal + whatsapp ----------
-  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
-  const [scheduleRequest, setScheduleRequest] = useState<Req | null>(null);
-
-  // Campos del modal de programación
-  const [schedDate, setSchedDate] = useState('');   // YYYY-MM-DD
-  const [schedTime, setSchedTime] = useState('');   // HH:mm
-  const [schedDuration, setSchedDuration] = useState('2'); // horas
-  const [schedLocation, setSchedLocation] = useState('');
-  const [schedNote, setSchedNote] = useState('');
-
+  // ====================================================
+  // PROGRAMAR CITA
+  // ====================================================
   const openScheduleModal = (req: Req) => {
     setScheduleRequest(req);
-    setSchedDate(req.date);
-    setSchedTime(req.time);
-    setSchedDuration('2');
-    setSchedLocation(req.location);
-    setSchedNote('');
+    setSchedDate(req.date || "");
+    setSchedTime(req.time || "");
+    setSchedDuration("2");
+    setSchedLocation(req.location || "");
+    setSchedNote("");
     setScheduleModalVisible(true);
   };
 
   const scheduleWhatsAppMessage = useMemo(() => {
-    if (!scheduleRequest) return '';
-    return `Hola ${scheduleRequest.client} 👋\n\nTe propongo agendar tu servicio "${scheduleRequest.service}" para:\n🗓 ${schedDate} a las ${schedTime}\n⏱ Duración aprox: ${schedDuration}h\n📍 Ubicación: ${schedLocation}\n\n${schedNote ? `Notas: ${schedNote}\n\n` : ''}¿Te parece bien esta hora?`;
-  }, [scheduleRequest, schedDate, schedTime, schedDuration, schedLocation, schedNote]);
+    if (!scheduleRequest) return "";
+    return `Hola ${
+      scheduleRequest.client
+    } 👋\n\nTe propongo agendar tu servicio "${
+      scheduleRequest.service
+    }" para:\n🗓 ${schedDate} a las ${schedTime}\n⏱ Duración aprox: ${schedDuration}h\n📍 Ubicación: ${schedLocation}\n\n${
+      schedNote ? `Notas: ${schedNote}\n\n` : ""
+    }¿Te parece bien esta hora?`;
+  }, [
+    scheduleRequest,
+    schedDate,
+    schedTime,
+    schedDuration,
+    schedLocation,
+    schedNote,
+  ]);
 
   const openWhatsAppSchedule = () => {
     if (!scheduleRequest) return;
-    const url = `https://wa.me/?text=${encodeURIComponent(scheduleWhatsAppMessage)}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(
+      scheduleWhatsAppMessage
+    )}`;
     Linking.openURL(url).catch(() => {});
   };
 
-  const saveSchedule = () => {
-    // Aquí podrías persistir en backend; por ahora solo cerramos modal
-    setScheduleModalVisible(false);
+  const saveSchedule = async () => {
+    if (!scheduleRequest) return;
+    try {
+      const res = await fetch(
+        `${SERVICES_API}/solicitudes/${scheduleRequest.id}/appointment`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fechaCita: schedDate,
+            horaCita: schedTime,
+          }),
+        }
+      );
+      const raw = await res.text();
+      console.log("📥 assign appointment:", res.status, raw);
+
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      // actualizar UI
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === scheduleRequest.id
+            ? { ...r, date: schedDate, time: schedTime, status: "accepted" }
+            : r
+        )
+      );
+      setScheduleModalVisible(false);
+    } catch (err) {
+      console.log("❌ Error guardando cita:", err);
+    }
   };
+
+  // ====================================================
+  // STATS (a partir de las solicitudes)
+  // ====================================================
+  const stats = useMemo(() => {
+    let completed = 0;
+    let income = 0;
+
+    requests.forEach((r) => {
+      if (r.status === "completed") {
+        completed++;
+        const num = parseFloat(r.price.replace(/[^0-9.]/g, ""));
+        if (!isNaN(num)) income += num;
+      }
+    });
+
+    return {
+      completed,
+      income,
+    };
+  }, [requests]);
+
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: "#e5e7eb" }}>Cargando...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -184,7 +432,15 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
             <Image source={{ uri: providerData.avatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.avatarFallbackText}>CM</Text>
+              <Text style={styles.avatarFallbackText}>
+                {providerData.name
+                  ? providerData.name
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")
+                      .slice(0, 2)
+                  : "SP"}
+              </Text>
             </View>
           )}
         </View>
@@ -204,15 +460,15 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
             <View style={styles.rowCenter}>
               <Star size={14} color="#fbbf24" fill="#fbbf24" />
               <Text style={styles.ratingText}>
-                {providerData.rating}{' '}
+                {providerData.rating}{" "}
                 <Text style={styles.grayText}>({providerData.reviews})</Text>
               </Text>
             </View>
-            <Text style={styles.grayText}>{providerData.completedJobs} trabajos</Text>
+            <Text style={styles.grayText}>
+              {providerData.completedJobs} trabajos
+            </Text>
           </View>
         </View>
-
-  
       </View>
 
       {/* Switch Estado */}
@@ -220,14 +476,14 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
         <View>
           <Text style={styles.statusTitle}>Estado del servicio</Text>
           <Text style={styles.grayText}>
-            {isActive ? 'Recibiendo solicitudes' : 'No disponible'}
+            {isActive ? "Recibiendo solicitudes" : "No disponible"}
           </Text>
         </View>
         <TouchableOpacity
-          onPress={() => setIsActive(v => !v)}
+          onPress={handleToggleActive}
           style={[
             styles.switchBase,
-            { backgroundColor: isActive ? '#fbbf24' : '#374151' },
+            { backgroundColor: isActive ? "#fbbf24" : "#374151" },
           ]}
         >
           <View
@@ -240,24 +496,26 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
       </View>
 
       {/* CONTENIDO */}
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
+      >
         {/* Stats rápidas */}
         <View style={styles.statsGrid}>
           <View style={[styles.card, styles.cardStat]}>
-            <Text style={[styles.statNumber, { color: '#fbbf24' }]}>
-              {requests.filter(r => r.status === 'pending').length}
+            <Text style={[styles.statNumber, { color: "#fbbf24" }]}>
+              {requests.filter((r) => r.status === "pending").length}
             </Text>
             <Text style={styles.grayTextSmall}>Pendientes</Text>
           </View>
           <View style={[styles.card, styles.cardStat]}>
-            <Text style={[styles.statNumber, { color: '#60a5fa' }]}>
-              {requests.filter(r => r.status === 'accepted').length}
+            <Text style={[styles.statNumber, { color: "#60a5fa" }]}>
+              {requests.filter((r) => r.status === "accepted").length}
             </Text>
             <Text style={styles.grayTextSmall}>En progreso</Text>
           </View>
           <View style={[styles.card, styles.cardStat]}>
-            <Text style={[styles.statNumber, { color: '#34d399' }]}>
-              {requests.filter(r => r.status === 'completed').length}
+            <Text style={[styles.statNumber, { color: "#34d399" }]}>
+              {requests.filter((r) => r.status === "completed").length}
             </Text>
             <Text style={styles.grayTextSmall}>Completados</Text>
           </View>
@@ -265,50 +523,60 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
 
         {/* TABS */}
         <View style={styles.tabsList}>
-          {(['requests', 'profile', 'analytics'] as const).map(key => (
+          {(["requests", "profile", "analytics"] as const).map((key) => (
             <TouchableOpacity
               key={key}
               onPress={() => setTab(key)}
-              style={[styles.tabBtn, tab === key && { backgroundColor: '#111827' }]}
+              style={[
+                styles.tabBtn,
+                tab === key && { backgroundColor: "#111827" },
+              ]}
             >
               <Text
                 style={[
                   styles.tabText,
-                  tab === key && { color: '#fbbf24', fontWeight: '700' },
+                  tab === key && { color: "#fbbf24", fontWeight: "700" },
                 ]}
               >
-                {key === 'requests'
-                  ? 'Solicitudes'
-                  : key === 'profile'
-                  ? 'Perfil'
-                  : 'Estadísticas'}
+                {key === "requests"
+                  ? "Solicitudes"
+                  : key === "profile"
+                  ? "Perfil"
+                  : "Estadísticas"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* TAB: SOLICITUDES */}
-        {tab === 'requests' && (
+        {tab === "requests" && (
           <View style={{ gap: 12 }}>
-            {requests.some(r => r.status === 'pending') && (
+            {requests.some((r) => r.status === "pending") && (
               <View style={[styles.card, styles.cardWarn]}>
                 <View style={styles.rowCenter}>
                   <Bell size={16} color="#fbbf24" />
                   <Text style={[styles.warnText, { marginLeft: 8 }]}>
-                    Tienes {requests.filter(r => r.status === 'pending').length} solicitudes pendientes
+                    Tienes{" "}
+                    {
+                      requests.filter((r) => r.status === "pending")
+                        .length
+                    }{" "}
+                    solicitudes pendientes
                   </Text>
                 </View>
               </View>
             )}
 
-            {requests.map(req => {
+            {requests.map((req) => {
               const pill = getStatusPill(req.status);
               return (
                 <View key={req.id} style={styles.card}>
                   <View style={[styles.rowBetween, { marginBottom: 10 }]}>
                     <View style={styles.rowCenter}>
                       <View style={styles.smallAvatar}>
-                        <Text style={styles.smallAvatarText}>{req.client.charAt(0)}</Text>
+                        <Text style={styles.smallAvatarText}>
+                          {req.client.charAt(0)}
+                        </Text>
                       </View>
 
                       <View>
@@ -316,22 +584,47 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
                           <Text style={styles.title}>{req.client}</Text>
                           {req.urgent && (
                             <View style={styles.badgeDanger}>
-                              <Text style={styles.badgeDangerText}>Urgente</Text>
+                              <Text style={styles.badgeDangerText}>
+                                Urgente
+                              </Text>
                             </View>
                           )}
                         </View>
 
-                        <Text style={styles.grayTextSmall}>{req.service}</Text>
-                        <Text style={styles.grayTextSmall}>{req.location}</Text>
+                        <Text style={styles.grayTextSmall}>
+                          {req.service}
+                        </Text>
+                        <Text style={styles.grayTextSmall}>
+                          {req.location}
+                        </Text>
                       </View>
                     </View>
 
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ color: '#34d399', fontWeight: '600' }}>{req.price}</Text>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text
+                        style={{
+                          color: "#34d399",
+                          fontWeight: "600",
+                        }}
+                      >
+                        {req.price}
+                      </Text>
 
-                      <View style={[styles.pill, { borderColor: pill.color }]}>
+                      <View
+                        style={[
+                          styles.pill,
+                          { borderColor: pill.color },
+                        ]}
+                      >
                         <pill.Icon size={12} color={pill.color} />
-                        <Text style={[styles.pillText, { color: pill.color }]}>{pill.text}</Text>
+                        <Text
+                          style={[
+                            styles.pillText,
+                            { color: pill.color },
+                          ]}
+                        >
+                          {pill.text}
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -343,34 +636,49 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
                     </Text>
 
                     <View style={styles.actionRow}>
-                      {req.status === 'pending' && (
+                      {req.status === "pending" && (
                         <>
-                          <TouchableOpacity style={styles.btnOutlineSm}>
-                            <Text style={styles.btnOutlineText}>Rechazar</Text>
+                          <TouchableOpacity
+                            style={styles.btnOutlineSm}
+                            onPress={() => handleReject(req)}
+                          >
+                            <Text style={styles.btnOutlineText}>
+                              Rechazar
+                            </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.btnPrimarySm}
                             onPress={() => handleAccept(req)}
                           >
-                            <Text style={styles.btnPrimaryText}>Aceptar</Text>
+                            <Text style={styles.btnPrimaryText}>
+                              Aceptar
+                            </Text>
                           </TouchableOpacity>
                         </>
                       )}
 
-                      {req.status === 'accepted' && (
+                      {req.status === "accepted" && (
                         <TouchableOpacity
                           style={styles.btnOutlineSm}
                           onPress={() => openScheduleModal(req)}
                         >
                           <Calendar size={14} color="#e5e7eb" />
-                          <Text style={styles.btnOutlineText}> Programar</Text>
+                          <Text style={styles.btnOutlineText}>
+                            {" "}
+                            Programar
+                          </Text>
                         </TouchableOpacity>
                       )}
 
-                      {req.status === 'completed' && (
-                        <TouchableOpacity style={styles.btnOutlineSm} onPress={onNext}>
+                      {req.status === "completed" && (
+                        <TouchableOpacity
+                          style={styles.btnOutlineSm}
+                        >
                           <Eye size={14} color="#e5e7eb" />
-                          <Text style={styles.btnOutlineText}> Ver detalles</Text>
+                          <Text style={styles.btnOutlineText}>
+                            {" "}
+                            Ver detalles
+                          </Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -382,7 +690,7 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
         )}
 
         {/* TAB: PERFIL */}
-        {tab === 'profile' && (
+        {tab === "profile" && (
           <View style={{ gap: 12 }}>
             <View style={styles.card}>
               <View style={styles.rowBetween}>
@@ -394,56 +702,101 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
               </View>
 
               <View style={{ gap: 10, marginTop: 10 }}>
-                <Field label="Nombre del servicio" value={providerData.service} />
-                <Field label="Categoría" value={providerData.category} />
-                <Field label="Experiencia" value={providerData.experience} />
-                <Field label="Teléfono" value={providerData.phone} />
+                <Field
+                  label="Nombre del servicio"
+                  value={providerData.service}
+                />
+                <Field
+                  label="Categoría"
+                  value={providerData.category}
+                />
+                <Field
+                  label="Experiencia"
+                  value={providerData.experience || "No especificado"}
+                />
+                <Field
+                  label="Teléfono"
+                  value={providerData.phone || "Sin teléfono"}
+                />
               </View>
             </View>
 
             <View style={styles.card}>
               <Text style={styles.title}>Servicios Ofrecidos</Text>
               <View style={styles.badgeWrap}>
-                {['Destape de tuberías', 'Reparación de grifos', 'Instalación de sanitarios', 'Calentadores de agua'].map(t => (
+                {/* Si tu servicio tiene especialidades en el backend, puedes mapearlas aquí */}
+                {["Servicio general"].map((t) => (
                   <View key={t} style={styles.badgeChip}>
                     <Text style={styles.badgeChipText}>{t}</Text>
                   </View>
                 ))}
               </View>
 
-              <TouchableOpacity style={[styles.btnOutlineSm, { marginTop: 10 }]}>
-                <Text style={styles.btnOutlineText}>+ Agregar servicio</Text>
+              <TouchableOpacity
+                style={[styles.btnOutlineSm, { marginTop: 10 }]}
+              >
+                <Text style={styles.btnOutlineText}>
+                  + Agregar servicio
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {/* TAB: ANALYTICS */}
-        {tab === 'analytics' && (
+        {tab === "analytics" && (
           <View style={{ gap: 12 }}>
             <View style={styles.card}>
               <Text style={styles.title}>Rendimiento del Mes</Text>
               <View style={{ marginTop: 10, gap: 10 }}>
-                <KV label="Trabajos completados" value="23" />
-                <KV label="Ingresos totales" value="$1,840" valueColor="#34d399" />
-                <KV label="Tiempo de respuesta promedio" value={providerData.responseTime} />
-                <KV label="Calificación promedio" value={`${providerData.rating}/5.0`} />
+                <KV
+                  label="Trabajos completados"
+                  value={String(stats.completed)}
+                />
+                <KV
+                  label="Ingresos totales"
+                  value={
+                    stats.income > 0
+                      ? `$${stats.income.toFixed(2)}`
+                      : "$0"
+                  }
+                  valueColor="#34d399"
+                />
+                <KV
+                  label="Tiempo de respuesta promedio"
+                  value={providerData.responseTime}
+                />
+                <KV
+                  label="Calificación promedio"
+                  value={`${providerData.rating}/5.0`}
+                />
               </View>
             </View>
 
             <View style={styles.card}>
               <Text style={styles.title}>Reseñas Recientes</Text>
               <View style={{ gap: 12, marginTop: 10 }}>
+                {/* Aquí podrías mapear s.reseñas desde el backend */}
                 <View style={styles.row}>
                   <View style={styles.smallAvatar}>
                     <Text style={styles.smallAvatarText}>AG</Text>
                   </View>
                   <View style={{ marginLeft: 10, flex: 1 }}>
-                    <View style={[styles.rowCenter, { gap: 8, marginBottom: 4 }]}>
+                    <View
+                      style={[
+                        styles.rowCenter,
+                        { gap: 8, marginBottom: 4 },
+                      ]}
+                    >
                       <Text style={styles.titleSm}>Ana García</Text>
                       <View style={styles.row}>
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={12} color="#fbbf24" fill="#fbbf24" />
+                          <Star
+                            key={i}
+                            size={12}
+                            color="#fbbf24"
+                            fill="#fbbf24"
+                          />
                         ))}
                       </View>
                     </View>
@@ -478,23 +831,37 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
               <View style={styles.modalDetails}>
                 <Row label="Cliente" value={acceptedRequest.client} />
                 <Row label="Servicio" value={acceptedRequest.service} />
-                <Row label="Cuándo" value={`${acceptedRequest.date} • ${acceptedRequest.time}`} />
-                <Row label="Ubicación" value={acceptedRequest.location} />
-                <Row label="Precio estimado" value={acceptedRequest.price} />
+                <Row
+                  label="Cuándo"
+                  value={`${acceptedRequest.date} • ${acceptedRequest.time}`}
+                />
+                <Row
+                  label="Ubicación"
+                  value={acceptedRequest.location}
+                />
+                <Row
+                  label="Precio estimado"
+                  value={acceptedRequest.price}
+                />
               </View>
             )}
 
             <Text style={styles.modalHint}>
-              Coordina detalles (punto exacto, acceso, materiales) por WhatsApp:
+              Coordina detalles (punto exacto, acceso, materiales) por
+              WhatsApp:
             </Text>
 
-            <TouchableOpacity
-              style={styles.btnWhatsapp}
-              onPress={() => acceptedRequest && openWhatsAppAcceptance(acceptedRequest)}
-            >
-              <MessageCircle size={16} color="#fff" />
-              <Text style={styles.btnWhatsappText}>Coordinar por WhatsApp</Text>
-            </TouchableOpacity>
+            {acceptedRequest && (
+              <TouchableOpacity
+                style={styles.btnWhatsapp}
+                onPress={() => openWhatsAppAcceptance(acceptedRequest)}
+              >
+                <MessageCircle size={16} color="#fff" />
+                <Text style={styles.btnWhatsappText}>
+                  Coordinar por WhatsApp
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.btnGhost}
@@ -520,9 +887,17 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
             </View>
 
             <Text style={styles.modalTitle}>Programar visita</Text>
-            <Text style={styles.modalSubtitle}>Propón fecha y hora para coordinar con el cliente</Text>
+            <Text style={styles.modalSubtitle}>
+              Propón fecha y hora para coordinar con el cliente
+            </Text>
 
-            <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 8 }}>
+            <View
+              style={{
+                alignSelf: "stretch",
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
               <TextInput
                 style={styles.input}
                 placeholder="Fecha (YYYY-MM-DD)"
@@ -553,7 +928,10 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
                 onChangeText={setSchedLocation}
               />
               <TextInput
-                style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
+                style={[
+                  styles.input,
+                  { height: 90, textAlignVertical: "top" },
+                ]}
                 placeholder="Nota opcional para el cliente (materiales, acceso, referencias...)"
                 placeholderTextColor="#9ca3af"
                 multiline
@@ -567,14 +945,19 @@ export default function ServiceProviderScreen({ onNext }: { onNext: () => void }
               onPress={openWhatsAppSchedule}
             >
               <MessageCircle size={16} color="#fff" />
-              <Text style={styles.btnWhatsappText}>Proponer por WhatsApp</Text>
+              <Text style={styles.btnWhatsappText}>
+                Proponer por WhatsApp
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.btnGhost} onPress={saveSchedule}>
               <Text style={styles.btnGhostText}>Guardar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.btnGhost} onPress={() => setScheduleModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.btnGhost}
+              onPress={() => setScheduleModalVisible(false)}
+            >
               <Text style={styles.btnGhostText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -597,7 +980,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function KV({
   label,
   value,
-  valueColor = '#e5e7eb',
+  valueColor = "#e5e7eb",
 }: {
   label: string;
   value: string;
@@ -622,144 +1005,166 @@ function Row({ label, value }: { label: string; value: string }) {
 
 // ---------- STYLES ----------
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0b0b0b' },
+  screen: { flex: 1, backgroundColor: "#0b0b0b" },
 
   header: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    alignItems: 'center',
+    alignItems: "center",
     padding: 16,
-    backgroundColor: '#0f0f10',
+    backgroundColor: "#0f0f10",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(251,191,36,0.2)',
+    borderBottomColor: "rgba(251,191,36,0.2)",
   },
 
   backBtn: {
     width: 34,
     height: 34,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.25)',
-    backgroundColor: '#111113',
+    borderColor: "rgba(148,163,184,0.25)",
+    backgroundColor: "#111113",
     marginRight: 4,
   },
 
-  avatarWrap: { width: 64, height: 64, borderRadius: 999, overflow: 'hidden' },
-  avatar: { width: '100%', height: '100%' },
-  avatarFallback: { backgroundColor: '#1f2937', alignItems: 'center', justifyContent: 'center' },
-  avatarFallbackText: { color: '#e5e7eb', fontWeight: '700' },
+  avatarWrap: { width: 64, height: 64, borderRadius: 999, overflow: "hidden" },
+  avatar: { width: "100%", height: "100%" },
+  avatarFallback: {
+    backgroundColor: "#1f2937",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarFallbackText: { color: "#e5e7eb", fontWeight: "700" },
 
-  providerName: { color: 'white', fontWeight: '700', fontSize: 16 },
-  providerSubtitle: { color: '#9ca3af', fontSize: 13 },
+  providerName: { color: "white", fontWeight: "700", fontSize: 16 },
+  providerSubtitle: { color: "#9ca3af", fontSize: 13 },
 
-  rowCenter: { flexDirection: 'row', alignItems: 'center' },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  rowCenter: { flexDirection: "row", alignItems: "center" },
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  row: { flexDirection: "row", alignItems: "center" },
 
-  ratingText: { color: '#e5e7eb', marginLeft: 4, fontWeight: '600', fontSize: 12 },
-  grayText: { color: '#9ca3af' },
-  grayTextSmall: { color: '#9ca3af', fontSize: 12 },
+  ratingText: { color: "#e5e7eb", marginLeft: 4, fontWeight: "600", fontSize: 12 },
+  grayText: { color: "#9ca3af" },
+  grayTextSmall: { color: "#9ca3af", fontSize: 12 },
 
   badgeSecondary: {
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
+    backgroundColor: "rgba(251,191,36,0.15)",
   },
   badgeSecondaryText: {
-    color: '#fbbf24',
+    color: "#fbbf24",
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   btnOutlineSm: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(250,204,21,0.4)',
-    backgroundColor: 'transparent',
+    borderColor: "rgba(250,204,21,0.4)",
+    backgroundColor: "transparent",
     borderRadius: 10,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   btnOutline: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: "#374151",
     borderRadius: 8,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  btnOutlineText: { color: '#e5e7eb', fontWeight: '600', fontSize: 12 },
+  btnOutlineText: { color: "#e5e7eb", fontWeight: "600", fontSize: 12 },
 
   statusCard: {
     margin: 16,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#0f0f10',
+    backgroundColor: "#0f0f10",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(251,191,36,0.2)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderColor: "rgba(251,191,36,0.2)",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  statusTitle: { color: '#e5e7eb', fontWeight: '700' },
+  statusTitle: { color: "#e5e7eb", fontWeight: "700" },
 
-  switchBase: { width: 42, height: 24, borderRadius: 999, padding: 2, justifyContent: 'center' },
-  switchThumb: { width: 20, height: 20, borderRadius: 999, backgroundColor: '#111827' },
+  switchBase: {
+    width: 42,
+    height: 24,
+    borderRadius: 999,
+    padding: 2,
+    justifyContent: "center",
+  },
+  switchThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: "#111827",
+  },
 
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 12 },
 
   card: {
-    backgroundColor: '#0f0f10',
+    backgroundColor: "#0f0f10",
     padding: 12,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
-    alignSelf: 'stretch',
+    borderColor: "rgba(148,163,184,0.2)",
+    alignSelf: "stretch",
     paddingBottom: 14,
   },
   cardStat: { flex: 1 },
-  statNumber: { fontSize: 22, fontWeight: '800' },
+  statNumber: { fontSize: 22, fontWeight: "800" },
 
   tabsList: {
-    flexDirection: 'row',
-    backgroundColor: '#0f0f10',
+    flexDirection: "row",
+    backgroundColor: "#0f0f10",
     borderRadius: 999,
     padding: 4,
     marginBottom: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: "rgba(148,163,184,0.2)",
   },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: 'center' },
-  tabText: { color: '#e5e7eb', fontWeight: '600' },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: "center" },
+  tabText: { color: "#e5e7eb", fontWeight: "600" },
 
-  cardWarn: { borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(251,191,36,0.06)' },
-  warnText: { color: '#fbbf24', fontWeight: '600' },
+  cardWarn: {
+    borderColor: "rgba(251,191,36,0.4)",
+    backgroundColor: "rgba(251,191,36,0.06)",
+  },
+  warnText: { color: "#fbbf24", fontWeight: "600" },
 
   smallAvatar: {
     width: 36,
     height: 36,
     borderRadius: 999,
-    backgroundColor: '#1f2937',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1f2937",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 10,
   },
-  smallAvatarText: { color: '#e5e7eb', fontWeight: '700' },
+  smallAvatarText: { color: "#e5e7eb", fontWeight: "700" },
 
-  title: { color: '#e5e7eb', fontWeight: '700' },
-  titleSm: { color: '#e5e7eb', fontWeight: '700', fontSize: 13 },
+  title: { color: "#e5e7eb", fontWeight: "700" },
+  titleSm: { color: "#e5e7eb", fontWeight: "700", fontSize: 13 },
 
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -767,49 +1172,70 @@ const styles = StyleSheet.create({
     marginTop: 6,
     borderWidth: 1,
   },
-  pillText: { fontSize: 11, fontWeight: '700' },
+  pillText: { fontSize: 11, fontWeight: "700" },
 
-  btnPrimarySm: { backgroundColor: '#fbbf24', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  btnPrimaryText: { color: '#111827', fontWeight: '700', fontSize: 12 },
+  btnPrimarySm: {
+    backgroundColor: "#fbbf24",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  btnPrimaryText: { color: "#111827", fontWeight: "700", fontSize: 12 },
 
-  footerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8 },
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
 
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
 
-  badgeDanger: { backgroundColor: '#ef4444', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  badgeDangerText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  badgeDanger: {
+    backgroundColor: "#ef4444",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  badgeDangerText: { color: "white", fontSize: 10, fontWeight: "700" },
 
-  fieldLabel: { color: '#9ca3af', fontSize: 12 },
-  fieldValue: { color: '#e5e7eb', fontWeight: '600', marginTop: 2 },
+  fieldLabel: { color: "#9ca3af", fontSize: 12 },
+  fieldValue: { color: "#e5e7eb", fontWeight: "600", marginTop: 2 },
 
-  badgeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  badgeWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   badgeChip: {
-    backgroundColor: '#111827',
+    backgroundColor: "#111827",
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: "#374151",
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
   },
-  badgeChipText: { color: '#e5e7eb', fontSize: 12 },
+  badgeChipText: { color: "#e5e7eb", fontSize: 12 },
 
-  // ------- Modales (nuevo estilo) -------
+  // ------- Modales -------
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 18,
   },
   modalContainer: {
-    backgroundColor: '#1b1b1b',
+    backgroundColor: "#1b1b1b",
     padding: 20,
     borderRadius: 16,
-    width: '86%',
-    alignItems: 'center',
+    width: "86%",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    shadowColor: '#000',
+    borderColor: "rgba(255,255,255,0.06)",
+    shadowColor: "#000",
     shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 14 },
     shadowRadius: 24,
@@ -822,68 +1248,73 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 6,
   },
-  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  modalSubtitle: { color: '#cbd5e1', fontSize: 13, marginTop: -6 },
-  modalHint: { color: '#cbd5e1', fontSize: 13, textAlign: 'center', marginTop: 6 },
+  modalTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  modalSubtitle: { color: "#cbd5e1", fontSize: 13, marginTop: -6 },
+  modalHint: { color: "#cbd5e1", fontSize: 13, textAlign: "center", marginTop: 6 },
 
   modalDetails: {
-    alignSelf: 'stretch',
-    backgroundColor: '#121212',
+    alignSelf: "stretch",
+    backgroundColor: "#121212",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: "rgba(255,255,255,0.06)",
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
   rowLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  rowLineLabel: { color: '#9ca3af', fontSize: 12 },
-  rowLineValue: { color: '#e5e7eb', fontWeight: '700', fontSize: 13 },
+  rowLineLabel: { color: "#9ca3af", fontSize: 12 },
+  rowLineValue: { color: "#e5e7eb", fontWeight: "700", fontSize: 13 },
 
   // Botón WhatsApp verde
   btnWhatsapp: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
     marginTop: 6,
-    backgroundColor: '#25D366',
+    backgroundColor: "#25D366",
     borderRadius: 10,
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: 8,
   },
-  btnWhatsappText: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
+  btnWhatsappText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
 
-  // Botón "ghost" (texto blanco, contorno sutil)
+  // Botón ghost
   btnGhost: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
     marginTop: 8,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  btnGhostText: { color: '#e5e7eb', fontWeight: '700' },
+  btnGhostText: { color: "#e5e7eb", fontWeight: "700" },
 
-  // Inputs del modal
+  // Inputs modal
   input: {
-    width: '100%',
+    width: "100%",
     height: 48,
-    borderColor: '#2b2b2b',
+    borderColor: "#2b2b2b",
     borderWidth: 1,
-    color: '#fff',
+    color: "#fff",
     paddingHorizontal: 12,
     borderRadius: 10,
     fontSize: 15,
-    backgroundColor: '#151515',
+    backgroundColor: "#151515",
   },
 });

@@ -1,29 +1,84 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Button } from '../../../components/ui/button'; // Asegúrate de que el botón esté importado correctamente
+import { Ionicons } from "@expo/vector-icons";
+import { Link, useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Button } from "../../../components/ui/button";
 
-export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+import { saveUserSession } from "../../../utils/secureStore";
+
+const API_URL = "http://192.168.1.68:3000/api/auth/login";
+
+export default function LoginScreen() {
   const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const handleLogin = async () => {
+    setMsg("");
+
+    if (!email || !password) {
+      setMsg("Completa ambos campos.");
+      return;
+    }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo: email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsg(data.mensaje || "Credenciales incorrectas");
+        return;
+      }
+
+      // Guardar sesión local (user)
+      await saveUserSession({
+  _id: data.usuario._id,
+  
+  nombre: data.usuario.nombre,
+  correo: data.usuario.correo,
+  rol: data.usuario.rol,        // 👈 SUPER IMPORTANTE
+  avatar: data.usuario.avatar,  // opcional
+});
+
+
+      // Ir al home
+      router.push("/(tabs)");
+
+    } catch (err) {
+      console.log("Error:", err);
+      setMsg("No se pudo conectar al servidor");
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Logo */}
+      {/* LOGO BACKGROUND */}
       <Image
-        source={require('../../../assets/images/logoGris2.png')}  // Asegúrate de poner la ruta correcta de la imagen
+        source={require("../../../assets/images/logoGris2.png")}
         style={styles.logoBackground}
       />
 
-
       <Text style={styles.title}>¡Bienvenido!</Text>
-      <Text style={styles.subtitle}>Ingresa tus datos para acceder a tu cuenta</Text>
+      <Text style={styles.subtitle}>
+        Ingresa tus datos para acceder a tu cuenta
+      </Text>
 
-      {/* Contenedor de los campos de input */}
       <View style={styles.inputContainer}>
-        {/* Campo de Correo Electrónico */}
+        {/* Email */}
         <View style={styles.inputField}>
           <Ionicons name="mail" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
@@ -36,100 +91,92 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
           />
         </View>
 
-        {/* Campo de Contraseña */}
+        {/* Password */}
         <View style={styles.inputField}>
           <Ionicons name="lock-closed" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Contraseña"
             placeholderTextColor="gray"
+            secureTextEntry
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
           />
         </View>
 
-        {/* Botón de Iniciar Sesión */}
-        <Button onPress={() => router.push('/(tabs)')} style={styles.loginButton}>
+        {/* Mensaje de error */}
+        {msg.length > 0 && <Text style={styles.msg}>{msg}</Text>}
+
+        {/* Botón Login */}
+        <Button onPress={handleLogin} style={styles.loginButton}>
           Iniciar Sesión
         </Button>
 
-        {/* Olvidaste tu contraseña */}
         <TouchableOpacity>
-          <Text style={styles.forgotPassword}>Olvidaste tu contraseña?</Text>
+          <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Opción para registrarse */}
-      <View style={styles.registerContainer}>
-
-<View style={styles.registerContainer}>
-  <Text style={styles.registerText}>
-    ¿No tienes cuenta?{' '}
-    <Link href="/Login/RegisterScreen">
-      <Text style={styles.linkText}>Regístrate aquí</Text>
-    </Link>
-  </Text>
-</View>
-
-      </View>
+      {/* Registro */}
+      <Text style={styles.registerText}>
+        ¿No tienes cuenta?{" "}
+        <Link href="/Login/RegisterScreen">
+          <Text style={styles.linkText}>Regístrate aquí</Text>
+        </Link>
+      </Text>
 
       {/* Footer */}
       <Text style={styles.footerText}>
-        Al continuar, aceptas nuestros{' '}
-        <Text style={styles.linkText}>Términos de Servicio</Text> y{' '}
+        Al continuar, aceptas nuestros{" "}
+        <Text style={styles.linkText}>Términos de Servicio</Text> y{" "}
         <Text style={styles.linkText}>Política de Privacidad</Text>
       </Text>
     </View>
   );
 }
 
+/* ============================
+   🎨 ESTILOS
+============================ */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111111',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#111111",
     padding: 16,
   },
-  logo: {
-    width: 150,  // Ajusta el tamaño de la imagen del logo
-    height: 150,  // Ajusta el tamaño de la imagen del logo
-    marginBottom: 40,  // Espacio entre el logo y el título
-  },
-    logoBackground: {
-    position: 'absolute',  // Esto coloca el logo en la parte inferior como fondo
+  logoBackground: {
+    position: "absolute",
     top: 0,
-    left: '17%',
-    right: '50%',
-    opacity: 0.05, // Hacemos el logo un poco transparente para que no opaque el contenido
-    zIndex: -1,  // Coloca el logo por debajo de los demás componentes
-
+    left: "17%",
+    opacity: 0.05,
+    zIndex: -1,
   },
   title: {
     fontSize: 30,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: 'gray',
+    color: "gray",
     marginBottom: 30,
   },
   inputContainer: {
-    width: '80%',  // Establecer un ancho fijo
+    width: "80%",
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   inputField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#333',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#333",
     marginBottom: 20,
     paddingHorizontal: 12,
     borderRadius: 8,
-    width: '100%',
+    width: "100%",
     height: 50,
   },
   inputIcon: {
@@ -138,44 +185,41 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: 'white',
+    color: "white",
   },
   loginButton: {
-    backgroundColor: '#FFEB3B',
+    backgroundColor: "#FFEB3B",
     paddingVertical: 15,
-    paddingHorizontal: 40,
-    fontSize: 16,
-    fontWeight: 'bold',
     borderRadius: 8,
-    width: '100%',
+    width: "100%",
+    marginTop: 10,
     marginBottom: 20,
-    textAlign: 'center',  // Centrar el texto
-    justifyContent: 'center',  // Vertically center
-    alignItems: 'center',  // Horizontally center
   },
   forgotPassword: {
-    color: '#FFEB3B',
+    color: "#FFEB3B",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 30,
-  },
-  registerContainer: {
-    marginTop: 10,
   },
   registerText: {
     fontSize: 14,
-    color: 'white',
-    textAlign: 'center',
+    color: "white",
+    marginTop: 4,
+    textAlign: "center",
   },
   linkText: {
-    color: '#FFEB3B',
-    fontWeight: 'bold',
-    paddingBottom: 10,
+    color: "#FFEB3B",
+    fontWeight: "bold",
   },
   footerText: {
-    color: 'gray',
+    color: "gray",
     fontSize: 12,
-    textAlign: 'center',
-    marginTop: 20
+    textAlign: "center",
+    marginTop: 20,
+  },
+  msg: {
+    color: "#f87171",
+    marginBottom: 4,
+    fontSize: 13,
   },
 });

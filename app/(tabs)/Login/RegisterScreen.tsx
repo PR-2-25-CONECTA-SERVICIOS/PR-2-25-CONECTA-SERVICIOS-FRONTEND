@@ -1,32 +1,88 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Link, useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Button } from "../../../components/ui/button";
 
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Button } from '../../../components/ui/button'; // Asegúrate de que el botón esté importado correctamente
+// ===========================
+// 🔗 URL BACKEND
+// ===========================
+const API_URL = "http://192.168.1.68:3000/api/auth/register";  
+// ⚠️ Cambia la IP por la tuya si es necesario
 
-export default function RegisterScreen({ onRegister }: { onRegister: () => void }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('');
+export default function RegisterScreen() {
   const router = useRouter();
 
+  // --------------------------
+  // STATE
+  // --------------------------
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // --------------------------
+  // 📌 HANDLER DEL REGISTRO
+  // --------------------------
+  const handleRegister = async () => {
+    if (!name || !email || !password) {
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      return;
+    }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: name,
+          correo: email,
+          password,
+          telefono: phone,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return;
+      }
+
+      router.push("/Login/LoginScreen");
+
+    } catch (error) {
+      console.log("❌ Error en el registro:", error);
+    }
+  };
+
+  // ===========================
+  // 🌟 UI
+  // ===========================
   return (
     <View style={styles.container}>
-      {/* Logo como fondo */}
+
+      {/* LOGO DE FONDO */}
       <Image
-        source={require('../../../assets/images/logoGris2.png')}  // Asegúrate de poner la ruta correcta de la imagen
+        source={require("../../../assets/images/logoGris2.png")}
         style={styles.logoBackground}
       />
 
       <Text style={styles.title}>¡Regístrate!</Text>
       <Text style={styles.subtitle}>Crea tu cuenta para comenzar a usar la app</Text>
 
-      {/* Contenedor de los campos de input */}
       <View style={styles.inputContainer}>
-        {/* Campo de Nombre Completo */}
+
+        {/* Nombre */}
         <View style={styles.inputField}>
           <Ionicons name="person" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
@@ -38,7 +94,7 @@ export default function RegisterScreen({ onRegister }: { onRegister: () => void 
           />
         </View>
 
-        {/* Campo de Correo Electrónico */}
+        {/* Correo */}
         <View style={styles.inputField}>
           <Ionicons name="mail" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
@@ -51,33 +107,33 @@ export default function RegisterScreen({ onRegister }: { onRegister: () => void 
           />
         </View>
 
-        {/* Campo de Contraseña */}
+        {/* Contraseña */}
         <View style={styles.inputField}>
           <Ionicons name="lock-closed" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Contraseña"
             placeholderTextColor="gray"
+            secureTextEntry
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
           />
         </View>
 
-        {/* Confirmación de Contraseña */}
+        {/* Confirmar Contraseña */}
         <View style={styles.inputField}>
           <Ionicons name="lock-closed" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Confirmar Contraseña"
             placeholderTextColor="gray"
+            secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry
           />
         </View>
 
-        {/* Campo de Teléfono */}
+        {/* Teléfono */}
         <View style={styles.inputField}>
           <Ionicons name="call" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
@@ -90,67 +146,67 @@ export default function RegisterScreen({ onRegister }: { onRegister: () => void 
           />
         </View>
 
-        {/* Botón de Registrar */}
-        <Button onPress={() => router.push('/(tabs)')} style={styles.loginButton}>
+        {/* Botón Registrar */}
+        <Button style={styles.loginButton} onPress={handleRegister}>
           Registrar
         </Button>
-
-
       </View>
 
       {/* Footer */}
-<Text style={styles.footerText}>
-  ¿Ya tienes cuenta?{' '}
-  <Link href="/Login/LoginScreen">
-    <Text style={styles.linkText}>Inicia sesión aquí</Text>
-  </Link>
-</Text>
+      <Text style={styles.footerText}>
+        ¿Ya tienes cuenta?{" "}
+        <Link href="/Login/LoginScreen">
+          <Text style={styles.linkText}>Inicia sesión aquí</Text>
+        </Link>
+      </Text>
+
     </View>
   );
 }
 
+// ===========================
+// 🎨 ESTILOS
+// ===========================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111111',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#111111",
     padding: 16,
-    position: 'relative', // Hacer que los elementos del fondo puedan colocarse por encima
+    position: "relative",
   },
-    logoBackground: {
-    position: 'absolute',  // Esto coloca el logo en la parte inferior como fondo
+  logoBackground: {
+    position: "absolute",
     top: 0,
-    left: '17%',
-    right: '50%',
-    opacity: 0.05, // Hacemos el logo un poco transparente para que no opaque el contenido
-    zIndex: -1,  // Coloca el logo por debajo de los demás componentes
-
+    left: "17%",
+    opacity: 0.05,
+    zIndex: -1,
   },
   title: {
     fontSize: 30,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: 'gray',
+    color: "gray",
     marginBottom: 30,
   },
   inputContainer: {
-    width: '80%',  // Establecer un ancho fijo
+    width: "80%",
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   inputField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#333',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#333",
     marginBottom: 20,
     paddingHorizontal: 12,
     borderRadius: 8,
-    width: '100%',
+    width: "100%",
     height: 50,
   },
   inputIcon: {
@@ -159,41 +215,23 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: 'white',
+    color: "white",
   },
   loginButton: {
-    backgroundColor: '#FFEB3B',
+    backgroundColor: "#FFEB3B",
     paddingVertical: 15,
     paddingHorizontal: 40,
-    fontSize: 16,
-    fontWeight: 'bold',
     borderRadius: 8,
-    width: '100%',
-    marginBottom: 20,
-    textAlign: 'center',  // Centrar el texto
+    width: "100%",
     marginTop: 40,
   },
-  forgotPassword: {
-    color: '#FFEB3B',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  registerContainer: {
-    marginTop: 10,
-  },
-  registerText: {
-    fontSize: 14,
-    color: 'white',
-    textAlign: 'center',
-  },
   linkText: {
-    color: '#FFEB3B',
-    fontWeight: 'bold',
+    color: "#FFEB3B",
+    fontWeight: "bold",
   },
   footerText: {
-    color: 'gray',
+    color: "gray",
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

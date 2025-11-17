@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Heart, MapPin, Search, SlidersHorizontal, Star } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -13,100 +13,36 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+interface IService {
+  _id: string;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  precio: string;
+  imagen: string;
+  calificacion?: number;
+  opiniones?: number;
+  distancia?: string;
+  disponible?: boolean;
+}
 
+// 🔥 CATEGORÍAS IGUALES A TU FRONT
 const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
 
-const highlightedServices = [
-  {
-    id: '1',
-    name: 'Plomería Express',
-    category: 'Plomería',
-    rating: 4.8,
-    reviews: 127,
-    distance: '0.8 km',
-    price: '$50-80/hora',
-    description: 'Reparaciones rápidas y eficientes de tuberías y grifos.',
-    image:
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=2070&auto=format&fit=crop',
-    available: true,
-  },
-    {
-    id: '3',
-    name: 'Delivery Rápido',
-    category: 'Delivery',
-    rating: 4.5,
-    reviews: 45,
-    distance: '2 km',
-    price: '$10-20/hora',
-    description: 'Entrega de productos en tiempo récord.',
-    image:
-      'https://images.unsplash.com/photo-1695654390723-479197a8c4a3?q=80&w=1134&auto=format&fit=crop',
-    available: true,
-  },
-  
-  {
-    id: '2',
-    name: 'Limpieza Total',
-    category: 'Limpieza',
-    rating: 4.6,
-    reviews: 89,
-    distance: '1.2 km',
-    price: '$30-50/hora',
-    description: 'Limpieza profunda de hogares y oficinas.',
-    image:
-      'https://plus.unsplash.com/premium_photo-1663011218145-c1d0c3ba3542?q=80&w=1170&auto=format&fit=crop',
-    available: true,
-  },
-];
-
-const allServices = [
-  ...highlightedServices,
-  {
-    id: '3',
-    name: 'Delivery Rápido',
-    category: 'Delivery',
-    rating: 4.5,
-    reviews: 45,
-    distance: '2 km',
-    price: '$10-20/hora',
-    description: 'Entrega de productos en tiempo récord.',
-    image:
-      'https://images.unsplash.com/photo-1695654390723-479197a8c4a3?q=80&w=1134&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    id: '4',
-    name: 'Electricista 24/7',
-    category: 'Electricidad',
-    rating: 4.9,
-    reviews: 210,
-    distance: '3.4 km',
-    price: '$60-90/hora',
-    description: 'Instalaciones y emergencias eléctricas.',
-    image:
-      'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1974&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    id: '5',
-    name: 'Restaurante Don Pepe',
-    category: 'Restaurantes',
-    rating: 4.7,
-    reviews: 342,
-    distance: '900 m',
-    price: '$$',
-    description: 'Comida casera con toque gourmet.',
-    image:
-      'https://images.unsplash.com/photo-1541542684-4a163f2b40b2?q=80&w=2070&auto=format&fit=crop',
-    available: true,
-  },
-];
+// 🔥 URL REAL DE TU BACKEND
+const API_URL = "http://192.168.1.68:3000/api/servicios";
 
 export default function ServiceCatalogScreen() {
   const router = useRouter();
+
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
+const [services, setServices] = useState<IService[]>([]);
+const [highlighted, setHighlighted] = useState<IService[]>([]);
+
+
+  // Responsive grid config
   const { width } = Dimensions.get('window');
   const isWide = width >= 720;
   const numColumns = isWide ? 3 : 2;
@@ -115,25 +51,56 @@ export default function ServiceCatalogScreen() {
   const cardWidth =
     (width - gridPadding * 2 - horizontalGap * (numColumns - 1)) / numColumns;
 
-  const filteredServices = useMemo(
-    () =>
-      allServices.filter(
-        s =>
-          (selectedCategory === 'Todos' || s.category === selectedCategory) &&
-          s.name.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [selectedCategory, search],
-  );
+  // -----------------------------------------
+  // 🔥 CARGAR SERVICIOS AL INICIAR
+  // -----------------------------------------
+  useEffect(() => {
+    loadInitialData();
+    
+  }, []);
 
-  const filteredHighlighted = useMemo(
-    () =>
-      highlightedServices.filter(
-        s => selectedCategory === 'Todos' || s.category === selectedCategory,
-      ),
-    [selectedCategory],
-  );
+  const loadInitialData = async () => {
+    try {
+      // Todos los servicios
+      const all = await fetch(API_URL);
+      const jsonAll = await all.json();
+      setServices(jsonAll);
+
+      // Destacados
+      const high = await fetch(`${API_URL}/destacados`);
+      const jsonHigh = await high.json();
+      setHighlighted(jsonHigh);
+
+    } catch (error) {
+      console.error("❌ Error cargando servicios:", error);
+    }
+  };
+
+  // -----------------------------------------
+  // 🔥 FILTRO REAL DESDE BACKEND
+  // -----------------------------------------
+  useEffect(() => {
+    filterFromBackend();
+  }, [search, selectedCategory]);
+
+  const filterFromBackend = async () => {
+    try {
+      const url = `${API_URL}/buscar?q=${search}&categoria=${selectedCategory}`;
+      const res = await fetch(url);
+      const json = await res.json();
+
+      setServices(json);
+    } catch (e) {
+      console.log("Error filtrando:", e);
+    }
+  };
+
+  //------------------------------------------
+  // UI RENDER METHODS
+  //------------------------------------------
 
   const renderCategory = ({ item }: { item: string }) => (
+
     <TouchableOpacity
       style={[
         styles.categoryButton,
@@ -153,28 +120,31 @@ export default function ServiceCatalogScreen() {
     </TouchableOpacity>
   );
 
-  const renderService = ({ item }: { item: any }) => (
+  const renderService = ({ item }: { item: IService }) => (
+
     <TouchableOpacity
       style={[styles.serviceCard, { width: cardWidth }]}
-      onPress={() => router.push('/ServiceDetail')}
+      onPress={() => router.push(`/ServiceDetail?id=${item._id}`)}
       activeOpacity={0.95}
     >
       <View style={styles.serviceImageWrap}>
-        <Image source={{ uri: item.image }} style={styles.serviceImage} />
-        {/* Overlay: rating & distance */}
+        <Image source={{ uri: item.imagen }} style={styles.serviceImage} />
+
         <View style={styles.overlayRow}>
           <View style={styles.badgeDark}>
             <Star size={12} color="#fbbf24" />
             <Text style={styles.badgeDarkText}>
-              {item.rating} <Text style={{ color: '#9ca3af' }}>({item.reviews})</Text>
+              {item.calificacion || 0}{' '}
+              <Text style={{ color: '#9ca3af' }}>({item.opiniones || 0})</Text>
             </Text>
           </View>
+
           <View style={styles.badgeDark}>
             <MapPin size={12} color="#e5e7eb" />
-            <Text style={styles.badgeDarkText}>{item.distance}</Text>
+            <Text style={styles.badgeDarkText}>{item.distancia || "1 km"}</Text>
           </View>
         </View>
-        {/* Heart */}
+
         <View style={styles.heartWrap}>
           <View style={styles.heartBtn}>
             <Heart size={14} color="#e5e7eb" />
@@ -184,13 +154,15 @@ export default function ServiceCatalogScreen() {
 
       <View style={styles.serviceBody}>
         <Text numberOfLines={1} style={styles.serviceName}>
-          {item.name}
+          {item.nombre}
         </Text>
-        <Text style={styles.serviceCategory}>{item.category}</Text>
-        <Text style={styles.servicePrice}>{item.price}</Text>
+        <Text style={styles.serviceCategory}>{item.categoria}</Text>
+        <Text style={styles.servicePrice}>{item.precio || "$ -"}</Text>
       </View>
     </TouchableOpacity>
   );
+
+  //------------------------------------------
 
   return (
     <View style={styles.screen}>
@@ -199,11 +171,13 @@ export default function ServiceCatalogScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
+        
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>¡Hola, María!</Text>
             <Text style={styles.subGreeting}>¿Qué servicio necesitas hoy?</Text>
           </View>
+
           <TouchableOpacity
             onPress={() => router.push('/ProfileViewScreen')}
             style={styles.profileBtn}
@@ -226,12 +200,13 @@ export default function ServiceCatalogScreen() {
               returnKeyType="search"
             />
           </View>
+
           <TouchableOpacity style={styles.filterBtn} activeOpacity={0.9}>
             <SlidersHorizontal size={18} color="#111827" />
           </TouchableOpacity>
         </View>
 
-        {/* Categories (horizontal) */}
+        {/* Categories */}
         <FlatList
           horizontal
           data={categories}
@@ -242,62 +217,67 @@ export default function ServiceCatalogScreen() {
         />
 
         {/* Highlighted */}
-        {filteredHighlighted.length > 0 && (
+        {highlighted.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Servicios Destacados</Text>
+
             <FlatList
-              data={filteredHighlighted}
-              keyExtractor={item => item.id}
+              data={highlighted}
+              keyExtractor={item => item._id}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 16 }}
-              snapToAlignment="start"
-              decelerationRate="fast"
-              snapToInterval={Math.min(width * 0.78, 290) + 12}
               ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
               renderItem={({ item }) => {
                 const cardW = Math.min(width * 0.78, 290);
+
                 return (
                   <TouchableOpacity
                     style={[styles.highlightCard, { width: cardW }]}
-                    onPress={() => router.push('/ServiceDetail')}
+                    onPress={() => router.push(`/ServiceDetail?id=${item._id}`)}
                     activeOpacity={0.95}
                   >
                     <View style={styles.highlightImageWrap}>
-                      <Image source={{ uri: item.image }} style={styles.highlightImage} />
+                      <Image source={{ uri: item.imagen }} style={styles.highlightImage} />
+
                       <View style={styles.topRow}>
                         <View style={styles.badgeGold}>
                           <Text style={styles.badgeGoldText}>
-                            {item.available ? 'Disponible' : 'No disp.'}
+                            {item.disponible ? 'Disponible' : 'No disp.'}
                           </Text>
                         </View>
+
                         <View style={styles.heartBtn}>
                           <Heart size={14} color="#e5e7eb" />
                         </View>
                       </View>
+
                       <View style={styles.bottomRow}>
                         <View style={styles.badgeDark}>
                           <Star size={12} color="#fbbf24" />
                           <Text style={styles.badgeDarkText}>
-                            {item.rating}{' '}
-                            <Text style={{ color: '#9ca3af' }}>({item.reviews})</Text>
+                            {item.calificacion || 0}{' '}
+                            <Text style={{ color: '#9ca3af' }}>({item.opiniones || 0})</Text>
                           </Text>
                         </View>
+
                         <View style={styles.badgeDark}>
                           <MapPin size={12} color="#e5e7eb" />
-                          <Text style={styles.badgeDarkText}>{item.distance}</Text>
+                          <Text style={styles.badgeDarkText}>{item.distancia || "1 km"}</Text>
                         </View>
                       </View>
                     </View>
 
                     <View style={styles.highlightBody}>
                       <Text numberOfLines={1} style={styles.highlightName}>
-                        {item.name}
+                        {item.nombre}
                       </Text>
+
                       <Text style={styles.highlightDesc} numberOfLines={2}>
-                        {item.description}
+                        {item.descripcion}
                       </Text>
-                      <Text style={styles.highlightPrice}>{item.price}</Text>
+
+                      <Text style={styles.highlightPrice}>{item.precio || "$ -"}</Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -306,18 +286,21 @@ export default function ServiceCatalogScreen() {
           </View>
         )}
 
-        {/* All services (responsive grid) */}
+        {/* All services */}
         <View style={[styles.section, { paddingTop: 6 }]}>
           <Text style={styles.sectionTitle}>Todos los Servicios</Text>
 
           <FlatList
-            data={filteredServices}
-            keyExtractor={item => item.id}
+            data={services}
+            keyExtractor={item => item._id}
             numColumns={numColumns}
             showsVerticalScrollIndicator={false}
-            columnWrapperStyle={{ gap: horizontalGap, paddingHorizontal: gridPadding }}
+            columnWrapperStyle={{
+              gap: horizontalGap,
+              paddingHorizontal: gridPadding
+            }}
             ItemSeparatorComponent={() => <View style={{ height: horizontalGap }} />}
-            scrollEnabled={false} // <- el ScrollView maneja el scroll
+            scrollEnabled={false}
             renderItem={renderService}
           />
         </View>
@@ -326,10 +309,12 @@ export default function ServiceCatalogScreen() {
   );
 }
 
+// ---------------------------------------------
+// 🔥 TUS ESTILOS ORIGINALES COMPLETOS
+// ---------------------------------------------
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0b0b0b', paddingTop: Platform.select({ ios: 52, android: 36 }) },
 
-  // Header
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -349,7 +334,6 @@ const styles = StyleSheet.create({
   },
   profileInitials: { color: '#111827', fontWeight: '900' },
 
-  // Search
   searchRow: { paddingHorizontal: 16, flexDirection: 'row', gap: 10, marginBottom: 10 },
   searchWrap: {
     flex: 1,
@@ -373,7 +357,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbbf24',
   },
 
-  // Categories
   categoriesRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   categoryButton: {
     paddingVertical: 8,
@@ -391,7 +374,6 @@ const styles = StyleSheet.create({
   categoryText: { color: '#e5e7eb', fontSize: 13, fontWeight: '600' },
   categoryTextSelected: { color: '#fbbf24', fontWeight: '800' },
 
-  // Sections
   section: { marginTop: 8, marginBottom: 4 },
   sectionTitle: {
     color: '#e5e7eb',
@@ -465,7 +447,7 @@ const styles = StyleSheet.create({
   highlightDesc: { color: '#cbd5e1', fontSize: 12 },
   highlightPrice: { color: '#fbbf24', fontWeight: '900', marginTop: 4 },
 
-  // Grid service card
+  // Services grid
   serviceCard: {
     backgroundColor: '#0f0f10',
     borderRadius: 14,
