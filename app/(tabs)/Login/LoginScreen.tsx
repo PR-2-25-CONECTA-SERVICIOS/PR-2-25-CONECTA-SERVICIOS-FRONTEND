@@ -13,7 +13,7 @@ import { Button } from "../../../components/ui/button";
 
 import { saveUserSession } from "../../../utils/secureStore";
 
-const API_URL = "http://192.168.1.68:3000/api/auth/login";
+const API_URL = "http://192.168.0.6:3000/api/auth/login";
 
 export default function LoginScreen() {
   const router = useRouter();

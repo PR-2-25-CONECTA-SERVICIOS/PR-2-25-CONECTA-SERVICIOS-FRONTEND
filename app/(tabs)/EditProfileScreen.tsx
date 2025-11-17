@@ -10,12 +10,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 import { loadUserSession, saveUserSession } from "../../utils/secureStore";
 
-const API_URL = "http://192.168.1.68:3000/api/usuarios/";
+const API_URL = "http://192.168.0.6:3000/api/usuarios/";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -60,6 +60,37 @@ export default function EditProfileScreen() {
 
     loadProfile();
   }, []);
+  const uploadImageToCloudinary = async (imageUri: string) => {
+    try {
+      const uri = imageUri;
+
+      const data = new FormData();
+      data.append("file", {
+        uri,
+        type: "image/jpeg",
+        name: "upload.jpg",
+      } as any);
+
+      data.append("upload_preset", "imagescloudexp"); // solo esto
+      // ❌ NO añadir cloud_name aquí
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload`,
+        {
+          method: "POST",
+          body: data,
+        }
+      );
+
+      const json = await res.json();
+      console.log("CLOUDINARY RESPONSE:", json);
+
+      return json.secure_url;
+    } catch (err) {
+      console.log("ERROR SUBIENDO A CLOUDINARY:", err);
+      return null;
+    }
+  };
 
   /* ---------------------------------------------
       🔹 SELECCIONAR FOTO
@@ -68,12 +99,23 @@ export default function EditProfileScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [4, 4],
       quality: 1,
     });
 
-    if (result.assets && result.assets.length > 0) {
-      setPhoto(result.assets[0].uri);
+    if (!result.canceled && result.assets.length > 0) {
+      const localUri = result.assets[0].uri;
+
+      // 1. Mostrar preview temporal
+      setPhoto(localUri);
+
+      // 2. Subir a Cloudinary
+      const cloudUrl = await uploadImageToCloudinary(localUri);
+
+      // 3. Reemplazar con el link final
+      setPhoto(cloudUrl);
+
+      console.log("📤 Imagen subida:", cloudUrl);
     }
   };
 
@@ -126,7 +168,14 @@ export default function EditProfileScreen() {
   ----------------------------------------------*/
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#000",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         <ActivityIndicator size="large" color="#fbbf24" />
         <Text style={{ color: "#fff", marginTop: 10 }}>Cargando...</Text>
       </View>
@@ -186,8 +235,14 @@ export default function EditProfileScreen() {
         />
 
         {/* GUARDAR */}
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-          <Text style={styles.saveButtonText}>{saving ? "Guardando..." : "Guardar Cambios"}</Text>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={styles.saveButtonText}>
+            {saving ? "Guardando..." : "Guardar Cambios"}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

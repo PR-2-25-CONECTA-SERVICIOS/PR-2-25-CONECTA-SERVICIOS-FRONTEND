@@ -30,7 +30,7 @@ interface IService {
 const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
 
 // 🔥 URL REAL DE TU BACKEND
-const API_URL = "http://192.168.1.68:3000/api/servicios";
+const API_URL = "http://192.168.0.6:3000/api/servicios";
 
 export default function ServiceCatalogScreen() {
   const router = useRouter();

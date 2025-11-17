@@ -21,7 +21,7 @@ import {
 import { clearUserSession, loadUserSession } from "../../utils/secureStore";
 
 // 🔥 TU BACKEND REAL
-const API_URL = "http://192.168.1.68:3000/api/usuarios/";
+const API_URL = "http://192.168.0.6:3000/api/usuarios/";
 
 type Service = {
   id: string;
@@ -74,11 +74,11 @@ export default function ProfileViewScreen() {
     const loadProfile = async () => {
       try {
         const session = await loadUserSession();
-if (!session || !session._id) {
-  return router.replace("/Login/LoginScreen");
-}
+        if (!session || !session._id) {
+          return router.replace("/Login/LoginScreen");
+        }
 
-const res = await fetch(API_URL + session._id);
+        const res = await fetch(API_URL + session._id);
 
         const raw = await res.text();
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -105,18 +105,17 @@ const res = await fetch(API_URL + session._id);
             tags: s.tags || [],
             photo: s.imagen,
           })),
-locals: (data.locales || []).map((l: any) => ({
-  id: l._id,
-  name: l.nombre,
-  address: l.direccion,
-  verified: l.verificado || false,
-  thumb: l.imagen,
-  phone: l.telefono || "",
-  lat: l.lat,
-  lng: l.lng,
-  createdAt: l.createdAt,
-})),
-
+          locals: (data.locales || []).map((l: any) => ({
+            id: l._id,
+            name: l.nombre,
+            address: l.direccion,
+            verified: l.verificado || false,
+            thumb: l.imagen,
+            phone: l.telefono || "",
+            lat: l.lat,
+            lng: l.lng,
+            createdAt: l.createdAt,
+          })),
         };
 
         setProfile(userProfile);
@@ -130,62 +129,61 @@ locals: (data.locales || []).map((l: any) => ({
     };
 
     loadProfile();
-    
   }, []);
-useFocusEffect(
-  useCallback(() => {
-    const refresh = async () => {
-      const session = await loadUserSession();
-      if (!session || !session._id) return;
+  useFocusEffect(
+    useCallback(() => {
+      const refresh = async () => {
+        const session = await loadUserSession();
+        if (!session || !session._id) return;
 
-      try {
-        const userId = session._id || session.id;
-const res = await fetch(API_URL + userId);
+        try {
+          const userId = session._id || session.id;
+          const res = await fetch(API_URL + userId);
 
-        if (!res.ok) return;
+          if (!res.ok) return;
 
-        const raw = await res.text();
-        const data = JSON.parse(raw);
+          const raw = await res.text();
+          const data = JSON.parse(raw);
 
-        setProfile({
-          name: data.nombre,
-          email: data.correo,
-          phone: data.telefono || "Sin teléfono",
-          avatar: data.avatar || "",
-          verified: data.verificado,
-          rating: data.calificacion,
-          reviews: data.reseñas,
-          services: (data.servicios || []).map((s: any) => ({
-            id: s._id,
-            name: s.nombre,
-            category: s.categoria,
-            hourlyPrice: s.hourlyPrice,
-            description: s.descripcion,
-            location: s.ubicacion,
-            hours: s.horas,
-            tags: s.tags || [],
-            photo: s.imagen,
-          })),
-          locals: (data.locales || []).map((l: any) => ({
-            id: l._id,
-            name: l.nombre,
-            address: l.direccion,
-            verified: l.verificado,
-            thumb: l.imagen,
-            photos: l.fotos || [],
-            specialTags: l.specialTags || [],
-            url: l.url || "",
-            amenities: l.amenities || [],
-          })),
-        });
-      } catch (e) {}
-    };
+          setProfile({
+            name: data.nombre,
+            email: data.correo,
+            phone: data.telefono || "Sin teléfono",
+            avatar: data.avatar || "",
+            verified: data.verificado,
+            rating: data.calificacion,
+            reviews: data.reseñas,
+            services: (data.servicios || []).map((s: any) => ({
+              id: s._id,
+              name: s.nombre,
+              category: s.categoria,
+              hourlyPrice: s.hourlyPrice,
+              description: s.descripcion,
+              location: s.ubicacion,
+              hours: s.horas,
+              tags: s.tags || [],
+              photo: s.imagen,
+            })),
+            locals: (data.locales || []).map((l: any) => ({
+              id: l._id,
+              name: l.nombre,
+              address: l.direccion,
+              verified: l.verificado,
+              thumb: l.imagen,
+              photos: l.fotos || [],
+              specialTags: l.specialTags || [],
+              url: l.url || "",
+              amenities: l.amenities || [],
+            })),
+          });
+        } catch (e) {}
+      };
 
-    refresh();
+      refresh();
 
-    return () => {};
-  }, [])
-);
+      return () => {};
+    }, [])
+  );
   /* ============================================
        LOGOUT
   ============================================ */
@@ -249,93 +247,91 @@ const res = await fetch(API_URL + userId);
     );
   }, [draft]);
 
-const saveService = async () => {
-  if (!canSave) return;
+  const saveService = async () => {
+    if (!canSave) return;
 
-  try {
-    const session = await loadUserSession();
-    if (!session || !session._id) {
-      alert("Sesión no válida, vuelve a iniciar sesión.");
-      return;
+    try {
+      const session = await loadUserSession();
+      if (!session || !session._id) {
+        alert("Sesión no válida, vuelve a iniciar sesión.");
+        return;
+      }
+
+      const userId = session._id || session.id;
+
+      // 👇 Lo que tu backend espera en Service(data)
+      const payload = {
+        nombre: draft.name,
+        categoria: draft.category,
+        precio: draft.hourlyPrice, // 👈 EL NOMBRE CORRECTO DEL BACKEND
+        descripcion: draft.description,
+        ubicacion: draft.location,
+        horas: draft.hours,
+        tags: draft.tags,
+        imagen: draft.photo || "",
+      };
+
+      let url = "";
+      let method: "POST" | "PUT" = "POST";
+
+      if (isEditing && editingId) {
+        // 🟡 actualizar (requiere ruta PUT en el back que te dejo abajo)
+        url = `${API_URL}${userId}/servicios/${editingId}`;
+        method = "PUT";
+      } else {
+        // 🟢 crear
+        url = `${API_URL}${userId}/servicios`;
+        method = "POST";
+      }
+
+      console.log("🔥 ENVIANDO A:", url, payload);
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const raw = await res.text();
+      console.log("📥 RESPUESTA SERVICIO:", res.status, raw);
+
+      if (!res.ok) {
+        throw new Error("Error backend " + res.status);
+      }
+
+      const data = JSON.parse(raw);
+
+      // Tu addUserService responde: { mensaje, servicio: nuevoServicio }
+      const srv = data.servicio || data;
+
+      const adapted: Service = {
+        id: srv._id,
+        name: srv.nombre,
+        category: srv.categoria,
+        hourlyPrice: srv.hourlyPrice,
+        description: srv.descripcion,
+        location: srv.ubicacion,
+        hours: srv.horas,
+        tags: srv.tags || [],
+        photo: srv.imagen,
+      };
+
+      if (isEditing && editingId) {
+        // actualizar en UI
+        setServices((prev) =>
+          prev.map((s) => (s.id === editingId ? adapted : s))
+        );
+      } else {
+        // agregar en UI
+        setServices((prev) => [adapted, ...prev]);
+      }
+
+      setModalVisible(false);
+    } catch (err) {
+      console.log("❌ Error guardando servicio:", err);
+      alert("Error al guardar el servicio.");
     }
-
-    const userId = session._id || session.id;
-
-
-    // 👇 Lo que tu backend espera en Service(data)
-    const payload = {
-      nombre: draft.name,
-      categoria: draft.category,
-  precio: draft.hourlyPrice,   // 👈 EL NOMBRE CORRECTO DEL BACKEND
-      descripcion: draft.description,
-      ubicacion: draft.location,
-      horas: draft.hours,
-      tags: draft.tags,
-      imagen: draft.photo || "",
-    };
-
-    let url = "";
-    let method: "POST" | "PUT" = "POST";
-
-    if (isEditing && editingId) {
-      // 🟡 actualizar (requiere ruta PUT en el back que te dejo abajo)
-      url = `${API_URL}${userId}/servicios/${editingId}`;
-      method = "PUT";
-    } else {
-      // 🟢 crear
-      url = `${API_URL}${userId}/servicios`;
-      method = "POST";
-    }
-
-    console.log("🔥 ENVIANDO A:", url, payload);
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const raw = await res.text();
-    console.log("📥 RESPUESTA SERVICIO:", res.status, raw);
-
-    if (!res.ok) {
-      throw new Error("Error backend " + res.status);
-    }
-
-    const data = JSON.parse(raw);
-
-    // Tu addUserService responde: { mensaje, servicio: nuevoServicio }
-    const srv = data.servicio || data;
-
-    const adapted: Service = {
-      id: srv._id,
-      name: srv.nombre,
-      category: srv.categoria,
-      hourlyPrice: srv.hourlyPrice,
-      description: srv.descripcion,
-      location: srv.ubicacion,
-      hours: srv.horas,
-      tags: srv.tags || [],
-      photo: srv.imagen,
-    };
-
-    if (isEditing && editingId) {
-      // actualizar en UI
-      setServices((prev) =>
-        prev.map((s) => (s.id === editingId ? adapted : s))
-      );
-    } else {
-      // agregar en UI
-      setServices((prev) => [adapted, ...prev]);
-    }
-
-    setModalVisible(false);
-  } catch (err) {
-    console.log("❌ Error guardando servicio:", err);
-    alert("Error al guardar el servicio.");
-  }
-};
-
+  };
 
   const pickServicePhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -405,17 +401,17 @@ const saveService = async () => {
 
     setLocalModalOpen(false);
   };
-const addLocalPhoto = async () => {
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.9,
-    allowsEditing: true,
-  });
+  const addLocalPhoto = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.9,
+      allowsEditing: true,
+    });
 
-  if (!res.canceled && res.assets?.length) {
-    setLocalPhotos((prev) => [res.assets[0].uri, ...prev]);
-  }
-};
+    if (!res.canceled && res.assets?.length) {
+      setLocalPhotos((prev) => [res.assets[0].uri, ...prev]);
+    }
+  };
 
   /* ============================================
        LOADING
@@ -436,16 +432,14 @@ const addLocalPhoto = async () => {
     <View style={styles.screen}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
           <ArrowLeft size={20} color="#fff" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Perfil</Text>
 
-        <View style={{ width: 34 }} />{/* Align center */}
+        <View style={{ width: 34 }} />
+        {/* Align center */}
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 14 }}>
@@ -485,14 +479,18 @@ const addLocalPhoto = async () => {
               <Text style={styles.addBtnText}>+ Agregar</Text>
             </TouchableOpacity>
           </View>
-{services.map((svc) => (
-  <TouchableOpacity
-    key={svc.id}
-    style={styles.serviceItem}
-    activeOpacity={0.8}
-    onPress={() => router.push({ pathname: "/ServiceProviderScreen", params: { id: svc.id } })}
-  >
-
+          {services.map((svc) => (
+            <TouchableOpacity
+              key={svc.id}
+              style={styles.serviceItem}
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push({
+                  pathname: "/ServiceProviderScreen",
+                  params: { id: svc.id },
+                })
+              }
+            >
               <View style={styles.serviceThumb}>
                 {svc.photo ? (
                   <Image
@@ -520,7 +518,7 @@ const addLocalPhoto = async () => {
                   <Text style={{ color: "#fbbf24" }}>Editar</Text>
                 </TouchableOpacity>
               </View>
-</TouchableOpacity>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -529,54 +527,60 @@ const addLocalPhoto = async () => {
           <Text style={styles.sectionTitle}>Locales registrados</Text>
 
           {locals.length === 0 && (
-  <Text style={{ color: "#777", marginTop: 10 }}>No tienes locales registrados.</Text>
-)}
+            <Text style={{ color: "#777", marginTop: 10 }}>
+              No tienes locales registrados.
+            </Text>
+          )}
 
-{locals.map((l) => (
-  <TouchableOpacity
-    key={l.id}
-    activeOpacity={0.85}
-    style={styles.localItem}
-    onPress={() => router.push({ pathname: "/BusinessScreen", params: { id: l.id } })}
-  >
-    <View style={styles.localThumbWrap}>
-      {l.thumb ? (
-        <Image source={{ uri: l.thumb }} style={styles.localThumb} />
-      ) : (
-        <View style={styles.localThumbFallback}>
-          <Text style={{ color: "#999" }}>No foto</Text>
+          {locals.map((l) => (
+            <TouchableOpacity
+              key={l.id}
+              activeOpacity={0.85}
+              style={styles.localItem}
+              onPress={() =>
+                router.push({
+                  pathname: "/BusinessScreen",
+                  params: { id: l.id },
+                })
+              }
+            >
+              <View style={styles.localThumbWrap}>
+                {l.thumb ? (
+                  <Image source={{ uri: l.thumb }} style={styles.localThumb} />
+                ) : (
+                  <View style={styles.localThumbFallback}>
+                    <Text style={{ color: "#999" }}>No foto</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.localName} numberOfLines={1}>
+                  {l.name}
+                </Text>
+
+                <Text style={styles.localAddress} numberOfLines={2}>
+                  {l.address}
+                </Text>
+
+                <Text style={styles.localStatus}>
+                  {l.verified ? "Verificado" : "No verificado"}
+                </Text>
+              </View>
+
+              <View style={styles.localArrow}>
+                <Text style={{ color: "#fbbf24", fontSize: 18 }}>›</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
-    </View>
-
-    <View style={{ flex: 1 }}>
-      <Text style={styles.localName} numberOfLines={1}>
-        {l.name}
-      </Text>
-
-      <Text style={styles.localAddress} numberOfLines={2}>
-        {l.address}
-      </Text>
-
-      <Text style={styles.localStatus}>
-        {l.verified ? "Verificado" : "No verificado"}
-      </Text>
-    </View>
-
-    <View style={styles.localArrow}>
-      <Text style={{ color: "#fbbf24", fontSize: 18 }}>›</Text>
-    </View>
-  </TouchableOpacity>
-))}
-
-        </View>
-{/* ---------- BOTÓN EDITAR PERFIL ---------- */}
-<TouchableOpacity
-  style={styles.editBigBtn}
-  onPress={() => router.push("/EditProfileScreen")}
->
-  <Text style={styles.editBigBtnText}>Editar perfil</Text>
-</TouchableOpacity>
+        {/* ---------- BOTÓN EDITAR PERFIL ---------- */}
+        <TouchableOpacity
+          style={styles.editBigBtn}
+          onPress={() => router.push("/EditProfileScreen")}
+        >
+          <Text style={styles.editBigBtnText}>Editar perfil</Text>
+        </TouchableOpacity>
 
         {/* LOGOUT */}
         <TouchableOpacity style={styles.CloseBigBtn} onPress={handleLogout}>
@@ -604,9 +608,15 @@ const addLocalPhoto = async () => {
             </View>
 
             {/* FOTO DEL SERVICIO */}
-            <TouchableOpacity style={styles.photoPicker} onPress={pickServicePhoto}>
+            <TouchableOpacity
+              style={styles.photoPicker}
+              onPress={pickServicePhoto}
+            >
               {draft.photo ? (
-                <Image source={{ uri: draft.photo }} style={styles.photoPreview} />
+                <Image
+                  source={{ uri: draft.photo }}
+                  style={styles.photoPreview}
+                />
               ) : (
                 <>
                   <Text style={styles.photoPickerText}>Añadir foto</Text>
@@ -741,7 +751,10 @@ const addLocalPhoto = async () => {
               />
 
               {/* FOTOS */}
-              <TouchableOpacity style={styles.addPhotoBox} onPress={addLocalPhoto}>
+              <TouchableOpacity
+                style={styles.addPhotoBox}
+                onPress={addLocalPhoto}
+              >
                 <Text style={{ color: "#fff" }}>+ Foto</Text>
               </TouchableOpacity>
 
@@ -763,7 +776,10 @@ const addLocalPhoto = async () => {
                 onChangeText={setLocalAmenityInput}
                 onSubmitEditing={() => {
                   if (!localAmenityInput.trim()) return;
-                  setLocalAmenities((prev) => [...prev, localAmenityInput.trim()]);
+                  setLocalAmenities((prev) => [
+                    ...prev,
+                    localAmenityInput.trim(),
+                  ]);
                   setLocalAmenityInput("");
                 }}
                 style={styles.input}
@@ -784,7 +800,10 @@ const addLocalPhoto = async () => {
               />
 
               {/* GUARDAR */}
-              <TouchableOpacity style={styles.saveBtn} onPress={saveLocalCompletion}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={saveLocalCompletion}
+              >
                 <Text style={styles.saveBtnText}>Guardar</Text>
               </TouchableOpacity>
 
@@ -1052,15 +1071,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 10,
   },
-editBigBtn: {
-  marginTop: 12,
-  backgroundColor: "#fbbf24",
-  borderRadius: 10,
-  paddingVertical: 12,
-  alignItems: "center",
-  justifyContent: "center",
-  flexDirection: "row",
-},
+  editBigBtn: {
+    marginTop: 12,
+    backgroundColor: "#fbbf24",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
 
   photoPickerText: {
     color: "#999",
@@ -1160,62 +1179,62 @@ editBigBtn: {
     justifyContent: "center",
     marginBottom: 10,
   },
-localItem: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#1a1a1a",
-  borderRadius: 12,
-  padding: 10,
-  marginTop: 10,
-  borderWidth: 1,
-  borderColor: "rgba(251,191,36,0.15)",
-},
+  localItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.15)",
+  },
 
-localThumbWrap: {
-  width: 70,
-  height: 70,
-  marginRight: 12,
-  borderRadius: 10,
-  overflow: "hidden",
-  backgroundColor: "#222",
-},
+  localThumbWrap: {
+    width: 70,
+    height: 70,
+    marginRight: 12,
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#222",
+  },
 
-localThumb: {
-  width: "100%",
-  height: "100%",
-  borderRadius: 10,
-},
+  localThumb: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
 
-localThumbFallback: {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-},
+  localThumbFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-localName: {
-  color: "#fff",
-  fontWeight: "700",
-  fontSize: 15,
-  marginBottom: 2,
-},
+  localName: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+    marginBottom: 2,
+  },
 
-localAddress: {
-  color: "#aaa",
-  fontSize: 12,
-},
+  localAddress: {
+    color: "#aaa",
+    fontSize: 12,
+  },
 
-localStatus: {
-  marginTop: 6,
-  fontSize: 12,
-  color: "#fbbf24",
-  fontWeight: "700",
-},
+  localStatus: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#fbbf24",
+    fontWeight: "700",
+  },
 
-localArrow: {
-  marginLeft: 10,
-  justifyContent: "center",
-  alignItems: "center",
-},
+  localArrow: {
+    marginLeft: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
   photoThumb: {
     width: 80,

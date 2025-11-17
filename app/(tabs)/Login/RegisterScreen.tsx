@@ -13,7 +13,7 @@ import { Button } from "../../../components/ui/button";
 // ===========================
 // 🔗 URL BACKEND
 // ===========================
-const API_URL = "http://192.168.1.68:3000/api/auth/register";  
+const API_URL = "http://192.168.0.6:3000/api/auth/register";  
 // ⚠️ Cambia la IP por la tuya si es necesario
 
 export default function RegisterScreen() {

@@ -26,7 +26,7 @@ import {
   View,
 } from "react-native";
 
-const API_BASE = "http://192.168.1.68:3000";
+const API_BASE = "http://192.168.0.6:3000";
 const SERVICES_API = `${API_BASE}/api/servicios`;
 
 type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";
@@ -124,10 +124,12 @@ export default function ServiceProviderScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const serviceId = id as string | undefined;
 
-  const [providerData, setProviderData] = useState<ProviderData>(EMPTY_PROVIDER);
+  const [providerData, setProviderData] =
+    useState<ProviderData>(EMPTY_PROVIDER);
   const [isActive, setIsActive] = useState<boolean>(true);
-  const [tab, setTab] =
-    useState<"requests" | "profile" | "analytics">("requests");
+  const [tab, setTab] = useState<"requests" | "profile" | "analytics">(
+    "requests"
+  );
   const [requests, setRequests] = useState<Req[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -173,15 +175,15 @@ export default function ServiceProviderScreen() {
           name: s.propietario?.nombre || "Proveedor",
           service: s.nombre || "Servicio",
           category: s.categoria || "General",
-          rating: s.calificacion || 0,
-          reviews: s.opiniones || 0,
+          rating: s.propietario?.rating || 0,
+          reviews: s.opiniones?.length || 0,
           avatar: s.propietario?.foto || s.imagen || "",
-          verified: s.propietario?.verificado ?? false,
+          verified: true,
           active: s.disponible ?? true,
-          phone: s.telefono || "",
-          experience: s.propietario?.experiencia || "",
+          phone: s.propietario?.telefono || "Sin teléfono",
+          experience: s.propietario?.experiencia || "No especificado",
           completedJobs: s.trabajosCompletados || 0,
-          responseTime: s.tiempoRespuesta || "15 min promedio",
+          responseTime: "15 min promedio",
         };
 
         setProviderData(header);
@@ -208,14 +210,12 @@ export default function ServiceProviderScreen() {
             service: r.descripcion || s.nombre || "Servicio",
             date:
               r.fechaCita ||
-              (r.fechaSolicitud
-                ? String(r.fechaSolicitud).slice(0, 10)
-                : ""),
+              (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
             time: r.horaCita || "",
             status: mapEstadoToStatus(r.estado),
             price: r.precio || s.precio || "",
             location: r.categoria || "Sin dirección",
-            clientAvatar: r.cliente?.avatar || "",
+            clientAvatar: r.cliente?.foto || "",
             urgent: false,
           }));
           setRequests(mapped);
@@ -429,7 +429,10 @@ export default function ServiceProviderScreen() {
 
         <View style={styles.avatarWrap}>
           {providerData.avatar ? (
-            <Image source={{ uri: providerData.avatar }} style={styles.avatar} />
+            <Image
+              source={{ uri: providerData.avatar }}
+              style={styles.avatar}
+            />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback]}>
               <Text style={styles.avatarFallbackText}>
@@ -496,9 +499,7 @@ export default function ServiceProviderScreen() {
       </View>
 
       {/* CONTENIDO */}
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
-      >
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
         {/* Stats rápidas */}
         <View style={styles.statsGrid}>
           <View style={[styles.card, styles.cardStat]}>
@@ -557,10 +558,7 @@ export default function ServiceProviderScreen() {
                   <Bell size={16} color="#fbbf24" />
                   <Text style={[styles.warnText, { marginLeft: 8 }]}>
                     Tienes{" "}
-                    {
-                      requests.filter((r) => r.status === "pending")
-                        .length
-                    }{" "}
+                    {requests.filter((r) => r.status === "pending").length}{" "}
                     solicitudes pendientes
                   </Text>
                 </View>
@@ -591,12 +589,8 @@ export default function ServiceProviderScreen() {
                           )}
                         </View>
 
-                        <Text style={styles.grayTextSmall}>
-                          {req.service}
-                        </Text>
-                        <Text style={styles.grayTextSmall}>
-                          {req.location}
-                        </Text>
+                        <Text style={styles.grayTextSmall}>{req.service}</Text>
+                        <Text style={styles.grayTextSmall}>{req.location}</Text>
                       </View>
                     </View>
 
@@ -610,19 +604,9 @@ export default function ServiceProviderScreen() {
                         {req.price}
                       </Text>
 
-                      <View
-                        style={[
-                          styles.pill,
-                          { borderColor: pill.color },
-                        ]}
-                      >
+                      <View style={[styles.pill, { borderColor: pill.color }]}>
                         <pill.Icon size={12} color={pill.color} />
-                        <Text
-                          style={[
-                            styles.pillText,
-                            { color: pill.color },
-                          ]}
-                        >
+                        <Text style={[styles.pillText, { color: pill.color }]}>
                           {pill.text}
                         </Text>
                       </View>
@@ -642,17 +626,13 @@ export default function ServiceProviderScreen() {
                             style={styles.btnOutlineSm}
                             onPress={() => handleReject(req)}
                           >
-                            <Text style={styles.btnOutlineText}>
-                              Rechazar
-                            </Text>
+                            <Text style={styles.btnOutlineText}>Rechazar</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.btnPrimarySm}
                             onPress={() => handleAccept(req)}
                           >
-                            <Text style={styles.btnPrimaryText}>
-                              Aceptar
-                            </Text>
+                            <Text style={styles.btnPrimaryText}>Aceptar</Text>
                           </TouchableOpacity>
                         </>
                       )}
@@ -663,17 +643,12 @@ export default function ServiceProviderScreen() {
                           onPress={() => openScheduleModal(req)}
                         >
                           <Calendar size={14} color="#e5e7eb" />
-                          <Text style={styles.btnOutlineText}>
-                            {" "}
-                            Programar
-                          </Text>
+                          <Text style={styles.btnOutlineText}> Programar</Text>
                         </TouchableOpacity>
                       )}
 
                       {req.status === "completed" && (
-                        <TouchableOpacity
-                          style={styles.btnOutlineSm}
-                        >
+                        <TouchableOpacity style={styles.btnOutlineSm}>
                           <Eye size={14} color="#e5e7eb" />
                           <Text style={styles.btnOutlineText}>
                             {" "}
@@ -706,10 +681,7 @@ export default function ServiceProviderScreen() {
                   label="Nombre del servicio"
                   value={providerData.service}
                 />
-                <Field
-                  label="Categoría"
-                  value={providerData.category}
-                />
+                <Field label="Categoría" value={providerData.category} />
                 <Field
                   label="Experiencia"
                   value={providerData.experience || "No especificado"}
@@ -735,9 +707,7 @@ export default function ServiceProviderScreen() {
               <TouchableOpacity
                 style={[styles.btnOutlineSm, { marginTop: 10 }]}
               >
-                <Text style={styles.btnOutlineText}>
-                  + Agregar servicio
-                </Text>
+                <Text style={styles.btnOutlineText}>+ Agregar servicio</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -756,9 +726,7 @@ export default function ServiceProviderScreen() {
                 <KV
                   label="Ingresos totales"
                   value={
-                    stats.income > 0
-                      ? `$${stats.income.toFixed(2)}`
-                      : "$0"
+                    stats.income > 0 ? `$${stats.income.toFixed(2)}` : "$0"
                   }
                   valueColor="#34d399"
                 />
@@ -783,10 +751,7 @@ export default function ServiceProviderScreen() {
                   </View>
                   <View style={{ marginLeft: 10, flex: 1 }}>
                     <View
-                      style={[
-                        styles.rowCenter,
-                        { gap: 8, marginBottom: 4 },
-                      ]}
+                      style={[styles.rowCenter, { gap: 8, marginBottom: 4 }]}
                     >
                       <Text style={styles.titleSm}>Ana García</Text>
                       <View style={styles.row}>
@@ -835,20 +800,13 @@ export default function ServiceProviderScreen() {
                   label="Cuándo"
                   value={`${acceptedRequest.date} • ${acceptedRequest.time}`}
                 />
-                <Row
-                  label="Ubicación"
-                  value={acceptedRequest.location}
-                />
-                <Row
-                  label="Precio estimado"
-                  value={acceptedRequest.price}
-                />
+                <Row label="Ubicación" value={acceptedRequest.location} />
+                <Row label="Precio estimado" value={acceptedRequest.price} />
               </View>
             )}
 
             <Text style={styles.modalHint}>
-              Coordina detalles (punto exacto, acceso, materiales) por
-              WhatsApp:
+              Coordina detalles (punto exacto, acceso, materiales) por WhatsApp:
             </Text>
 
             {acceptedRequest && (
@@ -928,10 +886,7 @@ export default function ServiceProviderScreen() {
                 onChangeText={setSchedLocation}
               />
               <TextInput
-                style={[
-                  styles.input,
-                  { height: 90, textAlignVertical: "top" },
-                ]}
+                style={[styles.input, { height: 90, textAlignVertical: "top" }]}
                 placeholder="Nota opcional para el cliente (materiales, acceso, referencias...)"
                 placeholderTextColor="#9ca3af"
                 multiline
@@ -945,9 +900,7 @@ export default function ServiceProviderScreen() {
               onPress={openWhatsAppSchedule}
             >
               <MessageCircle size={16} color="#fff" />
-              <Text style={styles.btnWhatsappText}>
-                Proponer por WhatsApp
-              </Text>
+              <Text style={styles.btnWhatsappText}>Proponer por WhatsApp</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.btnGhost} onPress={saveSchedule}>
@@ -1049,7 +1002,12 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "center" },
 
-  ratingText: { color: "#e5e7eb", marginLeft: 4, fontWeight: "600", fontSize: 12 },
+  ratingText: {
+    color: "#e5e7eb",
+    marginLeft: 4,
+    fontWeight: "600",
+    fontSize: 12,
+  },
   grayText: { color: "#9ca3af" },
   grayTextSmall: { color: "#9ca3af", fontSize: 12 },
 
@@ -1139,7 +1097,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(148,163,184,0.2)",
   },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 999, alignItems: "center" },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 999,
+    alignItems: "center",
+  },
   tabText: { color: "#e5e7eb", fontWeight: "600" },
 
   cardWarn: {
@@ -1255,7 +1218,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
   modalSubtitle: { color: "#cbd5e1", fontSize: 13, marginTop: -6 },
-  modalHint: { color: "#cbd5e1", fontSize: 13, textAlign: "center", marginTop: 6 },
+  modalHint: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 6,
+  },
 
   modalDetails: {
     alignSelf: "stretch",
