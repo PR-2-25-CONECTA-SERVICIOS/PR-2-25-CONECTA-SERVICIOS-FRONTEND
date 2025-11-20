@@ -26,7 +26,7 @@ import {
   View,
 } from "react-native";
 
-const API_BASE = "http://192.168.0.6:3000";
+const API_BASE = "http://192.168.1.68:3000";
 const SERVICES_API = `${API_BASE}/api/servicios`;
 
 type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";

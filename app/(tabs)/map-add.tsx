@@ -35,7 +35,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
 import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
-const API_URL = "http://192.168.0.6:3000/api/locales";
+const API_URL = "http://192.168.1.68:3000/api/locales";
 
 /* =========================================================
    Tipos (modelo de la UI)
