@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 
-const API_URL = "http://192.168.100.66:3000/api/locales";
+const API_URL = "http://localhost:3000/api/locales";
 
 // 🔥🔥 INLINE STYLE QUE SIEMPRE FUNCIONA
 const localStyle: any = {

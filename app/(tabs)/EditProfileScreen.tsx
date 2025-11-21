@@ -15,7 +15,7 @@ import {
 
 import { loadUserSession, saveUserSession } from "../../utils/secureStore";
 
-const API_URL = "http://192.168.1.68:3000/api/usuarios/";
+const API_URL = "http://localhost:3000/api/usuarios/";
 
 export default function EditProfileScreen() {
   const router = useRouter();

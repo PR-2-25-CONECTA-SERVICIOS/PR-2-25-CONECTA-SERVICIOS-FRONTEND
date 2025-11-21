@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-const API_URL = "http://192.168.1.68:3000/api/locales";
+const API_URL = "http://localhost:3000/api/locales";
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type Hours = Record<DayKey, { open: string; close: string } | null>;
