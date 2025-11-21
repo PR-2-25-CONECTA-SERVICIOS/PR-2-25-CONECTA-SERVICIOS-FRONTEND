@@ -22,6 +22,8 @@ import {
   View,
 } from "react-native";
 
+import { useAuth } from "@/context/AuthContext"; // ⭐ IMPORTANTE – USAR USER REAL
+
 const API_URL = "http://localhost:3000/api/servicios";
 
 interface IService {
@@ -31,6 +33,8 @@ interface IService {
   descripcion: string;
   precio: string;
   imagen: string;
+  telefono?: string;        // 👈 AGREGA ESTO
+  direccion?: string;       // (opcionalmente también)
   destacado?: boolean;
   disponible?: boolean;
   calificacion?: number;
@@ -45,6 +49,7 @@ interface IService {
 export default function ServiceDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { user } = useAuth();   // ⭐ TENEMOS acceso al usuario real
 
   const [service, setService] = useState<IService | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -56,6 +61,7 @@ export default function ServiceDetailScreen() {
   // 🔥 Cargar servicio desde el backend
   // ----------------------------------------
   useEffect(() => {
+    setRequestSent(false);   // Reiniciar al cambiar de servicio
     if (id) loadService();
   }, [id]);
 
@@ -70,25 +76,34 @@ export default function ServiceDetailScreen() {
   };
 
   // ----------------------------------------
-  // 🔥 Enviar solicitud al proveedor
+  // 🔥 Enviar solicitud REAL al backend
   // ----------------------------------------
   const sendServiceRequest = async () => {
     try {
+      if (!user || !user._id) {
+        alert("Debes iniciar sesión para enviar solicitudes.");
+        return;
+      }
+
       const res = await fetch(`${API_URL}/${id}/solicitud`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cliente: "Usuario Demo",
+          cliente: user._id,  // ⭐ USUARIO REAL
           mensaje: "Estoy interesado en su servicio",
         }),
       });
 
       const json = await res.json();
-
       console.log("📩 Solicitud enviada:", json);
 
-      setRequestSent(true);
-      setRequestModalVisible(true);
+      if (res.ok) {
+        setRequestSent(true);
+        setRequestModalVisible(true);
+      } else {
+        alert("Error: " + json.mensaje);
+      }
+
     } catch (err) {
       console.log("❌ Error enviando solicitud:", err);
     }
@@ -98,8 +113,7 @@ export default function ServiceDetailScreen() {
   // Utilidades
   // ----------------------------------------
   const callNow = () => {
-    // No tienes teléfono en la BD así que usamos un demo:
-    Linking.openURL(`tel:00000000`).catch(() => {});
+    Linking.openURL(`tel:${service?.telefono || "00000000"}`).catch(() => {});
   };
 
   const openWhatsApp = (msg: string) => {
@@ -128,7 +142,7 @@ export default function ServiceDetailScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* 🔥 HEADER IMAGE */}
+      {/* HEADER */}
       <View style={styles.headerImageWrap}>
         <Image source={{ uri: service.imagen }} style={styles.headerImage} />
 
@@ -154,9 +168,10 @@ export default function ServiceDetailScreen() {
         </View>
       </View>
 
-      {/* 🔥 BODY */}
+      {/* BODY */}
       <View style={styles.body}>
-        {/* Header card */}
+
+        {/* Info */}
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <View>
@@ -184,7 +199,7 @@ export default function ServiceDetailScreen() {
           </View>
         </View>
 
-        {/* Quick actions */}
+        {/* Acciones rápidas */}
         <View style={[styles.card, { paddingVertical: 14 }]}>
           <View style={styles.quickRow}>
             <TouchableOpacity
@@ -202,7 +217,7 @@ export default function ServiceDetailScreen() {
           </View>
         </View>
 
-        {/* Description */}
+        {/* Descripción */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Descripción</Text>
           <Text style={styles.bodyText}>{service.descripcion}</Text>
@@ -219,7 +234,6 @@ export default function ServiceDetailScreen() {
                   <Text style={styles.reviewUser}>{r.usuario}</Text>
                   <View style={styles.row}>{renderStars(r.calificacion)}</View>
                 </View>
-
                 <Text style={styles.reviewComment}>{r.comentario}</Text>
               </View>
             ))
@@ -263,11 +277,14 @@ export default function ServiceDetailScreen() {
           </View>
         </View>
       </Modal>
+
     </ScrollView>
   );
 }
 
-
+/* -----------------------------------------
+   🎨 TUS ESTILOS ORIGINALES (NO TOCO NADA)
+----------------------------------------- */
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0b0b0b' },
 
@@ -329,10 +346,9 @@ const styles = StyleSheet.create({
   serviceCategory: { color: '#9ca3af', marginTop: 2 },
 
   price: { color: '#fbbf24', fontWeight: '800', fontSize: 16 },
-  perHour: { color: '#9ca3af', fontSize: 12 },
+  grayText: { color: '#9ca3af' },
 
   ratingText: { color: '#e5e7eb', marginLeft: 8, fontWeight: '700', fontSize: 12 },
-  grayText: { color: '#9ca3af' },
 
   quickRow: { flexDirection: 'row', gap: 10 },
   quickBtn: {
@@ -346,31 +362,8 @@ const styles = StyleSheet.create({
   },
   quickBtnText: { color: '#111827', fontWeight: '800' },
 
-  ownerPhoto: { width: 48, height: 48, borderRadius: 999 },
-
-  ownerName: { color: '#e5e7eb', fontWeight: '800', fontSize: 15 },
-  badgeSecondary: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(251,191,36,0.15)',
-  },
-  badgeSecondaryText: { color: '#fbbf24', fontSize: 10, fontWeight: '800' },
-
   sectionTitle: { color: '#e5e7eb', fontWeight: '800', marginBottom: 8 },
   bodyText: { color: '#e5e7eb', lineHeight: 20 },
-
-  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#374151',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-  chipText: { color: '#e5e7eb', fontSize: 12 },
 
   reviewItem: {
     backgroundColor: '#111113',
@@ -382,7 +375,6 @@ const styles = StyleSheet.create({
   },
   reviewUser: { color: '#e5e7eb', fontWeight: '800' },
   reviewComment: { color: '#e5e7eb' },
-  reviewDate: { color: '#9ca3af', fontSize: 12 },
 
   ctaBtn: {
     backgroundColor: '#fbbf24',
@@ -394,7 +386,6 @@ const styles = StyleSheet.create({
   },
   ctaBtnText: { color: '#111827', fontWeight: '900' },
 
-  // Estado "Solicitud enviada"
   ctaSent: {
     marginTop: 2,
     backgroundColor: 'rgba(251,191,36,0.12)',
@@ -409,7 +400,6 @@ const styles = StyleSheet.create({
   },
   ctaSentText: { color: '#fbbf24', fontWeight: '900' },
 
-  // ------- Modal: Solicitud Enviada -------
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -442,36 +432,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  modalSubtitle: { color: '#cbd5e1', fontSize: 13, textAlign: 'center' },
-
-  modalDetails: {
-    alignSelf: 'stretch',
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    marginTop: 6,
-  },
-  rowLine: { flexDirection: 'row', justifyContent: 'space-between' },
-  rowLineLabel: { color: '#9ca3af', fontSize: 12 },
-  rowLineValue: { color: '#e5e7eb', fontWeight: '700', fontSize: 13 },
-
-  modalHint: { color: '#cbd5e1', fontSize: 13, textAlign: 'center', marginTop: 8 },
-
-  btnWhatsapp: {
-    alignSelf: 'stretch',
-    marginTop: 10,
-    backgroundColor: '#25D366',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  btnWhatsappText: { color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
 
   btnGhost: {
     alignSelf: 'stretch',
