@@ -5,61 +5,6 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /* ==========================
-   Tipos
-========================== */
-type ProviderItem = {
-  id: number;
-  title: string;
-  category: string;
-  coord: { latitude: number; longitude: number };
-  rating: number;
-  price: string;
-  status: "available" | "unavailable";
-};
-
-/* ==========================
-   Mock data
-========================== */
-const MOCK: ProviderItem[] = [
-  {
-    id: 1,
-    title: "Plomería Express",
-    category: "Plomería",
-    coord: { latitude: -17.382, longitude: -66.1635 },
-    rating: 4.8,
-    price: "$50-80/h",
-    status: "available",
-  },
-  {
-    id: 2,
-    title: "Limpieza ProClean",
-    category: "Limpieza",
-    coord: { latitude: -17.3845, longitude: -66.159 },
-    rating: 4.9,
-    price: "$40-60/h",
-    status: "unavailable",
-  },
-  {
-    id: 3,
-    title: "Delivery Rápido",
-    category: "Delivery",
-    coord: { latitude: -17.387, longitude: -66.1655 },
-    rating: 4.7,
-    price: "$12/envío",
-    status: "available",
-  },
-  {
-    id: 4,
-    title: "Restaurante La Casa",
-    category: "Restaurante",
-    coord: { latitude: -17.3805, longitude: -66.1675 },
-    rating: 4.5,
-    price: "$15-30",
-    status: "available",
-  },
-];
-
-/* ==========================
    Paleta estilo móvil/dark
 ========================== */
 const palette = {
@@ -78,6 +23,47 @@ const palette = {
 };
 
 /* ==========================
+   API
+========================== */
+const API_URL = "http://localhost:3000/api/locales";
+
+/* ==========================
+   Tipo del local
+========================== */
+type ProviderItem = {
+  id: string;
+  title: string;
+  category: string;
+  coord: { latitude: number; longitude: number };
+  rating: number;
+  price: string;
+  status: "available" | "unavailable";
+  image?: string;
+};
+
+/* ==========================
+   Mapper DB → Mapa
+========================== */
+function mapLocalToItem(local: any): ProviderItem {
+  const lat = Number(local.lat);
+  const lng = Number(local.lng);
+
+  return {
+    id: local._id,
+    title: local.nombre,
+    category: local.categoria,
+    coord: {
+      latitude: isNaN(lat) ? -17.3835 : lat,
+      longitude: isNaN(lng) ? -66.163 : lng,
+    },
+    rating: local.calificacion ?? 0,
+    price: local.distancia ?? "Sin info",
+    status: local.destacado ? "available" : "unavailable",
+    image: local.imagen,
+  };
+}
+
+/* ==========================
    COMPONENTE PRINCIPAL
 ========================== */
 export default function MapWeb() {
@@ -86,24 +72,28 @@ export default function MapWeb() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
+  const [locales, setLocales] = useState<ProviderItem[]>([]);
   const [selected, setSelected] = useState<ProviderItem | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
+  const [slideOpen, setSlideOpen] = useState(false);
 
   const center: [number, number] = [-66.163, -17.3835];
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return MOCK;
-
-    return MOCK.filter(
-      (i) =>
-        i.title.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q) ||
-        i.price.toLowerCase().includes(q)
-    );
-  }, [search]);
+  /* ==========================
+     Cargar datos del backend
+  =========================== */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        setLocales(data.map(mapLocalToItem));
+      } catch (err) {
+        console.log("❌ Error cargando locales:", err);
+      }
+    })();
+  }, []);
 
   /* ==========================
      Inicializar mapa
@@ -120,10 +110,38 @@ export default function MapWeb() {
     });
 
     mapRef.current = map;
+  }, []);
 
-    /* ===== AGREGAR MARCADORES ===== */
-    MOCK.forEach((item) => {
+  /* ==========================
+     Filtro de búsqueda
+  =========================== */
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return locales.filter(
+      (i) =>
+        i.title.toLowerCase().includes(q) ||
+        i.category.toLowerCase().includes(q)
+    );
+  }, [search, locales]);
+
+  /* ==========================
+     Pintar marcadores dependiendo del filtro
+  =========================== */
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // 🔥 borrar marcadores antiguos
+    const olds = document.querySelectorAll(".custom-marker");
+    olds.forEach((m) => m.remove());
+
+    // 🔥 dibujar solo filtrados
+    filtered.forEach((item) => {
+      const lat = item.coord.latitude;
+      const lng = item.coord.longitude;
+      if (isNaN(lat) || isNaN(lng)) return;
+
       const marker = document.createElement("div");
+      marker.className = "custom-marker";
       marker.style.width = "34px";
       marker.style.height = "34px";
       marker.style.borderRadius = "999px";
@@ -131,69 +149,37 @@ export default function MapWeb() {
       marker.style.display = "flex";
       marker.style.alignItems = "center";
       marker.style.justifyContent = "center";
-
-      // Fondo circular
       marker.style.background =
         item.status === "available" ? t.pin : t.pinInactive;
 
-      // Icono central
-      marker.innerHTML =
-        `<svg width="18" height="18" fill="#111827" viewBox="0 0 24 24">
-          <path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7zm0 9.5c-1.38 
-          0-2.5-1.12-2.5-2.5s1.12-2.5 
-          2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-        </svg>`;
+      marker.innerHTML = `
+        <svg width="18" height="18" fill="#111827" viewBox="0 0 24 24">
+          <path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13
+          c0-3.86-3.14-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5
+          s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+      `;
 
-      // Captura clics sin bug
-      marker.addEventListener("click", () => {
+      marker.onclick = () => {
         setSelected(item);
-        map.flyTo({
-          center: [item.coord.longitude, item.coord.latitude],
-          zoom: 16,
-          speed: 0.7,
-        });
-      });
+        setSlideOpen(true);
 
-      new maplibregl.Marker({ element: marker })
-        .setLngLat([item.coord.longitude, item.coord.latitude])
-        .addTo(map);
-    });
-  }, []);
-
-  /* ==========================
-     Ubicación del usuario
-  =========================== */
-  const locateUser = () => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lng = pos.coords.longitude;
-        const lat = pos.coords.latitude;
-
-        setUserLoc([lat, lng]);
-
-        new maplibregl.Marker({
-          color: t.user,
-        })
-          .setLngLat([lng, lat])
-          .addTo(mapRef.current!);
-
-        mapRef.current?.flyTo({
+        mapRef.current!.flyTo({
           center: [lng, lat],
           zoom: 16,
           speed: 0.7,
         });
-      },
-      () => {},
-      { enableHighAccuracy: true }
-    );
-  };
+      };
+
+      new maplibregl.Marker({ element: marker })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current!);
+    });
+  }, [filtered]);
 
   /* ==========================
      UI
   =========================== */
-
   return (
     <div
       style={{
@@ -238,23 +224,8 @@ export default function MapWeb() {
               outline: "none",
             }}
           />
-          <svg
-            width="20"
-            height="20"
-            fill={t.sub}
-            viewBox="0 0 24 24"
-            style={{ marginLeft: 8 }}
-          >
-            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 
-            0016 9.5 6.5 6.5 0 109.5 
-            16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 
-            4.99L20.49 19l-4.99-5zm-6 
-            0C7.01 14 5 11.99 5 9.5S7.01 5 
-            9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-          </svg>
         </div>
 
-        {/* ACTION BUTTONS */}
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={() => setListOpen(true)}
@@ -272,7 +243,7 @@ export default function MapWeb() {
           </button>
 
           <button
-            onClick={locateUser}
+            onClick={() => alert("Ubicación desactivada en web")}
             style={{
               padding: "10px 18px",
               borderRadius: 12,
@@ -291,51 +262,79 @@ export default function MapWeb() {
       {/* MAP */}
       <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
 
-      {/* BOTTOM CARD — DETALLE */}
+      {/* TARJETA DESLIZABLE */}
       {selected && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 20,
-            left: 16,
-            right: 16,
-            background: t.card,
-            borderRadius: 16,
-            padding: 16,
-            color: t.text,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-            zIndex: 60,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div>
-              <h3 style={{ margin: 0 }}>{selected.title}</h3>
-              <p style={{ marginTop: 4, color: t.sub }}>
-                {selected.category}
-              </p>
-            </div>
+        <>
+          {/* OVERLAY */}
+          <div
+            onClick={() => setSlideOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: slideOpen ? t.overlay : "transparent",
+              transition: "0.25s ease",
+              zIndex: 80,
+              pointerEvents: slideOpen ? "auto" : "none",
+            }}
+          />
+
+          {/* CARD */}
+          <div
+            style={{
+              position: "fixed",
+              bottom: slideOpen ? "0px" : "-350px",
+              left: 0,
+              right: 0,
+              height: "330px",
+              background: t.card,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              zIndex: 100,
+              padding: 16,
+              transition: "bottom 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)",
+            }}
+          >
+            {selected.image && (
+              <img
+                src={selected.image}
+                style={{
+                  width: "100%",
+                  height: "140px",
+                  objectFit: "cover",
+                  borderRadius: 12,
+                }}
+              />
+            )}
+
+            <h3 style={{ marginTop: 10 }}>{selected.title}</h3>
+            <p style={{ margin: "4px 0", color: t.sub }}>
+              {selected.category}
+            </p>
+
+            <p style={{ margin: "6px 0", color: t.text }}>
+              ⭐ {selected.rating} — {selected.price}
+            </p>
 
             <button
-              onClick={() => setSelected(null)}
+              onClick={() => setSlideOpen(false)}
               style={{
-                border: "none",
-                background: "transparent",
+                marginTop: 10,
+                width: "100%",
+                padding: "10px",
+                background: "#222",
+                borderRadius: 10,
                 color: t.sub,
-                fontSize: 22,
+                border: "none",
                 cursor: "pointer",
               }}
             >
-              ✖
+              Cerrar
             </button>
           </div>
-
-          <p style={{ marginTop: 10 }}>
-            ⭐ {selected.rating} — {selected.price}
-          </p>
-        </div>
+        </>
       )}
 
-      {/* LISTA MODAL */}
+      {/* LISTA */}
       {listOpen && (
         <div
           style={{
@@ -390,6 +389,7 @@ export default function MapWeb() {
                 onClick={() => {
                   setSelected(i);
                   setListOpen(false);
+                  setSlideOpen(true);
                 }}
                 style={{
                   padding: 16,
@@ -410,48 +410,6 @@ export default function MapWeb() {
           </div>
         </div>
       )}
-
-      {/* LEYENDA */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: 16,
-          background: t.card,
-          borderRadius: 12,
-          padding: 12,
-          border: `1px solid ${t.border}`,
-          color: t.text,
-          fontSize: 14,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-        }}
-      >
-        <strong style={{ fontSize: 15 }}>Leyenda</strong>
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-          <Legend color={t.pin} label="Disponible" />
-          <Legend color={t.pinInactive} label="No disponible" />
-          <Legend color={t.user} label="Tu ubicación" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ==========================
-   Subcomponente Leyenda
-========================== */
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <div
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: 99,
-          background: color,
-        }}
-      ></div>
-      <span style={{ fontSize: 13 }}>{label}</span>
     </div>
   );
 }

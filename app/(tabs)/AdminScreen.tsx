@@ -107,11 +107,15 @@ export default function AdminScreen() {
       await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "aprobado" }),
+        body: JSON.stringify({
+          estado: "aprobado",
+          verificado: true, // 🔥 IMPORTANTE
+        }),
       });
+
       setConfirm(null);
       setSelected(null);
-      loadClaims();
+      loadClaims(); // recargar lista
     } catch (err) {
       console.log("❌ Error aprobando reclamo:", err);
     }
@@ -122,8 +126,12 @@ export default function AdminScreen() {
       await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "rechazado" }),
+        body: JSON.stringify({
+          estado: "rechazado",
+          verificado: false, // 🔥 IMPORTANTE
+        }),
       });
+
       setConfirm(null);
       setSelected(null);
       loadClaims();

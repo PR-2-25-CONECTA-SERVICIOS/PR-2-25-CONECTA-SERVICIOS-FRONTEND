@@ -1,7 +1,7 @@
 // app/(tabs)/map-add.web.tsx
 "use client";
-import { router } from "expo-router";
 
+import { router } from "expo-router";
 import {
   ArrowLeft,
   Camera,
@@ -55,6 +55,9 @@ type Place = {
 
 // 🔁 Mapper del Local de Mongo → Place del mapa
 function mapLocalToPlace(local: any): Place {
+  const lat = Number(local.lat);
+  const lng = Number(local.lng);
+
   return {
     id: local._id,
     title: local.nombre ?? "",
@@ -63,8 +66,8 @@ function mapLocalToPlace(local: any): Place {
     imageUri: local.imagen,
     category: local.categoria ?? "General",
     coord: {
-      latitude: local.lat ?? -17.3835,
-      longitude: local.lng ?? -66.163,
+      latitude: isNaN(lat) ? -17.3835 : lat,
+      longitude: isNaN(lng) ? -66.163 : lng,
     },
     createdAt: local.createdAt
       ? new Date(local.createdAt).getTime()
@@ -83,7 +86,7 @@ export default function MapAdd() {
 
   const [currentUser, setCurrentUser] = useState<any | null>(null);
 
-  // ⚠️ SOLO locales creados en ESTA pantalla (no se cargan de la BD)
+  // Locales del usuario actual
   const [places, setPlaces] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
   const [draftCoord, setDraftCoord] = useState<{
@@ -103,7 +106,7 @@ export default function MapAdd() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // =====================================================
-  // 1. Cargar SOLO el usuario actual (ya no carga locales)
+  // 1. Cargar usuario actual
   // =====================================================
   useEffect(() => {
     (async () => {
@@ -115,16 +118,43 @@ export default function MapAdd() {
         }
         setCurrentUser(user);
       } catch (e) {
-        console.warn(
-          "No se pudo cargar el usuario en MapAdd web",
-          e
-        );
+        console.warn("No se pudo cargar el usuario en MapAdd web", e);
       }
     })();
   }, []);
 
   // =====================================================
-  // 2. Inicializar mapa (vacío, estilo local sin POIs)
+  // 2. Cargar locales creados por ese usuario
+  // =====================================================
+  useEffect(() => {
+    if (!currentUser || !currentUser._id) return;
+
+    (async () => {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        const onlyMine = Array.isArray(data)
+          ? data.filter((loc: any) => {
+              // creadoPor puede venir como string o como objeto {_id}
+              const creador =
+                loc.creadoPor && typeof loc.creadoPor === "object"
+                  ? loc.creadoPor._id
+                  : loc.creadoPor;
+              return creador?.toString() === currentUser._id?.toString();
+            })
+          : [];
+
+        const mapped = onlyMine.map(mapLocalToPlace);
+        setPlaces(mapped);
+      } catch (e) {
+        console.warn("No se pudieron cargar los locales del usuario", e);
+      }
+    })();
+  }, [currentUser]);
+
+  // =====================================================
+  // 3. Inicializar mapa (estilo local sin POIs)
   // =====================================================
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -149,13 +179,13 @@ export default function MapAdd() {
       const initialCenter: [number, number] = [-66.163, -17.3835];
 
       map.current = new maplibregl.Map({
-container: mapContainer.current as HTMLElement,
+        container: mapContainer.current as HTMLElement,
         style: styleJson,
         center: initialCenter,
         zoom: 14.5,
       });
 
-      // Evento para crear local
+      // Evento para crear local (click en el mapa)
       map.current.on("click", (e) => {
         const { lng, lat } = e.lngLat;
         setDraftCoord({ latitude: lat, longitude: lng });
@@ -176,9 +206,7 @@ container: mapContainer.current as HTMLElement,
   }, []);
 
   // =====================================================
-  // 3. Pintar markers SOLO de los locales creados aquí
-  //    (pero tú quieres que no se vea nada del backend,
-  //    aquí solo aparecen los de esta sesión)
+  // 4. Pintar markers de los locales del usuario
   // =====================================================
   useEffect(() => {
     if (!map.current) return;
@@ -241,7 +269,7 @@ container: mapContainer.current as HTMLElement,
   };
 
   // =====================================================
-  // 4. Cloudinary (subir imagen)
+  // 5. Cloudinary (subir imagen)
   // =====================================================
   const uploadImageToCloudinary = async (file: File) => {
     try {
@@ -270,7 +298,7 @@ container: mapContainer.current as HTMLElement,
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Preview rápida local (opcional)
+    // Preview rápida local
     const localUrl = URL.createObjectURL(file);
     setImageUri(localUrl);
 
@@ -284,7 +312,7 @@ container: mapContainer.current as HTMLElement,
   };
 
   // =====================================================
-  // 5. Guardar / actualizar local
+  // 6. Guardar / actualizar local
   // =====================================================
   const handleSave = async () => {
     if (!draftCoord) return;
@@ -324,13 +352,8 @@ container: mapContainer.current as HTMLElement,
           return;
         }
 
-        // 🔥 SOLO guardamos en la BD, NO mostramos nada extra
-        // Si quieres que aparezca el marker, descomenta estas líneas:
-        //
-        // const saved = mapLocalToPlace(data.local);
-        // setPlaces((prev) => [saved, ...prev]);
-        //
-        // pero tú pediste que no aparezca nada, así que lo dejamos vacío.
+        const saved = mapLocalToPlace(data.local || data);
+        setPlaces((prev) => [saved, ...prev]); // ⬅ aparece en mapa y en lista
 
         alert("Local creado correctamente.");
 
@@ -343,10 +366,11 @@ container: mapContainer.current as HTMLElement,
         setImageUri(undefined);
         setCategory("General");
         setEditingId(null);
-        setSelected(null);
-        setDetailOpen(false);
+        setSelected(saved);
+        setDetailOpen(true);
+        flyTo(saved);
       } else {
-        // ✏️ Editar local (por ahora casi no lo usarás, pero lo dejo listo)
+        // ✏️ Editar local
         const res = await fetch(`${API_URL}/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -360,7 +384,7 @@ container: mapContainer.current as HTMLElement,
           return;
         }
 
-        const updated = mapLocalToPlace(data.local);
+        const updated = mapLocalToPlace(data.local || data);
         setPlaces((prev) =>
           prev.map((p) => (p.id === updated.id ? updated : p))
         );
@@ -392,6 +416,7 @@ container: mapContainer.current as HTMLElement,
       setPlaces((prev) => prev.filter((p) => p.id !== id));
       setDetailOpen(false);
       setSelected(null);
+      setDraftCoord(null);
     } catch (e) {
       console.log("Error en handleDelete (web)", e);
       alert("No se pudo conectar al servidor.");
@@ -399,18 +424,17 @@ container: mapContainer.current as HTMLElement,
   };
 
   // =====================================================
-  // 6. UI
+  // 7. UI
   // =====================================================
   return (
     <Screen>
       {/* HEADER */}
       <Header>
         <SearchWrap>
-<IconBtn onClick={() => router.replace("/LocalesScreen")}>
-  <ArrowLeft size={18} color="#e5e7eb" />
-</IconBtn>
-
-          <SearchInput placeholder="Buscar (demo)" />
+          <IconBtn onClick={() => router.replace("/LocalesScreen")}>
+            <ArrowLeft size={18} color="#e5e7eb" />
+          </IconBtn>
+          {/* 🔥 Barra de búsqueda eliminada (ya no hay input) */}
         </SearchWrap>
 
         <HeaderActions>
@@ -486,9 +510,7 @@ container: mapContainer.current as HTMLElement,
         <FormSheet>
           <FormCard>
             <RowBetween>
-              <Title>
-                {editingId ? "Editar lugar" : "Nuevo lugar"}
-              </Title>
+              <Title>{editingId ? "Editar lugar" : "Nuevo lugar"}</Title>
               <IconBtn
                 onClick={() => {
                   setFormOpen(false);
@@ -545,13 +567,13 @@ container: mapContainer.current as HTMLElement,
             />
 
             <PrimaryBtn onClick={handleSave}>
-              {editingId ? "Guardar cambios" : "Guardar en JSON"}
+              {editingId ? "Guardar cambios" : "Guardar local"}
             </PrimaryBtn>
           </FormCard>
         </FormSheet>
       )}
 
-      {/* LISTA DE LUGARES (solo los de esta sesión) */}
+      {/* LISTA DE LUGARES DEL USUARIO */}
       {listOpen && (
         <ModalBg onClick={() => setListOpen(false)}>
           <ListCard onClick={(e) => e.stopPropagation()}>
@@ -625,16 +647,6 @@ const SearchWrap = styled.div`
   display: flex;
   gap: 8px;
   align-items: center;
-`;
-
-const SearchInput = styled.input`
-  flex: 1;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 12px;
-  background: #0f0f10;
-  color: #e5e7eb;
-  border: 1px solid rgba(148, 163, 184, 0.25);
 `;
 
 const IconBtn = styled.button`
@@ -766,16 +778,12 @@ const FormSheet = styled.div`
   position: fixed;
   left: 0;
   right: 0;
-
-  /*  ⬇⬇⬇ Esto evita que tape el navbar */
-  bottom: 70px; /* puedes subir o bajar este valor */
-
+  bottom: 70px; /* evita que tape el navbar */
   z-index: 30;
   display: flex;
   justify-content: center;
   pointer-events: none;
 `;
-
 
 const FormCard = styled.div`
   width: 100%;
@@ -786,7 +794,7 @@ const FormCard = styled.div`
   max-height: 80vh;
   overflow-y: auto;
   padding: 16px;
-  overflow-x: hidden; /* ← SOLUCIÓN */
+  overflow-x: hidden;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 `;
