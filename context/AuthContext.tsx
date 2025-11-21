@@ -29,20 +29,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const login = async (userData: any) => {
-    await saveUserSession(userData);
-    setUser(userData);
+const login = async (userData: any) => {
+  await saveUserSession(userData);
 
-    // YA es seguro navegar
-    router.replace("/(tabs)");
-  };
+  // 🔥 Recargar sesión real desde secureStore
+  const newSession = await loadUserSession();
+  setUser(newSession);
 
-  const logout = async () => {
-    await clearUserSession();
-    setUser(null);
+  router.replace("/(tabs)");
+};
 
-    if (!loading) router.replace("/Login/LoginScreen");
-  };
+
+const logout = async () => {
+  await clearUserSession();
+  setUser(null);
+  router.replace("/Login/LoginScreen");
+};
+
 
   return (
     <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
