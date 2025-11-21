@@ -14,6 +14,34 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+<<<<<<< Updated upstream
+=======
+interface IService {
+  _id: string;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  precio: string;
+  imagen: string;
+  calificacion?: number;
+  opiniones?: number;
+  distancia?: string;
+  disponible?: boolean;
+}
+{
+  "expo"; {
+    "plugins"; [
+      [
+        "react-native-maplibre-gl",
+        {
+          "API_KEY": "dummy"
+        }
+      ]
+    ]
+  }
+}
+
+>>>>>>> Stashed changes
 
 const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
 
