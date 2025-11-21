@@ -26,7 +26,7 @@ import { loadUserSession } from "../../utils/secureStore";
 // ---------------------
 const API_URL = "http://localhost:3000/api/usuarios";
 
-type Status = "finalizado" | "pendiente" | "cancelado";
+type Status = "finalizado" | "pendiente" | "cancelado" | "aceptado";
 
 type HistItem = {
   id: string;
@@ -40,18 +40,26 @@ type HistItem = {
   image?: string;
 };
 
-const statusPill = (s: Status) => {
+const statusPill = (s: string) => {
   switch (s) {
+    case "completada":
     case "finalizado":
       return { text: "Finalizado", color: "#34D399", Icon: CheckCircle };
+
     case "pendiente":
       return { text: "Pendiente", color: "#F59E0B", Icon: Clock };
+
+    case "aceptado":
+      return { text: "Aceptado", color: "#3B82F6", Icon: Clock };
+
     case "cancelado":
+    default:
       return { text: "Cancelado", color: "#EF4444", Icon: XCircle };
   }
 };
 
-const TABS = ["Todos", "Finalizados", "Pendientes", "Cancelados"] as const;
+
+const TABS = ["Todos", "Aceptados", "Pendientes", "Cancelados"] as const;
 
 // ---------- theme tokens ----------
 const palette = {
@@ -121,22 +129,28 @@ export default function HistoryScreen() {
 
       console.log("📥 HISTORIAL:", data);
 
-      const adapted: HistItem[] = data.map((req: any) => ({
-        id: req._id,
-        title: req.servicio?.nombre || "Servicio",
-        category: req.servicio?.categoria || "General",
-        subtitle: req.servicio?.descripcion || "",
-        date: `${req.fecha || "2025-01-01"} • ${req.hora || "12:00"}`,
-        price: `$${req.servicio?.precio || 0}`,
-        status:
-          req.estado === "completada"
-            ? "finalizado"
-            : req.estado === "pendiente"
-            ? "pendiente"
-            : "cancelado",
-        rating: req.calificacion || undefined,
-        image: req.servicio?.imagen,
-      }));
+      const adapted: HistItem[] = data.map((req: any) => {
+        let status: Status;
+
+        // 🟡 ESTADOS CORREGIDOS
+        if (req.estado === "completada") status = "finalizado";
+        else if (req.estado === "pendiente") status = "pendiente";
+        else if (req.estado === "aceptado") status = "aceptado";
+        else if (req.estado === "rechazado") status = "cancelado";
+        else status = "cancelado";
+
+        return {
+          id: req._id,
+          title: req.servicio?.nombre || "Servicio",
+          category: req.servicio?.categoria || "General",
+          subtitle: req.servicio?.descripcion || "",
+          date: `${req.fechaSolicitud?.split("T")[0] ?? "2025-01-01"} • ---`,
+          price: `$${req.servicio?.precio || 0}`,
+          status,
+          rating: req.calificacion || undefined,
+          image: req.servicio?.imagen,
+        };
+      });
 
       setHistory(adapted);
     } catch (err) {
@@ -155,8 +169,8 @@ export default function HistoryScreen() {
   // ----------------------------------------------------------
   const filtered = useMemo(() => {
     if (tab === "Todos") return history;
-    if (tab === "Finalizados")
-      return history.filter((i) => i.status === "finalizado");
+    if (tab === "Aceptados")
+      return history.filter((i) => i.status === "aceptado");
     if (tab === "Pendientes")
       return history.filter((i) => i.status === "pendiente");
 
@@ -165,7 +179,7 @@ export default function HistoryScreen() {
 
   const counts = useMemo(
     () => ({
-      fin: history.filter((i) => i.status === "finalizado").length,
+      fin: history.filter((i) => i.status === "aceptado").length,
       pen: history.filter((i) => i.status === "pendiente").length,
       can: history.filter((i) => i.status === "cancelado").length,
     }),
@@ -192,10 +206,7 @@ export default function HistoryScreen() {
               style={[s.tabBtn, tab === t && s.tabBtnActive]}
             >
               <Text
-                style={[
-                  s.tabText,
-                  tab === t && s.tabTextActive,
-                ]}
+                style={[s.tabText, tab === t && s.tabTextActive]}
                 numberOfLines={1}
               >
                 {t}
@@ -296,13 +307,13 @@ function AnimatedCard({
 function HistoryCard({
   item,
   s,
-  theme,
 }: {
   item: HistItem;
   s: ReturnType<typeof styles>;
   theme: any;
 }) {
-  const pill = statusPill(item.status);
+  const pill = statusPill(item.status)!;
+
 
   return (
     <View style={s.card}>
@@ -321,10 +332,7 @@ function HistoryCard({
 
         {/* INFO */}
         <View style={{ flex: 1 }}>
-          <Text
-            style={s.title}
-            numberOfLines={1}
-          >
+          <Text style={s.title} numberOfLines={1}>
             {item.title}
           </Text>
 
@@ -358,7 +366,7 @@ function SummaryBox({ s, label, value, color }: any) {
   );
 }
 
-// ---------- ESTILOS (IGUAL QUE TU DISEÑO) ----------
+// ---------- ESTILOS ----------
 const styles = (t: any, small: boolean) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.bg },

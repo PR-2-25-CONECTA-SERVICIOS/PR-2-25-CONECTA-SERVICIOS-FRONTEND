@@ -46,6 +46,7 @@ type LocalItem = {
   specialTags?: string[];
   url?: string;
   amenities?: string[];
+  claims?: any[];   // 🔥 nuevo
 };
 
 type Profile = {
@@ -124,17 +125,19 @@ useFocusEffect(
         // ============================
         // 🔥 LOCALES
         // ============================
-        const parsedLocals = (data.locales || []).map((loc: any) => ({
-          id: loc._id,
-          name: loc.nombre,
-          address: loc.direccion,
-          verified: loc.verificado,
-          thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
-          photos: loc.fotos || [],
-          specialTags: loc.tagsEspeciales || [],
-          url: loc.url || "",
-          amenities: loc.servicios || [],
-        }));
+const parsedLocals = (data.locales || []).map((loc: any) => ({
+  id: loc._id,
+  name: loc.nombre,
+  address: loc.direccion,
+  verified: loc.verificado,
+  thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
+  photos: loc.fotos || [],
+  specialTags: loc.tagsEspeciales || [],
+  url: loc.url || "",
+  amenities: loc.servicios || [],
+  claims: loc.reclamos || []   // 🔥 agregar
+}));
+
 
         setLocals(parsedLocals);
 
@@ -235,7 +238,7 @@ useFocusEffect(
         direccion: draft.location, // en el schema es "direccion"
         horas: draft.hours,
         especialidades: draft.tags, // en el schema es "especialidades"
-        imagen: draft.photo || "",
+imagen: draft.photo?.startsWith("file://") ? "" : draft.photo || "",
       };
 
       let url = "";
@@ -300,16 +303,21 @@ useFocusEffect(
     }
   };
 
-  const pickServicePhoto = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    });
+const pickServicePhoto = async () => {
+  const res = await ImagePicker.launchImageLibraryAsync({
+    allowsEditing: true,
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.8,
+  });
 
-    if (!res.canceled && res.assets?.length) {
-      setDraft((p) => ({ ...p, photo: res.assets[0].uri }));
-    }
-  };
+  if (res.canceled || !res.assets?.length) return;
+
+const uri = res.assets[0].uri;
+setDraft((p) => ({ ...p, photo: uri }));
+
+};
+
+
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -348,38 +356,73 @@ useFocusEffect(
     setLocalTags(loc.specialTags || []);
     setLocalModalOpen(true);
   };
+const saveLocalCompletion = async () => {
+  if (!activeLocal) return;
 
-  const saveLocalCompletion = () => {
-    if (!activeLocal) return;
+  try {
+    const res = await fetch(
+      `http://localhost:3000/api/locales/${activeLocal.id}/completar`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: localUrl.trim(),
+photos: localPhotos.map(p => p.startsWith("file://") ? "" : p),
+          amenities: localAmenities,
+          tags: localTags,
+        }),
+      }
+    );
 
+let json = null;
+try {
+  json = await res.json();
+} catch {
+  console.log("⚠️ Backend devolvió algo que NO es JSON");
+}
+
+console.log("🔥 Local actualizado:", json);
+
+
+    // 🔄 actualizar UI sin recargar app
     setLocals((prev) =>
       prev.map((l) =>
-        l.id === activeLocal.id
-          ? {
-              ...l,
-              url: localUrl.trim(),
-              photos: localPhotos,
-              amenities: localAmenities,
-              specialTags: localTags,
-            }
-          : l
+        l.id === activeLocal.id ? {
+          ...l,
+          url: localUrl.trim(),
+          photos: localPhotos,
+          amenities: localAmenities,
+          specialTags: localTags,
+          verified: true   // 🔥 si su reclamo fue aprobado
+        } : l
       )
     );
 
     setLocalModalOpen(false);
-  };
 
-  const addLocalPhoto = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      allowsEditing: true,
-    });
+  } catch (err) {
+    console.log("❌ Error guardando local:", err);
+    alert("Error al guardar los datos.");
+  }
+};
 
-    if (!res.canceled && res.assets?.length) {
-      setLocalPhotos((prev) => [res.assets[0].uri, ...prev]);
-    }
-  };
+
+const addLocalPhoto = async () => {
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    quality: 0.8,
+  });
+
+  if (res.canceled || !res.assets?.length) return;
+
+  const localUri = res.assets[0].uri;
+
+  // 🔥 Subir a Cloudinary
+setLocalPhotos((prev) => [localUri, ...prev]);
+
+};
+
 console.log("🔄 ProfileViewScreen render, user:", user?._id);
 
   /* ============================================
@@ -545,6 +588,15 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
                 <Text style={styles.localStatus}>
                   {l.verified ? "Verificado" : "No verificado"}
                 </Text>
+                {l.claims?.some((c) => c.estado === "aprobado") && (
+  <TouchableOpacity
+    style={styles.completeBtnFull}
+    onPress={() => openLocalModal(l)}
+  >
+    <Text style={styles.completeBtnText}>Completar registro</Text>
+  </TouchableOpacity>
+)}
+
               </View>
 
               <View style={styles.localArrow}>
@@ -712,96 +764,105 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
             MODAL: COMPLETAR LOCAL
       ================================= */}
       <Modal visible={localModalOpen} transparent animationType="fade">
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <ScrollView contentContainerStyle={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Completar registro</Text>
+  <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={Platform.OS === "ios" ? "padding" : undefined}
+  >
+    <View style={styles.modalBackdrop}>
+      <View style={styles.modalContainer}>
 
-                <TouchableOpacity
-                  style={styles.closeBtn}
-                  onPress={() => setLocalModalOpen(false)}
-                >
-                  <X size={20} color="#fff" />
-                </TouchableOpacity>
+        {/* HEADER */}
+        <View style={styles.modalHeaderPro}>
+          <Text style={styles.modalTitlePro}>Completar registro del local</Text>
+          <TouchableOpacity onPress={() => setLocalModalOpen(false)}>
+            <X size={22} color="#fbbf24" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+
+          {/* URL */}
+          <Text style={styles.modalLabel}>Página web o link del local</Text>
+          <TextInput
+            placeholder="https://"
+            placeholderTextColor="#777"
+            value={localUrl}
+            onChangeText={setLocalUrl}
+            style={styles.modalInputPro}
+          />
+
+          {/* FOTOS DEL LOCAL */}
+          <Text style={styles.modalLabel}>Fotos del local</Text>
+          <TouchableOpacity style={styles.photoUploadBox} onPress={addLocalPhoto}>
+            <Text style={{ color: "#fbbf24", fontSize: 16, fontWeight: "700" }}>+ Subir foto</Text>
+          </TouchableOpacity>
+
+          <View style={styles.photoGallery}>
+            {localPhotos.map((p, i) => (
+              <Image key={i} source={{ uri: p }} style={styles.galleryImg} />
+            ))}
+          </View>
+
+          {/* AMENITIES */}
+          <Text style={styles.modalLabel}>Amenidades</Text>
+          <TextInput
+            placeholder="Ej: Wi-Fi, Estacionamiento, Mesas al aire libre..."
+            placeholderTextColor="#777"
+            value={localAmenityInput}
+            onChangeText={setLocalAmenityInput}
+            onSubmitEditing={() => {
+              if (!localAmenityInput.trim()) return;
+              setLocalAmenities((prev) => [...prev, localAmenityInput.trim()]);
+              setLocalAmenityInput("");
+            }}
+            style={styles.modalInputPro}
+          />
+
+          <View style={styles.tagList}>
+            {localAmenities.map((a, i) => (
+              <View key={i} style={styles.tagChipPro}>
+                <Text style={styles.tagChipTextPro}>{a}</Text>
               </View>
+            ))}
+          </View>
 
-              {/* URL */}
-              <TextInput
-                placeholder="URL del local"
-                placeholderTextColor="#666"
-                value={localUrl}
-                onChangeText={setLocalUrl}
-                style={styles.input}
-              />
+          {/* TAGS ESPECIALES */}
+          <Text style={styles.modalLabel}>Hashtags especiales</Text>
+          <TextInput
+            placeholder="#Familiar #Vegano #Económico"
+            placeholderTextColor="#777"
+            value={localTagInput}
+            onChangeText={setLocalTagInput}
+            onSubmitEditing={() => {
+              if (!localTagInput.trim()) return;
+              setLocalTags((prev) => [...prev, localTagInput.trim()]);
+              setLocalTagInput("");
+            }}
+            style={styles.modalInputPro}
+          />
 
-              {/* FOTOS */}
-              <TouchableOpacity
-                style={styles.addPhotoBox}
-                onPress={addLocalPhoto}
-              >
-                <Text style={{ color: "#fff" }}>+ Foto</Text>
-              </TouchableOpacity>
-
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-                {localPhotos.map((p, i) => (
-                  <Image key={i} source={{ uri: p }} style={styles.photoThumb} />
-                ))}
+          <View style={styles.tagList}>
+            {localTags.map((t, i) => (
+              <View key={i} style={styles.tagChipPro}>
+                <Text style={styles.tagChipTextPro}>{t}</Text>
               </View>
+            ))}
+          </View>
 
-              {/* AMENITIES */}
-              <TextInput
-                placeholder="Amenidad"
-                placeholderTextColor="#666"
-                value={localAmenityInput}
-                onChangeText={setLocalAmenityInput}
-                onSubmitEditing={() => {
-                  if (!localAmenityInput.trim()) return;
-                  setLocalAmenities((prev) => [
-                    ...prev,
-                    localAmenityInput.trim(),
-                  ]);
-                  setLocalAmenityInput("");
-                }}
-                style={styles.input}
-              />
+          {/* BOTÓN GUARDAR */}
+          <TouchableOpacity style={styles.saveBtnPro} onPress={saveLocalCompletion}>
+            <Text style={styles.saveBtnTextPro}>Guardar cambios</Text>
+          </TouchableOpacity>
 
-              {/* TAGS ESPECIALES */}
-              <TextInput
-                placeholder="Hashtag especial"
-                placeholderTextColor="#666"
-                value={localTagInput}
-                onChangeText={setLocalTagInput}
-                onSubmitEditing={() => {
-                  if (!localTagInput.trim()) return;
-                  setLocalTags((prev) => [...prev, localTagInput.trim()]);
-                  setLocalTagInput("");
-                }}
-                style={styles.input}
-              />
+          <TouchableOpacity style={styles.cancelBtnPro} onPress={() => setLocalModalOpen(false)}>
+            <Text style={styles.cancelBtnTextPro}>Cancelar</Text>
+          </TouchableOpacity>
 
-              {/* GUARDAR */}
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={saveLocalCompletion}
-              >
-                <Text style={styles.saveBtnText}>Guardar</Text>
-              </TouchableOpacity>
-
-              {/* CANCELAR */}
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setLocalModalOpen(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </View>
+    </View>
+  </KeyboardAvoidingView>
+</Modal>
     </View>
   );
 }
@@ -838,6 +899,127 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 18,
   },
+modalBackdrop: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.85)",
+  justifyContent: "center",
+  paddingHorizontal: 16,
+},
+
+modalContainer: {
+  backgroundColor: "#141414",
+  borderRadius: 20,
+  padding: 18,
+  maxHeight: "88%",
+  borderWidth: 1,
+  borderColor: "rgba(251,191,36,0.25)",
+  shadowColor: "#fbbf24",
+  shadowOpacity: 0.15,
+  shadowRadius: 15,
+},
+
+modalHeaderPro: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 12,
+},
+
+modalTitlePro: {
+  color: "#fff",
+  fontWeight: "900",
+  fontSize: 20,
+},
+
+modalLabel: {
+  color: "#fbbf24",
+  fontWeight: "700",
+  marginTop: 14,
+  marginBottom: 6,
+},
+
+modalInputPro: {
+  backgroundColor: "#1f1f1f",
+  borderWidth: 1,
+  borderColor: "#333",
+  borderRadius: 10,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  color: "#fff",
+  marginBottom: 8,
+},
+
+photoUploadBox: {
+  backgroundColor: "#1f1f1f",
+  height: 65,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: "rgba(251,191,36,0.3)",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 12,
+},
+
+photoGallery: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: 10,
+  marginBottom: 12,
+},
+
+galleryImg: {
+  width: 90,
+  height: 90,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#333",
+},
+
+tagList: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: 8,
+},
+
+tagChipPro: {
+  backgroundColor: "#333",
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 999,
+},
+
+tagChipTextPro: {
+  color: "#fff",
+  fontWeight: "600",
+},
+
+saveBtnPro: {
+  backgroundColor: "#fbbf24",
+  paddingVertical: 12,
+  borderRadius: 12,
+  marginTop: 20,
+},
+
+saveBtnTextPro: {
+  color: "#111",
+  fontWeight: "900",
+  textAlign: "center",
+  fontSize: 16,
+},
+
+cancelBtnPro: {
+  paddingVertical: 12,
+  borderRadius: 12,
+  marginTop: 10,
+  borderWidth: 1,
+  borderColor: "#444",
+},
+
+cancelBtnTextPro: {
+  textAlign: "center",
+  color: "#ddd",
+  fontWeight: "700",
+},
 
   iconBtn: {
     width: 34,
