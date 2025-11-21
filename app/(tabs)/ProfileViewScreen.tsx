@@ -21,7 +21,7 @@ import {
 import { clearUserSession, loadUserSession } from "../../utils/secureStore";
 
 // 🔥 TU BACKEND REAL
-const API_URL = "http://192.168.0.6:3000/api/usuarios/";
+const API_URL = "http://localhost:3000/api/usuarios/";
 
 type Service = {
   id: string;

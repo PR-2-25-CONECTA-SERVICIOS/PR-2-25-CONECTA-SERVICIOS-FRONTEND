@@ -19,7 +19,7 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "http://192.168.0.6:3000/api/locales"; // 🔥 CAMBIA ESTO
+const API_URL = "http://192.168.1.68:3000/api/locales"; // 🔥 CAMBIA ESTO
 
 /* ================== TIPOS ================== */
 type Status = "pendiente" | "aprobado" | "rechazado";
