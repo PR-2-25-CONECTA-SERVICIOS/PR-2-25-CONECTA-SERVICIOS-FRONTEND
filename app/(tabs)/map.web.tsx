@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /* ==========================
-   TIPOS
+   Tipos
 ========================== */
 type ProviderItem = {
   id: number;
@@ -18,7 +18,7 @@ type ProviderItem = {
 };
 
 /* ==========================
-   MOCK DATA
+   Mock data
 ========================== */
 const MOCK: ProviderItem[] = [
   {
@@ -60,23 +60,43 @@ const MOCK: ProviderItem[] = [
 ];
 
 /* ==========================
+   Paleta estilo móvil/dark
+========================== */
+const palette = {
+  dark: {
+    bg: "#0B0F19",
+    card: "#111827",
+    text: "#FFFFFF",
+    sub: "#9CA3AF",
+    border: "#2C354A",
+    chip: "#FBBF24",
+    pin: "#F59E0B",
+    pinInactive: "#9CA3AF",
+    user: "#FCD34D",
+    overlay: "rgba(0,0,0,0.50)",
+  },
+};
+
+/* ==========================
    COMPONENTE PRINCIPAL
 ========================== */
 export default function MapWeb() {
+  const t = palette.dark;
+
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   const [selected, setSelected] = useState<ProviderItem | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [search, setSearch] = useState("");
-
   const [userLoc, setUserLoc] = useState<[number, number] | null>(null);
 
-const initialCenter: [number, number] = [-66.163, -17.3835];
+  const center: [number, number] = [-66.163, -17.3835];
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.toLowerCase().trim();
     if (!q) return MOCK;
+
     return MOCK.filter(
       (i) =>
         i.title.toLowerCase().includes(q) ||
@@ -91,36 +111,52 @@ const initialCenter: [number, number] = [-66.163, -17.3835];
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    mapRef.current = new maplibregl.Map({
+    const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-      center: initialCenter,
+      style:
+        "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      center,
       zoom: 15,
     });
 
-    // markers
-    MOCK.forEach((item) => {
-      const el = document.createElement("div");
-      el.style.width = "24px";
-      el.style.height = "24px";
-      el.style.borderRadius = "50%";
-      el.style.background =
-        item.status === "available" ? "#F59E0B" : "#9CA3AF";
-      el.style.border = "2px solid white";
-      el.style.cursor = "pointer";
+    mapRef.current = map;
 
-      el.onclick = () => {
+    /* ===== AGREGAR MARCADORES ===== */
+    MOCK.forEach((item) => {
+      const marker = document.createElement("div");
+      marker.style.width = "34px";
+      marker.style.height = "34px";
+      marker.style.borderRadius = "999px";
+      marker.style.cursor = "pointer";
+      marker.style.display = "flex";
+      marker.style.alignItems = "center";
+      marker.style.justifyContent = "center";
+
+      // Fondo circular
+      marker.style.background =
+        item.status === "available" ? t.pin : t.pinInactive;
+
+      // Icono central
+      marker.innerHTML =
+        `<svg width="18" height="18" fill="#111827" viewBox="0 0 24 24">
+          <path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7zm0 9.5c-1.38 
+          0-2.5-1.12-2.5-2.5s1.12-2.5 
+          2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>`;
+
+      // Captura clics sin bug
+      marker.addEventListener("click", () => {
         setSelected(item);
-        mapRef.current?.flyTo({
+        map.flyTo({
           center: [item.coord.longitude, item.coord.latitude],
           zoom: 16,
-          speed: 0.8,
+          speed: 0.7,
         });
-      };
+      });
 
-      new maplibregl.Marker({ element: el })
+      new maplibregl.Marker({ element: marker })
         .setLngLat([item.coord.longitude, item.coord.latitude])
-        .addTo(mapRef.current!);
+        .addTo(map);
     });
   }, []);
 
@@ -132,120 +168,151 @@ const initialCenter: [number, number] = [-66.163, -17.3835];
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const c: [number, number] = [
-          pos.coords.longitude,
-          pos.coords.latitude,
-        ];
-        setUserLoc([c[1], c[0]]);
+        const lng = pos.coords.longitude;
+        const lat = pos.coords.latitude;
+
+        setUserLoc([lat, lng]);
 
         new maplibregl.Marker({
-          color: "#FCD34D",
+          color: t.user,
         })
-          .setLngLat([c[0], c[1]])
+          .setLngLat([lng, lat])
           .addTo(mapRef.current!);
 
         mapRef.current?.flyTo({
-          center: [c[0], c[1]],
+          center: [lng, lat],
           zoom: 16,
-          speed: 0.8,
+          speed: 0.7,
         });
       },
-      (err) => console.log("Error GPS:", err),
+      () => {},
       { enableHighAccuracy: true }
     );
   };
 
   /* ==========================
-     RENDER
+     UI
   =========================== */
+
   return (
     <div
       style={{
         width: "100%",
         height: "100vh",
+        background: t.bg,
         position: "relative",
-        overflow: "hidden",
       }}
     >
       {/* HEADER */}
       <div
         style={{
           position: "absolute",
-          top: 10,
-          left: 10,
-          right: 10,
+          top: 16,
+          left: 16,
+          right: 16,
+          zIndex: 50,
           display: "flex",
-          gap: 10,
-          zIndex: 10,
+          flexDirection: "column",
+          gap: 12,
         }}
       >
-        <input
-          placeholder="Buscar en mapa..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        {/* Search */}
+        <div
           style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: 10,
-            border: "1px solid #ccc",
-          }}
-        />
-
-        <button
-          onClick={() => setListOpen(true)}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 10,
-            background: "#FBBF24",
-            fontWeight: "bold",
-            border: "none",
+            padding: "10px 14px",
+            background: "#111827",
+            borderRadius: 14,
+            display: "flex",
+            border: `1px solid ${t.border}`,
           }}
         >
-          Lista
-        </button>
+          <input
+            placeholder="Buscar en el mapa..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              color: t.text,
+              outline: "none",
+            }}
+          />
+          <svg
+            width="20"
+            height="20"
+            fill={t.sub}
+            viewBox="0 0 24 24"
+            style={{ marginLeft: 8 }}
+          >
+            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 
+            0016 9.5 6.5 6.5 0 109.5 
+            16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 
+            4.99L20.49 19l-4.99-5zm-6 
+            0C7.01 14 5 11.99 5 9.5S7.01 5 
+            9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+        </div>
 
-        <button
-          onClick={locateUser}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 10,
-            background: "#60A5FA",
-            fontWeight: "bold",
-            border: "none",
-          }}
-        >
-          Mi Ubicación
-        </button>
+        {/* ACTION BUTTONS */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => setListOpen(true)}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 12,
+              background: t.chip,
+              color: "#111827",
+              fontWeight: "bold",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Lista
+          </button>
+
+          <button
+            onClick={locateUser}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 12,
+              background: t.chip,
+              color: "#111827",
+              fontWeight: "bold",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Mi ubicación
+          </button>
+        </div>
       </div>
 
       {/* MAP */}
-      <div
-        ref={mapContainer}
-        style={{
-          width: "100%",
-          height: "100%",
-        }}
-      />
+      <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
 
-      {/* INFO CARD */}
+      {/* BOTTOM CARD — DETALLE */}
       {selected && (
         <div
           style={{
             position: "absolute",
-            bottom: 10,
-            left: 10,
-            right: 10,
-            background: "white",
+            bottom: 20,
+            left: 16,
+            right: 16,
+            background: t.card,
+            borderRadius: 16,
             padding: 16,
-            borderRadius: 12,
-            boxShadow: "0px 4px 14px rgba(0,0,0,0.25)",
-            zIndex: 10,
+            color: t.text,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+            zIndex: 60,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <div>
               <h3 style={{ margin: 0 }}>{selected.title}</h3>
-              <span>{selected.category}</span>
+              <p style={{ marginTop: 4, color: t.sub }}>
+                {selected.category}
+              </p>
             </div>
 
             <button
@@ -253,7 +320,8 @@ const initialCenter: [number, number] = [-66.163, -17.3835];
               style={{
                 border: "none",
                 background: "transparent",
-                fontSize: 20,
+                color: t.sub,
+                fontSize: 22,
                 cursor: "pointer",
               }}
             >
@@ -273,28 +341,31 @@ const initialCenter: [number, number] = [-66.163, -17.3835];
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 20,
+            background: t.overlay,
             display: "flex",
             justifyContent: "center",
             alignItems: "flex-end",
+            zIndex: 80,
           }}
         >
           <div
             style={{
               width: "100%",
-              background: "white",
+              maxHeight: "65%",
+              background: t.card,
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
-              maxHeight: "60%",
               overflowY: "auto",
+              paddingBottom: 14,
             }}
           >
             <div
               style={{
                 padding: 16,
+                color: t.text,
                 display: "flex",
                 justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
               <h3 style={{ margin: 0 }}>Resultados</h3>
@@ -304,38 +375,83 @@ const initialCenter: [number, number] = [-66.163, -17.3835];
                 style={{
                   border: "none",
                   background: "transparent",
-                  fontSize: 20,
+                  color: t.sub,
+                  fontSize: 22,
+                  cursor: "pointer",
                 }}
               >
                 ✖
               </button>
             </div>
 
-            {filtered.map((item) => (
+            {filtered.map((i) => (
               <div
-                key={item.id}
+                key={i.id}
                 onClick={() => {
-                  setSelected(item);
+                  setSelected(i);
                   setListOpen(false);
                 }}
                 style={{
                   padding: 16,
-                  borderBottom: "1px solid #eee",
+                  borderBottom: `1px solid ${t.border}`,
+                  color: t.text,
+                  cursor: "pointer",
                   display: "flex",
                   justifyContent: "space-between",
                 }}
               >
                 <div>
-                  <strong>{item.title}</strong>
-                  <div style={{ color: "#555" }}>{item.category}</div>
+                  <strong>{i.title}</strong>
+                  <p style={{ margin: 0, color: t.sub }}>{i.category}</p>
                 </div>
-
-                <div style={{ fontWeight: "bold" }}>{item.price}</div>
+                <strong>{i.price}</strong>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* LEYENDA */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+          background: t.card,
+          borderRadius: 12,
+          padding: 12,
+          border: `1px solid ${t.border}`,
+          color: t.text,
+          fontSize: 14,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+        }}
+      >
+        <strong style={{ fontSize: 15 }}>Leyenda</strong>
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+          <Legend color={t.pin} label="Disponible" />
+          <Legend color={t.pinInactive} label="No disponible" />
+          <Legend color={t.user} label="Tu ubicación" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================
+   Subcomponente Leyenda
+========================== */
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 99,
+          background: color,
+        }}
+      ></div>
+      <span style={{ fontSize: 13 }}>{label}</span>
     </div>
   );
 }
