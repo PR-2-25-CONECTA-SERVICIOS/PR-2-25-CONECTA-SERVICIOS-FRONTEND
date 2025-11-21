@@ -1,9 +1,10 @@
 // app/ProfileViewScreen.tsx
-import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useRootNavigationState, useRouter } from "expo-router";
+
+import { useFocusEffect } from "@react-navigation/native";
 import { ArrowLeft, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -18,7 +19,7 @@ import {
   View,
 } from "react-native";
 
-import { clearUserSession, loadUserSession } from "../../utils/secureStore";
+import { useAuth } from "../../context/AuthContext";
 
 // 🔥 TU BACKEND REAL
 const API_URL = "http://localhost:3000/api/usuarios/";
@@ -61,6 +62,8 @@ type Profile = {
 
 export default function ProfileViewScreen() {
   const router = useRouter();
+  const { user, logout } = useAuth();
+  const rootState = useRootNavigationState();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -70,126 +73,91 @@ export default function ProfileViewScreen() {
   /* ============================================
        CARGAR PERFIL DESDE BACKEND
   ============================================ */
-  useEffect(() => {
+
+useFocusEffect(
+  useCallback(() => {
+    if (!user || !user._id) return;
+
+    let active = true;
+    setLoading(true);
+
     const loadProfile = async () => {
       try {
-        const session = await loadUserSession();
-        if (!session || !session._id) {
-          return router.replace("/Login/LoginScreen");
-        }
-
-        const res = await fetch(API_URL + session._id);
-
+        const res = await fetch(API_URL + user._id);
         const raw = await res.text();
-        if (!res.ok) throw new Error("HTTP " + res.status);
-
         const data = JSON.parse(raw);
 
-        // Adaptar backend → frontend
-        const userProfile: Profile = {
+        if (!active) return;
+
+        // ============================
+        // 🔥 PERFIL BASE
+        // ============================
+        setProfile({
           name: data.nombre,
           email: data.correo,
-          phone: data.telefono || "Sin teléfono",
-          avatar: data.avatar || "",
+          phone: data.telefono,
+          avatar: data.avatar,
           verified: data.verificado,
           rating: data.calificacion,
           reviews: data.reseñas,
-          services: (data.servicios || []).map((s: any) => ({
-            id: s._id,
-            name: s.nombre,
-            category: s.categoria,
-            hourlyPrice: s.hourlyPrice,
-            description: s.descripcion,
-            location: s.ubicacion,
-            hours: s.horas,
-            tags: s.tags || [],
-            photo: s.imagen,
-          })),
-          locals: (data.locales || []).map((l: any) => ({
-            id: l._id,
-            name: l.nombre,
-            address: l.direccion,
-            verified: l.verificado || false,
-            thumb: l.imagen,
-            phone: l.telefono || "",
-            lat: l.lat,
-            lng: l.lng,
-            createdAt: l.createdAt,
-          })),
-        };
+          services: [],   // se llena abajo
+          locals: [],      // se llena abajo
+        });
 
-        setProfile(userProfile);
-        setServices(userProfile.services);
-        setLocals(userProfile.locals || []);
+        // ============================
+        // 🔥 SERVICIOS
+        // ============================
+        const parsedServices = (data.servicios || []).map((srv: any) => ({
+          id: srv._id,
+          name: srv.nombre,
+          category: srv.categoria,
+          hourlyPrice: srv.precio,
+          description: srv.descripcion,
+          location: srv.direccion,
+          hours: srv.horas,
+          tags: srv.especialidades,
+          photo: srv.imagen,
+        }));
+
+        setServices(parsedServices);
+
+        // ============================
+        // 🔥 LOCALES
+        // ============================
+        const parsedLocals = (data.locales || []).map((loc: any) => ({
+          id: loc._id,
+          name: loc.nombre,
+          address: loc.direccion,
+          verified: loc.verificado,
+          thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
+          photos: loc.fotos || [],
+          specialTags: loc.tagsEspeciales || [],
+          url: loc.url || "",
+          amenities: loc.servicios || [],
+        }));
+
+        setLocals(parsedLocals);
+
       } catch (err) {
-        router.replace("/Login/LoginScreen");
+        console.log("❌ Error cargando perfil:", err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     loadProfile();
-  }, []);
-  useFocusEffect(
-    useCallback(() => {
-      const refresh = async () => {
-        const session = await loadUserSession();
-        if (!session || !session._id) return;
+    return () => {
+      active = false;
+    };
+  }, [user?._id])
+);
 
-        try {
-          const userId = session._id || session.id;
-          const res = await fetch(API_URL + userId);
 
-          if (!res.ok) return;
-
-          const raw = await res.text();
-          const data = JSON.parse(raw);
-
-          setProfile({
-            name: data.nombre,
-            email: data.correo,
-            phone: data.telefono || "Sin teléfono",
-            avatar: data.avatar || "",
-            verified: data.verificado,
-            rating: data.calificacion,
-            reviews: data.reseñas,
-            services: (data.servicios || []).map((s: any) => ({
-              id: s._id,
-              name: s.nombre,
-              category: s.categoria,
-              hourlyPrice: s.hourlyPrice,
-              description: s.descripcion,
-              location: s.ubicacion,
-              hours: s.horas,
-              tags: s.tags || [],
-              photo: s.imagen,
-            })),
-            locals: (data.locales || []).map((l: any) => ({
-              id: l._id,
-              name: l.nombre,
-              address: l.direccion,
-              verified: l.verificado,
-              thumb: l.imagen,
-              photos: l.fotos || [],
-              specialTags: l.specialTags || [],
-              url: l.url || "",
-              amenities: l.amenities || [],
-            })),
-          });
-        } catch (e) {}
-      };
-
-      refresh();
-
-      return () => {};
-    }, [])
-  );
   /* ============================================
        LOGOUT
   ============================================ */
   const handleLogout = async () => {
-    await clearUserSession();
-    router.replace("/Login/SplashScreen");
+    await logout();
   };
 
   /* ============================================
@@ -251,23 +219,22 @@ export default function ProfileViewScreen() {
     if (!canSave) return;
 
     try {
-      const session = await loadUserSession();
-      if (!session || !session._id) {
+      if (!user || !user._id) {
         alert("Sesión no válida, vuelve a iniciar sesión.");
         return;
       }
 
-      const userId = session._id || session.id;
+      const userId = user._id;
 
-      // 👇 Lo que tu backend espera en Service(data)
+      // 👇 Lo que tu backend espera según tu schema de Service
       const payload = {
         nombre: draft.name,
         categoria: draft.category,
-        precio: draft.hourlyPrice, // 👈 EL NOMBRE CORRECTO DEL BACKEND
+        precio: draft.hourlyPrice, // field correcto en el back
         descripcion: draft.description,
-        ubicacion: draft.location,
+        direccion: draft.location, // en el schema es "direccion"
         horas: draft.hours,
-        tags: draft.tags,
+        especialidades: draft.tags, // en el schema es "especialidades"
         imagen: draft.photo || "",
       };
 
@@ -275,7 +242,7 @@ export default function ProfileViewScreen() {
       let method: "POST" | "PUT" = "POST";
 
       if (isEditing && editingId) {
-        // 🟡 actualizar (requiere ruta PUT en el back que te dejo abajo)
+        // 🟡 actualizar
         url = `${API_URL}${userId}/servicios/${editingId}`;
         method = "PUT";
       } else {
@@ -301,18 +268,18 @@ export default function ProfileViewScreen() {
 
       const data = JSON.parse(raw);
 
-      // Tu addUserService responde: { mensaje, servicio: nuevoServicio }
+      // addUserService responde: { mensaje, servicio: nuevoServicio }
       const srv = data.servicio || data;
 
       const adapted: Service = {
         id: srv._id,
         name: srv.nombre,
         category: srv.categoria,
-        hourlyPrice: srv.hourlyPrice,
+        hourlyPrice: srv.precio, // 👈 aquí también viene de "precio"
         description: srv.descripcion,
-        location: srv.ubicacion,
-        hours: srv.horas,
-        tags: srv.tags || [],
+        location: srv.direccion || "",
+        hours: srv.horas || "",
+        tags: srv.especialidades || [],
         photo: srv.imagen,
       };
 
@@ -401,6 +368,7 @@ export default function ProfileViewScreen() {
 
     setLocalModalOpen(false);
   };
+
   const addLocalPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -444,31 +412,41 @@ export default function ProfileViewScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 14 }}>
         {/* PERFIL */}
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.avatarWrap}>
-              {profile.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarFallbackText}>
-                    {profile.name[0]}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={{ marginLeft: 10 }}>
-              <Text style={styles.name}>{profile.name}</Text>
-              <Text style={styles.grayText}>{profile.email}</Text>
-              <Text style={styles.grayText}>{profile.phone}</Text>
-
-              <Text style={styles.ratingText}>
-                ⭐ {profile.rating} ({profile.reviews})
-              </Text>
-            </View>
+<View style={styles.card}>
+  <View style={styles.rowBetween}>
+    {/* IZQUIERDA: INFO DE PERFIL */}
+    <View style={styles.row}>
+      <View style={styles.avatarWrap}>
+        {profile.avatar ? (
+          <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>{profile.name[0]}</Text>
           </View>
-        </View>
+        )}
+      </View>
+
+      <View style={{ marginLeft: 10 }}>
+        <Text style={styles.name}>{profile.name}</Text>
+        <Text style={styles.grayText}>{profile.email}</Text>
+        <Text style={styles.grayText}>{profile.phone}</Text>
+
+        <Text style={styles.ratingText}>
+          ⭐ {profile.rating} ({profile.reviews})
+        </Text>
+      </View>
+    </View>
+
+    {/* DERECHA: BOTÓN EDITAR PERFIL */}
+    <TouchableOpacity
+      style={styles.smallEditBtn}
+      onPress={() => router.push("/EditProfileScreen")}
+    >
+      <Text style={styles.smallEditBtnText}>Editar</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+
 
         {/* SERVICIOS */}
         <View style={styles.card}>
@@ -574,18 +552,27 @@ export default function ProfileViewScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        {/* ---------- BOTÓN EDITAR PERFIL ---------- */}
-        <TouchableOpacity
-          style={styles.editBigBtn}
-          onPress={() => router.push("/EditProfileScreen")}
-        >
-          <Text style={styles.editBigBtnText}>Editar perfil</Text>
-        </TouchableOpacity>
+{/* BOTÓN CERRAR SESIÓN */}
+<View style={{ marginTop: 14, marginHorizontal:80, backgroundColor: "#111" }}>
+  <TouchableOpacity
+    onPress={handleLogout}
+    activeOpacity={0.85}
+    style={{
+      backgroundColor: "#e63946",
+      paddingVertical: 14,
+      
+      borderRadius: 12,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.15)",
+    }}
+  >
+    <Text style={{ color: "#ffffffff", fontWeight: "800", fontSize: 16 }}>
+      Cerrar sesión
+    </Text>
+  </TouchableOpacity>
+</View>
 
-        {/* LOGOUT */}
-        <TouchableOpacity style={styles.CloseBigBtn} onPress={handleLogout}>
-          <Text style={styles.editBigBtnText}>Cerrar sesión</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* ================================
@@ -760,11 +747,7 @@ export default function ProfileViewScreen() {
 
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                 {localPhotos.map((p, i) => (
-                  <Image
-                    key={i}
-                    source={{ uri: p }}
-                    style={styles.photoThumb}
-                  />
+                  <Image key={i} source={{ uri: p }} style={styles.photoThumb} />
                 ))}
               </View>
 
@@ -1241,4 +1224,22 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 10,
   },
+  rowBetween: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
+
+smallEditBtn: {
+  backgroundColor: "#fbbf24",
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 8,
+},
+
+smallEditBtnText: {
+  color: "#111",
+  fontWeight: "800",
+},
+
 });

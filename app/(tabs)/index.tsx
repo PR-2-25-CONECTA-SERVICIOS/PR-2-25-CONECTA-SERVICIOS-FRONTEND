@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Heart, MapPin, Search, SlidersHorizontal, Star } from 'lucide-react-native';
+import { Heart, MapPin, Search, Star } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -201,9 +201,7 @@ const [highlighted, setHighlighted] = useState<IService[]>([]);
             />
           </View>
 
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.9}>
-            <SlidersHorizontal size={18} color="#111827" />
-          </TouchableOpacity>
+
         </View>
 
         {/* Categories */}
