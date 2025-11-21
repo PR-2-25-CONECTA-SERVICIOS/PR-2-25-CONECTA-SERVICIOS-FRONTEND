@@ -69,6 +69,8 @@ export default function LocalesScreen() {
 
   const [locales, setLocales] = useState<Local[]>([]);
   const [featured, setFeatured] = useState<Local[]>([]);
+const [categories, setCategories] = useState<string[]>(["Todos"]);
+const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   // ==========================================================
   // 🔥 Cargar LOCALES reales
@@ -77,9 +79,25 @@ export default function LocalesScreen() {
 useFocusEffect(
   useCallback(() => {
     loadData();
+        loadCategories();
+
   }, [])
 );
 
+const loadCategories = async () => {
+  try {
+    const res = await fetch("http://localhost:3000/api/categorias");
+    const json = await res.json();
+
+    const names = json.map((c: any) => c.nombre);
+
+    setCategories(["Todos", ...names]);
+  } catch (err) {
+    console.log("❌ Error cargando categorías:", err);
+  } finally {
+    setCategoriesLoading(false);
+  }
+};
 
   const loadData = async () => {
     try {
@@ -243,16 +261,20 @@ useFocusEffect(
               />
             </View>
 
-            {/* CATEGORÍAS */}
-            <FlatList
-              horizontal
-              data={CATEGORIES}
-              keyExtractor={(c) => c}
-              renderItem={renderCategory}
-              showsHorizontalScrollIndicator={false}
-              style={{ marginTop: 10 }}
-              contentContainerStyle={{ paddingRight: 8 }}
-            />
+{categoriesLoading ? (
+  <Text style={{ color: "#999", marginTop: 10 }}>Cargando categorías...</Text>
+) : (
+  <FlatList
+    horizontal
+    data={categories}
+    keyExtractor={(c) => c}
+    renderItem={renderCategory}
+    showsHorizontalScrollIndicator={false}
+    style={{ marginTop: 10 }}
+    contentContainerStyle={{ paddingRight: 8 }}
+  />
+)}
+
 
             {/* DESTACADOS */}
             {featured.length > 0 && (

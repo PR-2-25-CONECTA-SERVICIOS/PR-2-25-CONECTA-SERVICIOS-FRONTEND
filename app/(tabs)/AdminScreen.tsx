@@ -19,7 +19,8 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "http://localhost:3000/api/locales"; // 🔥 CAMBIA ESTO
+const API_URL = "http://localhost:3000/api/locales";
+const CATEGORY_URL = "http://localhost:3000/api/categorias";
 
 /* ================== TIPOS ================== */
 type Status = "pendiente" | "aprobado" | "rechazado";
@@ -27,17 +28,14 @@ type Status = "pendiente" | "aprobado" | "rechazado";
 interface ClaimItem {
   claimId: string;
   localId: string;
-
   businessName: string;
   category: string;
   businessImage: string;
-
   nombrePropietario: string;
   correo: string;
   telefono: string;
   mensaje: string;
   documentos: string[];
-
   estado: Status;
   fecha: string;
 }
@@ -45,6 +43,9 @@ interface ClaimItem {
 /* ================== PANTALLA ================== */
 export default function AdminScreen() {
   const { width } = useWindowDimensions();
+const [categoryModal, setCategoryModal] = useState(false);
+const [catName, setCatName] = useState("");
+const [catDesc, setCatDesc] = useState("");
 
   const [claims, setClaims] = useState<ClaimItem[]>([]);
   const [search, setSearch] = useState("");
@@ -55,11 +56,66 @@ export default function AdminScreen() {
     item: ClaimItem | null;
   } | null>(null);
 
+  const [categories, setCategories] = useState<any[]>([]);
+  const [newCategory, setNewCategory] = useState("");
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+
   const isNarrow = width < 380;
   const kpiBasis = width >= 900 ? "33%" : width >= 520 ? "48%" : "100%";
 
+  /* ============================================
+        CATEGORÍAS (SOLO VISUAL, SIN BACKEND)
+  ============================================ */
+  const addCategory = () => {
+    if (!newCategory.trim()) return;
+    if (editingCategory) {
+      setCategories((prev) =>
+        prev.map((c) =>
+          c._id === editingCategory._id ? { ...c, nombre: newCategory } : c
+        )
+      );
+      setEditingCategory(null);
+    } else {
+      setCategories((prev) => [
+        ...prev,
+        { _id: Date.now().toString(), nombre: newCategory },
+      ]);
+    }
+    setNewCategory("");
+  };
+
+const deleteCategory = async (id: string) => {
+  try {
+    await fetch(`${CATEGORY_URL}/${id}`, {
+      method: "DELETE",
+    });
+
+    loadCategories();
+  } catch (err) {
+    console.log("❌ Error eliminando categoría:", err);
+  }
+};
+
+
+const openEditCategory = (cat: any) => {
+  setEditingCategory(cat);
+  setCatName(cat.nombre);
+  setCatDesc(cat.descripcion || "");
+  setCategoryModal(true);
+};
+
+const loadCategories = async () => {
+  try {
+    const res = await fetch("http://localhost:3000/api/categorias");
+    const data = await res.json();
+    setCategories(data);
+  } catch (err) {
+    console.log("❌ Error cargando categorías:", err);
+  }
+};
+
   /* ============================================================
-     🔥 1. Cargar reclamos reales desde backend
+       🔥 1. Cargar reclamos reales desde backend
   ============================================================ */
   const loadClaims = async () => {
     try {
@@ -73,10 +129,12 @@ export default function AdminScreen() {
 
   useEffect(() => {
     loadClaims();
+      loadCategories();   // <--- IMPORTANTE
+
   }, []);
 
   /* ============================================================
-     📊 2. Stats
+       📊 2. Stats
   ============================================================ */
   const stats = useMemo(() => {
     return {
@@ -87,7 +145,7 @@ export default function AdminScreen() {
   }, [claims]);
 
   /* ============================================================
-     🔎 3. Filtrar lista
+       🔎 3. Filtrar lista
   ============================================================ */
   const filtered = useMemo(() => {
     const base = claims.filter(
@@ -100,7 +158,7 @@ export default function AdminScreen() {
   }, [search, tab, claims]);
 
   /* ============================================================
-     🟢 4. Aprobar / Rechazar reclamo
+       🟢 4. Aprobar / Rechazar reclamo
   ============================================================ */
   const approveClaim = async (item: ClaimItem) => {
     try {
@@ -109,13 +167,12 @@ export default function AdminScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           estado: "aprobado",
-          verificado: true, // 🔥 IMPORTANTE
+          verificado: true,
         }),
       });
-
       setConfirm(null);
       setSelected(null);
-      loadClaims(); // recargar lista
+      loadClaims();
     } catch (err) {
       console.log("❌ Error aprobando reclamo:", err);
     }
@@ -128,10 +185,9 @@ export default function AdminScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           estado: "rechazado",
-          verificado: false, // 🔥 IMPORTANTE
+          verificado: false,
         }),
       });
-
       setConfirm(null);
       setSelected(null);
       loadClaims();
@@ -141,19 +197,15 @@ export default function AdminScreen() {
   };
 
   /* ============================================================
-     RENDER
+      RENDER
   ============================================================ */
-
   const statusText = {
     pendiente: "Pendiente",
     aprobado: "Aprobado",
     rechazado: "Rechazado",
   };
 
-  const statusTone: Record<
-    "pending" | "approved" | "rejected",
-    "soft" | "ok" | "danger"
-  > = {
+  const statusTone: Record<"pending" | "approved" | "rejected", "soft" | "ok" | "danger"> = {
     pending: "soft",
     approved: "ok",
     rejected: "danger",
@@ -167,7 +219,6 @@ export default function AdminScreen() {
       aprobado: "approved",
       rechazado: "rejected",
     };
-
     return map[estado] ?? "pending";
   };
 
@@ -177,7 +228,7 @@ export default function AdminScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.h1}>Panel de Administración</Text>
-          <Text style={styles.h2}>Gestión de solicitudes de reclamo</Text>
+          <Text style={styles.h2}>Gestión de categorías y solicitudes</Text>
         </View>
 
         <Badge tone="warn">
@@ -186,30 +237,97 @@ export default function AdminScreen() {
         </Badge>
       </View>
 
-      {/* SEARCH */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-        <View style={styles.searchWrap}>
-          <Search size={16} color="#9ca3af" />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Buscar por negocio o solicitante…"
-            placeholderTextColor="#6b7280"
-            style={styles.searchInput}
-          />
-        </View>
-      </View>
+      {/* ================================
+          🔶 SECCIÓN: ADMINISTRAR CATEGORÍAS
+      ================================= */}
+      <ScrollView style={{ padding: 16 }}>
+        <Text style={styles.h1}>Administrar Categorías</Text>
+        <Text style={styles.h2}>Crear, editar y eliminar categorías</Text>
 
-      {/* LISTA */}
-      <ScrollView
-        contentContainerStyle={{
-          padding: 16,
-          paddingBottom: 24,
-          rowGap: 10,
-        }}
-      >
-        {/* STATS */}
-        <View style={styles.kpiWrap}>
+        {/* AGREGAR / EDITAR */}
+        <Card style={{ marginTop: 16 }}>
+          <View style={{ padding: 14 }}>
+{/* === INPUT + BOTÓN AGREGAR === */}
+<View style={{ flexDirection: "row", gap: 10 }}>
+
+  <Btn
+    style={{ width: 120 }}
+    onPress={() => {
+      setEditingCategory(null); // modo creación
+      setCatName("");
+      setCatDesc("");
+      setCategoryModal(true);   // abrir modal
+    }}
+  >
+    <Text style={{ color: "#111827", fontWeight: "900" }}>Agregar</Text>
+  </Btn>
+</View>
+
+
+          </View>
+        </Card>
+
+        {/* LISTA CATEGORÍAS */}
+        <Card style={{ marginTop: 16 }}>
+          <View style={{ padding: 14 }}>
+            <Text style={{ color: "#fbbf24", fontWeight: "900", marginBottom: 10 }}>
+              Categorías Registradas
+            </Text>
+
+            {categories.length === 0 && (
+              <Text style={{ color: "#6b7280" }}>No hay categorías aún.</Text>
+            )}
+
+            {categories.map((cat) => (
+              <View
+                key={cat._id}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderColor: "rgba(148,163,184,0.15)",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>{cat.nombre}</Text>
+
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Btn variant="outline" size="sm" onPress={() => openEditCategory(cat)}>
+                    <Text style={{ color: "#fbbf24" }}>Editar</Text>
+                  </Btn>
+
+                  <Btn variant="outline" size="sm" onPress={() => deleteCategory(cat._id)}>
+                    <Text style={{ color: "#f87171" }}>Eliminar</Text>
+                  </Btn>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        {/* AQUI SIGUE LA PARTE 2… */}
+                {/* ================================
+            🔶 SECCIÓN DE RECLAMOS
+        ================================= */}
+        <Text style={[styles.h1, { marginTop: 28 }]}>Solicitudes de Reclamo</Text>
+        <Text style={styles.h2}>Aprobación y revisión de reclamos enviados</Text>
+
+        {/* SEARCH */}
+        <View style={{ marginTop: 16 }}>
+          <View style={styles.searchWrap}>
+            <Search size={16} color="#9ca3af" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Buscar por negocio o solicitante…"
+              placeholderTextColor="#6b7280"
+              style={styles.searchInput}
+            />
+          </View>
+        </View>
+
+        {/* KPI STATS */}
+        <View style={[styles.kpiWrap, { marginTop: 20 }]}>
           <KpiCard
             label="Pendientes"
             value={stats.pending}
@@ -231,19 +349,21 @@ export default function AdminScreen() {
         </View>
 
         {/* TABS */}
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          items={[
-            { key: "all", label: "Todos" },
-            { key: "pendiente", label: "Pendientes" },
-            { key: "aprobado", label: "Aprobados" },
-            { key: "rechazado", label: "Rechazados" },
-          ]}
-        />
+        <View style={{ marginTop: 18 }}>
+          <Segmented
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: "all", label: "Todos" },
+              { key: "pendiente", label: "Pendientes" },
+              { key: "aprobado", label: "Aprobados" },
+              { key: "rechazado", label: "Rechazados" },
+            ]}
+          />
+        </View>
 
-        {/* CARDS */}
-        <View style={{ marginTop: 12, gap: 12 }}>
+        {/* LISTA RECLAMOS */}
+        <View style={{ marginTop: 16, gap: 14 }}>
           {filtered.map((r) => {
             const showThumbInline = width >= 520;
             const showThumbAbove = !showThumbInline && !isNarrow;
@@ -251,7 +371,7 @@ export default function AdminScreen() {
 
             return (
               <Card key={r.claimId} style={styles.cardShadow}>
-                <View style={{ padding: 14 }}>
+                <View style={{ padding: 16 }}>
                   {showThumbAbove && (
                     <ImageWithFallback
                       src={r.businessImage}
@@ -275,20 +395,17 @@ export default function AdminScreen() {
                     )}
 
                     <View style={{ flex: 1 }}>
+                      {/* Título */}
                       <View style={styles.titleRow}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.title}>{r.businessName}</Text>
-                          <Text style={styles.muted}>
-                            {r.nombrePropietario}
-                          </Text>
+                          <Text style={styles.muted}>{r.nombrePropietario}</Text>
                           <Text style={styles.muted}>{r.correo}</Text>
                         </View>
 
                         <Badge tone={statusTone[normalizeStatus(r.estado)]}>
                           <Text style={styles.badgeText}>
-                            <Text style={styles.badgeText}>
-                              {statusText[r.estado]}
-                            </Text>
+                            {statusText[r.estado]}
                           </Text>
                         </Badge>
                       </View>
@@ -305,8 +422,8 @@ export default function AdminScreen() {
                         </Text>
                       </View>
 
-                      {/* BOTONES */}
-                      <View style={[styles.actionWrap, { marginTop: 10 }]}>
+                      {/* Botones */}
+                      <View style={[styles.actionWrap, { marginTop: 12 }]}>
                         <Btn
                           variant="outline"
                           size="sm"
@@ -339,7 +456,6 @@ export default function AdminScreen() {
                               <Text
                                 style={[styles.btnText, { color: "#111827" }]}
                               >
-                                {" "}
                                 Aprobar
                               </Text>
                             </Btn>
@@ -353,9 +469,14 @@ export default function AdminScreen() {
             );
           })}
         </View>
+
+        {/* ESPACIO FINAL */}
+        <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* MODAL DETALLE */}
+      {/* ================================
+            MODAL DETALLE DE RECLAMO
+      ================================= */}
       <Modal visible={!!selected} transparent animationType="fade">
         <View style={styles.modalOverlay} />
         {selected && (
@@ -363,7 +484,7 @@ export default function AdminScreen() {
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Detalles de Solicitud</Text>
 
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 14 }}>
                 <ImageWithFallback
                   src={selected.businessImage}
                   style={styles.thumbLg}
@@ -371,6 +492,7 @@ export default function AdminScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.title}>{selected.businessName}</Text>
                   <Text style={styles.muted}>{selected.category}</Text>
+
                   <Badge tone={statusTone[normalizeStatus(selected.estado)]}>
                     <Text style={styles.badgeText}>
                       {statusText[selected.estado]}
@@ -379,7 +501,8 @@ export default function AdminScreen() {
                 </View>
               </View>
 
-              <View style={{ marginTop: 12 }}>
+              {/* Info solicitante */}
+              <View style={{ marginTop: 14 }}>
                 <Text style={styles.subTitle}>Información del solicitante</Text>
                 <Text style={styles.bodySm}>
                   <Text style={styles.bold}>Nombre: </Text>
@@ -395,12 +518,14 @@ export default function AdminScreen() {
                 </Text>
               </View>
 
-              <View style={{ marginTop: 10 }}>
+              {/* Mensaje */}
+              <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Mensaje</Text>
                 <Text style={styles.body}>{selected.mensaje}</Text>
               </View>
 
-              <View style={{ marginTop: 10 }}>
+              {/* Documentos */}
+              <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Documentos</Text>
                 {selected.documentos.map((d, i) => (
                   <Text key={i} style={styles.bodySm}>
@@ -409,9 +534,10 @@ export default function AdminScreen() {
                 ))}
               </View>
 
+              {/* Cerrar */}
               <Btn
                 variant="outline"
-                style={{ marginTop: 14 }}
+                style={{ marginTop: 16 }}
                 onPress={() => setSelected(null)}
               >
                 <Text style={styles.btnText}>Cerrar</Text>
@@ -421,7 +547,9 @@ export default function AdminScreen() {
         )}
       </Modal>
 
-      {/* MODAL CONFIRMACIÓN */}
+      {/* ================================
+            MODAL CONFIRMACIÓN
+      ================================= */}
       <Modal visible={!!confirm} transparent animationType="fade">
         <View style={styles.modalOverlay} />
         {confirm?.item && (
@@ -432,6 +560,7 @@ export default function AdminScreen() {
                   ? "Aprobar solicitud"
                   : "Rechazar solicitud"}
               </Text>
+
               <Text style={styles.modalDesc}>
                 ¿Seguro que deseas{" "}
                 {confirm.type === "approve" ? "aprobar" : "rechazar"} la
@@ -440,7 +569,7 @@ export default function AdminScreen() {
                 <Text style={styles.bold}>{confirm.item.businessName}</Text>?
               </Text>
 
-              <View style={[styles.actionWrap, { marginTop: 14 }]}>
+              <View style={[styles.actionWrap, { marginTop: 16 }]}>
                 <Btn
                   variant="outline"
                   style={{ flex: 1 }}
@@ -475,10 +604,98 @@ export default function AdminScreen() {
           </View>
         )}
       </Modal>
+      {/* MODAL AGREGAR CATEGORÍA */}
+<Modal visible={categoryModal} transparent animationType="fade">
+  <View style={styles.modalOverlay} />
+
+  <View style={styles.modalCenter}>
+    <View style={[styles.modalCard, { maxWidth: 420 }]}>
+<Text style={styles.modalTitle}>
+  {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
+</Text>
+
+      <Text style={styles.subTitle}>Nombre</Text>
+      <TextInput
+        style={styles.input}
+        value={catName}
+        onChangeText={setCatName}
+        placeholder="Ej: Comida, Belleza, Servicios…"
+        placeholderTextColor="#6b7280"
+      />
+
+      <Text style={[styles.subTitle, { marginTop: 10 }]}>Descripción</Text>
+      <TextInput
+        style={[styles.input, { height: 80 }]}
+        multiline
+        value={catDesc}
+        onChangeText={setCatDesc}
+        placeholder="Descripción breve (opcional)"
+        placeholderTextColor="#6b7280"
+      />
+
+      <View style={[styles.actionWrap, { marginTop: 18 }]}>
+        <Btn
+          variant="outline"
+          style={{ flex: 1 }}
+onPress={() => {
+  setCategoryModal(false);
+  setEditingCategory(null);
+  setCatName("");
+  setCatDesc("");
+}}
+        >
+          <Text style={styles.btnText}>Cancelar</Text>
+        </Btn>
+
+<Btn
+  style={{ flex: 1 }}
+  onPress={async () => {
+    if (!catName.trim()) return;
+
+    try {
+      let endpoint = CATEGORY_URL;
+      let method = "POST";
+
+      // 🔥 si está editando → PATCH
+      if (editingCategory) {
+        endpoint = `${CATEGORY_URL}/${editingCategory._id}`;
+        method = "PATCH";
+      }
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: catName,
+          descripcion: catDesc,
+        }),
+      });
+
+      await loadCategories();
+
+      // cerrar modal y limpiar
+      setCategoryModal(false);
+      setEditingCategory(null);
+      setCatName("");
+      setCatDesc("");
+
+    } catch (err) {
+      console.log("❌ Error guardando categoría:", err);
+    }
+  }}
+>
+  <Text style={[styles.btnText, { color: "#111827" }]}>Guardar</Text>
+</Btn>
+
+
+      </View>
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 }
-
 /* ============================================================
    COMPONENTES REUSABLES
 ============================================================ */
@@ -506,7 +723,12 @@ function KpiCard({ label, value, color, basis }: any) {
     <Card style={{ flexBasis: basis, flexGrow: 1 }}>
       <View style={styles.kpiCard}>
         <Text
-          style={{ color, fontSize: 24, fontWeight: "900", letterSpacing: 0.2 }}
+          style={{
+            color,
+            fontSize: 24,
+            fontWeight: "900",
+            letterSpacing: 0.2,
+          }}
         >
           {value}
         </Text>
@@ -640,6 +862,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+input: {
+  backgroundColor: "#111827",
+  borderColor: "#30363d",
+  borderWidth: 1,
+  padding: 10,
+  borderRadius: 10,
+  color: "#e5e7eb",
+  marginTop: 6,
+},
 
   h1: {
     color: "#e5e7eb",
@@ -647,7 +878,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 0.2,
   },
-  h2: { color: "#9ca3af", fontSize: 12 },
+  h2: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginTop: 2,
+  },
 
   badgeText: { color: "#e5e7eb", fontSize: 12, fontWeight: "900" },
 
@@ -661,8 +896,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginTop: 8,
   },
+
   searchInput: { color: "#e5e7eb", flex: 1, padding: 0 },
 
   kpiWrap: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
@@ -737,7 +972,6 @@ const styles = StyleSheet.create({
 
   footerMeta: { flexDirection: "row", alignItems: "center" },
   metaText: { color: "#9ca3af", fontSize: 12 },
-  metaDot: { color: "#6b7280", fontSize: 12 },
 
   actionWrap: {
     flexDirection: "row",
@@ -786,3 +1020,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
+

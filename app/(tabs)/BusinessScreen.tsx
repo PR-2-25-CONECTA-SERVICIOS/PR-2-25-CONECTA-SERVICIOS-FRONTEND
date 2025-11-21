@@ -97,33 +97,40 @@ useFocusEffect(
   // --------------------------
   // 📤 Enviar reclamo de negocio
   // --------------------------
-  const submitClaim = async () => {
-    try {
-      const res = await fetch(`${API_URL}/${id}/reclamar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombrePropietario: ownerName,
-          correo: email,
-          telefono: tel,
-          mensaje: msg,
-          documentos: docs,
-        }),
-      });
+const submitClaim = async () => {
+  try {
+    const res = await fetch(`${API_URL}/${id}/reclamar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombrePropietario: ownerName,
+        correo: email,
+        telefono: tel,
+        mensaje: msg,
+        documentos: docs,
+      }),
+    });
 
-      const json = await res.json();
-      console.log("📩 Reclamo enviado:", json);
+    const json = await res.json();
+    console.log("📩 Reclamo enviado:", json);
 
-      setOpen(false);
-      setOwnerName("");
-      setEmail("");
-      setTel("");
-      setMsg("");
-      setDocs([]);
-    } catch (err) {
-      console.log("❌ Error enviando reclamo:", err);
-    }
-  };
+    // 🔥 Cerrar modal
+    setOpen(false);
+
+    // 🔥 Reiniciar campos
+    setOwnerName("");
+    setEmail("");
+    setTel("");
+    setMsg("");
+    setDocs([]);
+
+    // 🔥 Recargar el local inmediatamente
+    await loadLocal();
+
+  } catch (err) {
+    console.log("❌ Error enviando reclamo:", err);
+  }
+};
 
   const callNow = () => {
     const phone = local?.telefono || "00000000";

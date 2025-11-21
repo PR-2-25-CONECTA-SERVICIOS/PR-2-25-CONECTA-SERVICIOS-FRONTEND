@@ -20,11 +20,14 @@ interface IService {
   descripcion: string;
   precio: string;
   imagen: string;
+
+  // ⭐ EXTRAS
   calificacion?: number;
   opiniones?: number;
-  distancia?: string;
+  distancia?: string; 
   disponible?: boolean;
 }
+
 
 // 🔥 CATEGORÍAS IGUALES A TU FRONT
 const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
@@ -40,6 +43,8 @@ export default function ServiceCatalogScreen() {
 
 const [services, setServices] = useState<IService[]>([]);
 const [highlighted, setHighlighted] = useState<IService[]>([]);
+const [categories, setCategories] = useState<string[]>(["Todos"]);
+const [loadingCategories, setLoadingCategories] = useState(true);
 
 
   // Responsive grid config
@@ -56,8 +61,24 @@ const [highlighted, setHighlighted] = useState<IService[]>([]);
   // -----------------------------------------
   useEffect(() => {
     loadInitialData();
-    
+      loadCategories();  
+
   }, []);
+const loadCategories = async () => {
+  try {
+    const res = await fetch("http://localhost:3000/api/categorias");
+    const data = await res.json();
+
+    // Convertir [{_id,nombre}] → ["Plomería","Limpieza"]
+    const names = data.map((c: any) => c.nombre);
+
+    setCategories(["Todos", ...names]);
+  } catch (err) {
+    console.log("❌ Error cargando categorías:", err);
+  } finally {
+    setLoadingCategories(false);
+  }
+};
 
   const loadInitialData = async () => {
     try {
@@ -204,15 +225,18 @@ const [highlighted, setHighlighted] = useState<IService[]>([]);
 
         </View>
 
-        {/* Categories */}
-        <FlatList
-          horizontal
-          data={categories}
-          renderItem={renderCategory}
-          keyExtractor={item => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesRow}
-        />
+{loadingCategories ? (
+  <Text style={{ color: "#999", paddingHorizontal: 16 }}>Cargando categorías...</Text>
+) : (
+  <FlatList
+    horizontal
+    data={categories}
+    renderItem={renderCategory}
+    keyExtractor={item => item}
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={styles.categoriesRow}
+  />
+)}
 
         {/* Highlighted */}
         {highlighted.length > 0 && (

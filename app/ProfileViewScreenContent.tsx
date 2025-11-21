@@ -70,10 +70,103 @@ export default function ProfileViewScreenContent() {
   const [services, setServices] = useState<Service[]>([]);
   const [locals, setLocals] = useState<LocalItem[]>([]);
   const [loading, setLoading] = useState(true);
+type DropdownOption = {
+  label: string;
+  value: string;
+};
+
+type DropdownProps = {
+  value: string;
+  onChange: (value: string) => void;
+  options: DropdownOption[];
+  placeholder?: string;
+};
+
+const Dropdown: React.FC<DropdownProps> = ({
+  value,
+  onChange,
+  options,
+  placeholder = "Selecciona una categoría",
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <View style={{ marginBottom: 10 }}>
+      {/* LABEL */}
+      <Text style={{ color: "#aaa", marginBottom: 4 }}>Categoría</Text>
+
+      {/* BOTÓN */}
+      <TouchableOpacity
+        onPress={() => setOpen(!open)}
+        style={{
+          backgroundColor: "#222",
+          borderWidth: 1,
+          borderColor: "#333",
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: value ? "#fff" : "#666" }}>
+          {value || placeholder}
+        </Text>
+
+        <Text style={{ color: "#fbbf24" }}>▼</Text>
+      </TouchableOpacity>
+
+      {/* LISTA */}
+      {open && (
+        <View
+          style={{
+            backgroundColor: "#181818",
+            marginTop: 5,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#333",
+            overflow: "hidden",
+          }}
+        >
+          {options.map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              onPress={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              style={{
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: "#222",
+              }}
+            >
+              <Text style={{ color: "#fff" }}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
 
   /* ============================================
        CARGAR PERFIL DESDE BACKEND
   ============================================ */
+const loadCategories = async () => {
+  try {
+    const res = await fetch("http://localhost:3000/api/categorias");
+    const data = await res.json();
+    setCategories(data);
+  } catch (err) {
+    console.log("❌ Error cargando categorías:", err);
+  } finally {
+    setCategoriesLoading(false);
+  }
+};
 
 useFocusEffect(
   useCallback(() => {
@@ -81,6 +174,7 @@ useFocusEffect(
 
     let active = true;
     setLoading(true);
+    loadCategories();  // 🔥 AGREGAR AQUÍ
 
     const loadProfile = async () => {
       try {
@@ -347,6 +441,8 @@ setDraft((p) => ({ ...p, photo: uri }));
   const [localTags, setLocalTags] = useState<string[]>([]);
   const [localAmenityInput, setLocalAmenityInput] = useState("");
   const [localTagInput, setLocalTagInput] = useState("");
+const [categories, setCategories] = useState<{ _id: string; nombre: string }[]>([]);
+const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   const openLocalModal = (loc: LocalItem) => {
     setActiveLocal(loc);
@@ -673,13 +769,20 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
               onChangeText={(v) => setDraft((p) => ({ ...p, name: v }))}
             />
 
-            <TextInput
-              placeholder="Categoría"
-              placeholderTextColor="#666"
-              style={styles.input}
-              value={draft.category}
-              onChangeText={(v) => setDraft((p) => ({ ...p, category: v }))}
-            />
+{categoriesLoading ? (
+  <Text style={{ color: "#666" }}>Cargando...</Text>
+) : (
+  <Dropdown
+    value={draft.category}
+    onChange={(v) => setDraft((p) => ({ ...p, category: v }))}
+    options={categories.map((c) => ({
+      label: c.nombre,
+      value: c.nombre,
+    }))}
+  />
+)}
+
+
 
             <TextInput
               placeholder="Precio por hora"
@@ -1133,6 +1236,18 @@ cancelBtnTextPro: {
     flex: 1,
     marginLeft: 10,
   },
+dropdownBox: {
+  backgroundColor: "#222",
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#333",
+
+  // ❌ quitar esto
+  // overflow: "hidden",
+
+  // ✔ agregar esto
+  paddingHorizontal: 6,
+},
 
   serviceName: {
     color: "#fff",
