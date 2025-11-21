@@ -13,12 +13,14 @@ import {
   View,
 } from "react-native";
 
+import { useAuth } from "../../context/AuthContext";
 import { loadUserSession, saveUserSession } from "../../utils/secureStore";
 
-const API_URL = "http://192.168.0.6:3000/api/usuarios/";
+const API_URL = "http://localhost:3000/api/usuarios/";
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { loading: authLoading, setUser } = useAuth();
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -31,26 +33,29 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
 
   /* ---------------------------------------------
-      🔹 CARGAR PERFIL DESDE LA SESIÓN Y BACKEND
+      CARGAR PERFIL DESDE SESIÓN + BACKEND
   ----------------------------------------------*/
   useEffect(() => {
+    if (authLoading) return;
+
     const loadProfile = async () => {
       try {
         const session = await loadUserSession();
-        if (!session || !session.id) {
-          return router.replace("/Login/LoginScreen");
+
+        if (!session?._id) {
+          router.replace("/Login/LoginScreen");
+          return;
         }
 
-        setUserId(session.id);
+        setUserId(session._id);
 
-        const r = await fetch(API_URL + session.id);
-        const raw = await r.text();
-        const data = JSON.parse(raw);
+        const res = await fetch(API_URL + session._id);
+        const data = await res.json();
 
         setName(data.nombre);
-        setPhone(data.telefono || "");
+        setPhone(data.telefono ?? "");
         setEmail(data.correo);
-        setPhoto(data.avatar || null);
+        setPhoto(data.avatar ?? null);
       } catch (err) {
         console.log("Error cargando perfil:", err);
       } finally {
@@ -59,11 +64,13 @@ export default function EditProfileScreen() {
     };
 
     loadProfile();
-  }, []);
-  const uploadImageToCloudinary = async (imageUri: string) => {
-    try {
-      const uri = imageUri;
+  }, [authLoading]);
 
+  /* ---------------------------------------------
+     SUBIR IMAGEN A CLOUDINARY
+  ----------------------------------------------*/
+  const uploadImageToCloudinary = async (uri: string) => {
+    try {
       const data = new FormData();
       data.append("file", {
         uri,
@@ -71,29 +78,23 @@ export default function EditProfileScreen() {
         name: "upload.jpg",
       } as any);
 
-      data.append("upload_preset", "imagescloudexp"); // solo esto
-      // ❌ NO añadir cloud_name aquí
+      data.append("upload_preset", "imagescloudexp");
 
       const res = await fetch(
-        `https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload`,
-        {
-          method: "POST",
-          body: data,
-        }
+        "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload",
+        { method: "POST", body: data }
       );
 
       const json = await res.json();
-      console.log("CLOUDINARY RESPONSE:", json);
-
       return json.secure_url;
     } catch (err) {
-      console.log("ERROR SUBIENDO A CLOUDINARY:", err);
+      console.log("❌ ERROR subida Cloudinary:", err);
       return null;
     }
   };
 
   /* ---------------------------------------------
-      🔹 SELECCIONAR FOTO
+     SELECCIONAR FOTO
   ----------------------------------------------*/
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -103,24 +104,17 @@ export default function EditProfileScreen() {
       quality: 1,
     });
 
-    if (!result.canceled && result.assets.length > 0) {
+    if (!result.canceled) {
       const localUri = result.assets[0].uri;
-
-      // 1. Mostrar preview temporal
       setPhoto(localUri);
 
-      // 2. Subir a Cloudinary
       const cloudUrl = await uploadImageToCloudinary(localUri);
-
-      // 3. Reemplazar con el link final
-      setPhoto(cloudUrl);
-
-      console.log("📤 Imagen subida:", cloudUrl);
+      if (cloudUrl) setPhoto(cloudUrl);
     }
   };
 
   /* ---------------------------------------------
-      🔹 GUARDAR CAMBIOS → BACKEND
+     GUARDAR PERFIL
   ----------------------------------------------*/
   const handleSave = async () => {
     if (!userId) return;
@@ -131,7 +125,7 @@ export default function EditProfileScreen() {
       const body = {
         nombre: name.trim(),
         telefono: phone.trim(),
-        avatar: photo || "",
+        avatar: photo ?? "",
       };
 
       const res = await fetch(API_URL + userId, {
@@ -140,50 +134,45 @@ export default function EditProfileScreen() {
         body: JSON.stringify(body),
       });
 
-      const raw = await res.text();
-      const updated = JSON.parse(raw);
+      const updated = await res.json();
 
-      // 🔄 Actualizar sesión local
-      await saveUserSession({
+      const updatedUser = {
         id: userId,
+                _id: userId,
+
         nombre: updated.user.nombre,
         correo: updated.user.correo,
         telefono: updated.user.telefono,
         avatar: updated.user.avatar,
         rol: updated.user.rol,
-      });
+      };
 
-      // ⬅️ Volver al perfil
+      await saveUserSession(updatedUser);
+      setUser(updatedUser);
+
       router.replace("/ProfileViewScreen");
     } catch (err) {
-      console.log("Error guardando cambios:", err);
-      alert("Error al guardar los cambios");
+      alert("Error al guardar cambios");
+      console.log("❌ Error guardando:", err);
     } finally {
       setSaving(false);
     }
   };
 
   /* ---------------------------------------------
-      🔹 LOADING
+     LOADING SCREEN
   ----------------------------------------------*/
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#000",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
+      <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color="#fbbf24" />
-        <Text style={{ color: "#fff", marginTop: 10 }}>Cargando...</Text>
+        <Text style={{ color: "#fff", marginTop: 10 }}>Cargando perfil...</Text>
       </View>
     );
   }
 
   /* ---------------------------------------------
-      🔹 UI PRINCIPAL
+     UI PRINCIPAL
   ----------------------------------------------*/
   return (
     <View style={styles.container}>
@@ -196,9 +185,10 @@ export default function EditProfileScreen() {
         <View style={{ width: 34 }} />
       </View>
 
+      {/* FORM */}
       <ScrollView contentContainerStyle={styles.content}>
         {/* FOTO */}
-        <TouchableOpacity onPress={pickImage}>
+        <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
           <View style={styles.imagePicker}>
             {photo ? (
               <Image source={{ uri: photo }} style={styles.image} />
@@ -208,11 +198,11 @@ export default function EditProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* CAMPOS */}
+        {/* INPUTS */}
         <TextInput
           style={styles.input}
           placeholder="Nombre"
-          placeholderTextColor="#aaa"
+          placeholderTextColor="#888"
           value={name}
           onChangeText={setName}
         />
@@ -220,23 +210,22 @@ export default function EditProfileScreen() {
         <TextInput
           style={styles.input}
           placeholder="Teléfono"
-          placeholderTextColor="#aaa"
+          placeholderTextColor="#888"
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
         />
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { opacity: 0.6 }]}
           editable={false}
           value={email}
           placeholder="Correo"
-          placeholderTextColor="#aaa"
         />
 
         {/* GUARDAR */}
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, saving && { opacity: 0.7 }]}
           onPress={handleSave}
           disabled={saving}
         >
@@ -244,90 +233,105 @@ export default function EditProfileScreen() {
             {saving ? "Guardando..." : "Guardar Cambios"}
           </Text>
         </TouchableOpacity>
+
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
 }
 
+/* ---------------------------------------------
+   ESTILOS MEJORADOS
+----------------------------------------------*/
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#121212",
     flex: 1,
+    backgroundColor: "#0e0e0f",
+  },
+
+  loadingScreen: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
 
   header: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: "#0f0f10",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#111",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(251,191,36,0.2)",
+    borderBottomColor: "rgba(255,255,255,0.1)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerTitle: { color: "#e5e7eb", fontWeight: "700", fontSize: 17 },
+  headerTitle: {
+    color: "#fbbf24",
+    fontWeight: "800",
+    fontSize: 18,
+  },
   iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148,163,184,0.25)",
-    backgroundColor: "#111113",
+    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   content: {
     padding: 20,
     alignItems: "center",
-    paddingBottom: 40,
   },
 
   imagePicker: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#333",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 2,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 3,
     borderColor: "#fbbf24",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 25,
+    backgroundColor: "#222",
   },
   image: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: "100%",
+    height: "100%",
   },
   selectImageText: {
-    color: "#aaa",
-    fontSize: 16,
+    color: "#bbb",
+    fontSize: 15,
   },
 
   input: {
     width: "100%",
-    height: 50,
-    borderColor: "#333",
+    height: 52,
     borderWidth: 1,
-    marginBottom: 15,
+    borderColor: "#333",
+    backgroundColor: "#1b1b1d",
+    borderRadius: 10,
+    paddingHorizontal: 15,
     color: "#fff",
-    paddingLeft: 15,
-    borderRadius: 8,
-    fontSize: 16,
-    backgroundColor: "#1a1a1a",
+    marginBottom: 16,
+    fontSize: 15,
   },
 
   saveButton: {
     backgroundColor: "#fbbf24",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 10,
-    marginTop: 15,
-    width: "100%",
+    marginTop: 10,
     alignItems: "center",
   },
   saveButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
+    color: "#000",
+    fontSize: 17,
+    fontWeight: "800",
   },
 });

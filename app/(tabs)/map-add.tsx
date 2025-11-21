@@ -1,5 +1,6 @@
 // app/(tabs)/map-add.web.tsx
 "use client";
+import { router } from "expo-router";
 
 import {
   ArrowLeft,
@@ -148,7 +149,7 @@ export default function MapAdd() {
       const initialCenter: [number, number] = [-66.163, -17.3835];
 
       map.current = new maplibregl.Map({
-        container: mapContainer.current,
+container: mapContainer.current as HTMLElement,
         style: styleJson,
         center: initialCenter,
         zoom: 14.5,
@@ -405,9 +406,10 @@ export default function MapAdd() {
       {/* HEADER */}
       <Header>
         <SearchWrap>
-          <IconBtn onClick={() => window.history.back()}>
-            <ArrowLeft size={18} color="#e5e7eb" />
-          </IconBtn>
+<IconBtn onClick={() => router.replace("/LocalesScreen")}>
+  <ArrowLeft size={18} color="#e5e7eb" />
+</IconBtn>
+
           <SearchInput placeholder="Buscar (demo)" />
         </SearchWrap>
 
@@ -764,12 +766,16 @@ const FormSheet = styled.div`
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+
+  /*  ⬇⬇⬇ Esto evita que tape el navbar */
+  bottom: 70px; /* puedes subir o bajar este valor */
+
   z-index: 30;
   display: flex;
   justify-content: center;
   pointer-events: none;
 `;
+
 
 const FormCard = styled.div`
   width: 100%;
@@ -780,6 +786,7 @@ const FormCard = styled.div`
   max-height: 80vh;
   overflow-y: auto;
   padding: 16px;
+  overflow-x: hidden; /* ← SOLUCIÓN */
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 `;

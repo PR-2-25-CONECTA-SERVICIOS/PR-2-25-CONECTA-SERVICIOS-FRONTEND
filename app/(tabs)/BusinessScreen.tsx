@@ -1,4 +1,5 @@
 // app/(tabs)/BusinessScreen.tsx
+import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -10,7 +11,7 @@ import {
   Send,
   Star
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Linking,
@@ -77,9 +78,11 @@ export default function BusinessScreen() {
   // --------------------------
   // 🔥 Cargar local desde backend
   // --------------------------
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     if (id) loadLocal();
-  }, [id]);
+  }, [id])
+);
 
   const loadLocal = async () => {
     try {

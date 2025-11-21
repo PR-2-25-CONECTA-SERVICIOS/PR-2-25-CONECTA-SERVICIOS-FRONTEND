@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
 import {
   Dimensions,
   FlatList,
@@ -12,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-const API_URL = "http://192.168.0.6:3000/api/locales";
+const API_URL = "http://localhost:3000/api/locales";
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type Hours = Record<DayKey, { open: string; close: string } | null>;
@@ -71,9 +73,13 @@ export default function LocalesScreen() {
   // ==========================================================
   // 🔥 Cargar LOCALES reales
   // ==========================================================
-  useEffect(() => {
+// 🔥 Recargar SIEMPRE que se regresa a esta pantalla
+useFocusEffect(
+  useCallback(() => {
     loadData();
-  }, []);
+  }, [])
+);
+
 
   const loadData = async () => {
     try {

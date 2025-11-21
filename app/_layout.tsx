@@ -5,6 +5,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { AuthProvider } from "../context/AuthContext";
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -35,19 +36,28 @@ export default function RootLayout() {
   const theme = scheme === 'dark' ? Dark : Light;
 
   return (
-    <SafeAreaProvider>
-      {/* Respetamos el safe area en top/left/right (bottom lo maneja el TabBar) */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'left', 'right']}>
-        <ThemeProvider value={theme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
+    <AuthProvider>   {/* ✅ ENVUELVE TODA LA APP */}
+      <SafeAreaProvider>
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          edges={['top', 'left', 'right']}
+        >
+          <ThemeProvider value={theme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="modal"
+                options={{ presentation: 'modal', title: 'Modal' }}
+              />
+            </Stack>
 
-          {/* No translucente para que la app no se “meta” bajo la status bar */}
-          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} translucent={false} />
-        </ThemeProvider>
-      </SafeAreaView>
-    </SafeAreaProvider>
+            <StatusBar
+              style={scheme === 'dark' ? 'light' : 'dark'}
+              translucent={false}
+            />
+          </ThemeProvider>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </AuthProvider>
   );
 }

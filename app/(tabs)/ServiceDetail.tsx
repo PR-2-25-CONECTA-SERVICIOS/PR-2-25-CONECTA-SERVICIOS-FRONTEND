@@ -22,7 +22,7 @@ import {
   View,
 } from "react-native";
 
-const API_URL = "http://192.168.0.6:3000/api/servicios";
+const API_URL = "http://localhost:3000/api/servicios";
 
 interface IService {
   _id: string;
