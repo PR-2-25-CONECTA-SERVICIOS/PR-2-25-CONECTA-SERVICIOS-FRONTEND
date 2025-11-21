@@ -3,17 +3,17 @@ import * as Location from 'expo-location';
 import { List, MapPin, Navigation, Star, X } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    Animated,
-    Easing,
-    FlatList,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  Animated,
+  Easing,
+  FlatList,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
