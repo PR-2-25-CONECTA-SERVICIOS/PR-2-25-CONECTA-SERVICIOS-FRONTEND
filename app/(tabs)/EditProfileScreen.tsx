@@ -4,13 +4,12 @@ import { ArrowLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
-  ScrollView,
+  Image, Platform, ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import { useAuth } from "../../context/AuthContext";
@@ -72,20 +71,41 @@ export default function EditProfileScreen() {
   const uploadImageToCloudinary = async (uri: string) => {
     try {
       const data = new FormData();
-      data.append("file", {
-        uri,
-        type: "image/jpeg",
-        name: "upload.jpg",
-      } as any);
 
+      let file: any;
+
+      if (Platform.OS === "web") {
+        // WEB → convertir la URL en Blob
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        file = blob;
+      } else {
+        // MOBILE → enviar como archivo nativo
+        file = {
+          uri,
+          type: "image/jpeg",
+          name: "upload.jpg",
+        };
+      }
+
+      data.append("file", file);
       data.append("upload_preset", "imagescloudexp");
 
       const res = await fetch(
         "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload",
-        { method: "POST", body: data }
+        {
+          method: "POST",
+          body: data,
+        }
       );
 
       const json = await res.json();
+
+      if (!json.secure_url) {
+        console.log("❌ Error Cloudinary:", json);
+        return null;
+      }
+
       return json.secure_url;
     } catch (err) {
       console.log("❌ ERROR subida Cloudinary:", err);
@@ -106,10 +126,17 @@ export default function EditProfileScreen() {
 
     if (!result.canceled) {
       const localUri = result.assets[0].uri;
+
+      // Preview
       setPhoto(localUri);
 
       const cloudUrl = await uploadImageToCloudinary(localUri);
-      if (cloudUrl) setPhoto(cloudUrl);
+
+      if (cloudUrl) {
+        setPhoto(cloudUrl);
+      } else {
+        alert("Error subiendo la imagen a Cloudinary");
+      }
     }
   };
 
@@ -138,7 +165,7 @@ export default function EditProfileScreen() {
 
       const updatedUser = {
         id: userId,
-                _id: userId,
+        _id: userId,
 
         nombre: updated.user.nombre,
         correo: updated.user.correo,

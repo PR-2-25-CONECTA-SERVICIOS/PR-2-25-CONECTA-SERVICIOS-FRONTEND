@@ -6,17 +6,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { ArrowLeft, X } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
@@ -46,7 +46,7 @@ type LocalItem = {
   specialTags?: string[];
   url?: string;
   amenities?: string[];
-  claims?: any[];   // 🔥 nuevo
+  claims?: any[]; // 🔥 nuevo
 };
 
 type Profile = {
@@ -70,185 +70,181 @@ export default function ProfileViewScreenContent() {
   const [services, setServices] = useState<Service[]>([]);
   const [locals, setLocals] = useState<LocalItem[]>([]);
   const [loading, setLoading] = useState(true);
-type DropdownOption = {
-  label: string;
-  value: string;
-};
+  type DropdownOption = {
+    label: string;
+    value: string;
+  };
 
-type DropdownProps = {
-  value: string;
-  onChange: (value: string) => void;
-  options: DropdownOption[];
-  placeholder?: string;
-};
+  type DropdownProps = {
+    value: string;
+    onChange: (value: string) => void;
+    options: DropdownOption[];
+    placeholder?: string;
+  };
 
-const Dropdown: React.FC<DropdownProps> = ({
-  value,
-  onChange,
-  options,
-  placeholder = "Selecciona una categoría",
-}) => {
-  const [open, setOpen] = useState(false);
+  const Dropdown: React.FC<DropdownProps> = ({
+    value,
+    onChange,
+    options,
+    placeholder = "Selecciona una categoría",
+  }) => {
+    const [open, setOpen] = useState(false);
 
-  return (
-    <View style={{ marginBottom: 10 }}>
-      {/* LABEL */}
-      <Text style={{ color: "#aaa", marginBottom: 4 }}>Categoría</Text>
+    return (
+      <View style={{ marginBottom: 10 }}>
+        {/* LABEL */}
+        <Text style={{ color: "#aaa", marginBottom: 4 }}>Categoría</Text>
 
-      {/* BOTÓN */}
-      <TouchableOpacity
-        onPress={() => setOpen(!open)}
-        style={{
-          backgroundColor: "#222",
-          borderWidth: 1,
-          borderColor: "#333",
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 12,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ color: value ? "#fff" : "#666" }}>
-          {value || placeholder}
-        </Text>
-
-        <Text style={{ color: "#fbbf24" }}>▼</Text>
-      </TouchableOpacity>
-
-      {/* LISTA */}
-      {open && (
-        <View
+        {/* BOTÓN */}
+        <TouchableOpacity
+          onPress={() => setOpen(!open)}
           style={{
-            backgroundColor: "#181818",
-            marginTop: 5,
-            borderRadius: 10,
+            backgroundColor: "#222",
             borderWidth: 1,
             borderColor: "#333",
-            overflow: "hidden",
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          {options.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              onPress={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-              style={{
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-                borderBottomWidth: 1,
-                borderBottomColor: "#222",
-              }}
-            >
-              <Text style={{ color: "#fff" }}>{opt.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
+          <Text style={{ color: value ? "#fff" : "#666" }}>
+            {value || placeholder}
+          </Text>
 
+          <Text style={{ color: "#fbbf24" }}>▼</Text>
+        </TouchableOpacity>
+
+        {/* LISTA */}
+        {open && (
+          <View
+            style={{
+              backgroundColor: "#181818",
+              marginTop: 5,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: "#333",
+              overflow: "hidden",
+            }}
+          >
+            {options.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#222",
+                }}
+              >
+                <Text style={{ color: "#fff" }}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   /* ============================================
        CARGAR PERFIL DESDE BACKEND
   ============================================ */
-const loadCategories = async () => {
-  try {
-    const res = await fetch("http://localhost:3000/api/categorias");
-    const data = await res.json();
-    setCategories(data);
-  } catch (err) {
-    console.log("❌ Error cargando categorías:", err);
-  } finally {
-    setCategoriesLoading(false);
-  }
-};
+  const loadCategories = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/api/categorias");
+      const data = await res.json();
+      setCategories(data);
+    } catch (err) {
+      console.log("❌ Error cargando categorías:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
 
-useFocusEffect(
-  useCallback(() => {
-    if (!user || !user._id) return;
+  useFocusEffect(
+    useCallback(() => {
+      if (!user || !user._id) return;
 
-    let active = true;
-    setLoading(true);
-    loadCategories();  // 🔥 AGREGAR AQUÍ
+      let active = true;
+      setLoading(true);
+      loadCategories(); // 🔥 AGREGAR AQUÍ
 
-    const loadProfile = async () => {
-      try {
-        const res = await fetch(API_URL + user._id);
-        const raw = await res.text();
-        const data = JSON.parse(raw);
+      const loadProfile = async () => {
+        try {
+          const res = await fetch(API_URL + user._id);
+          const raw = await res.text();
+          const data = JSON.parse(raw);
 
-        if (!active) return;
+          if (!active) return;
 
-        // ============================
-        // 🔥 PERFIL BASE
-        // ============================
-        setProfile({
-          name: data.nombre,
-          email: data.correo,
-          phone: data.telefono,
-          avatar: data.avatar,
-          verified: data.verificado,
-          rating: data.calificacion,
-          reviews: data.reseñas,
-          services: [],   // se llena abajo
-          locals: [],      // se llena abajo
-        });
+          // ============================
+          // 🔥 PERFIL BASE
+          // ============================
+          setProfile({
+            name: data.nombre,
+            email: data.correo,
+            phone: data.telefono,
+            avatar: data.avatar,
+            verified: data.verificado,
+            rating: data.calificacion,
+            reviews: data.reseñas,
+            services: [], // se llena abajo
+            locals: [], // se llena abajo
+          });
 
-        // ============================
-        // 🔥 SERVICIOS
-        // ============================
-        const parsedServices = (data.servicios || []).map((srv: any) => ({
-          id: srv._id,
-          name: srv.nombre,
-          category: srv.categoria,
-          hourlyPrice: srv.precio,
-          description: srv.descripcion,
-          location: srv.direccion,
-          hours: srv.horas,
-          tags: srv.especialidades,
-          photo: srv.imagen,
-        }));
+          // ============================
+          // 🔥 SERVICIOS
+          // ============================
+          const parsedServices = (data.servicios || []).map((srv: any) => ({
+            id: srv._id,
+            name: srv.nombre,
+            category: srv.categoria,
+            hourlyPrice: srv.precio,
+            description: srv.descripcion,
+            location: srv.direccion,
+            hours: srv.horas,
+            tags: srv.especialidades,
+            photo: srv.imagen,
+          }));
 
-        setServices(parsedServices);
+          setServices(parsedServices);
 
-        // ============================
-        // 🔥 LOCALES
-        // ============================
-const parsedLocals = (data.locales || []).map((loc: any) => ({
-  id: loc._id,
-  name: loc.nombre,
-  address: loc.direccion,
-  verified: loc.verificado,
-  thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
-  photos: loc.fotos || [],
-  specialTags: loc.tagsEspeciales || [],
-  url: loc.url || "",
-  amenities: loc.servicios || [],
-  claims: loc.reclamos || []   // 🔥 agregar
-}));
+          // ============================
+          // 🔥 LOCALES
+          // ============================
+          const parsedLocals = (data.locales || []).map((loc: any) => ({
+            id: loc._id,
+            name: loc.nombre,
+            address: loc.direccion,
+            verified: loc.verificado,
+            thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
+            photos: loc.fotos || [],
+            specialTags: loc.tagsEspeciales || [],
+            url: loc.url || "",
+            amenities: loc.servicios || [],
+            claims: loc.reclamos || [], // 🔥 agregar
+          }));
 
+          setLocals(parsedLocals);
+        } catch (err) {
+          console.log("❌ Error cargando perfil:", err);
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
 
-        setLocals(parsedLocals);
-
-      } catch (err) {
-        console.log("❌ Error cargando perfil:", err);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    loadProfile();
-    return () => {
-      active = false;
-    };
-  }, [user?._id])
-);
-
+      loadProfile();
+      return () => {
+        active = false;
+      };
+    }, [user?._id])
+  );
 
   /* ============================================
        LOGOUT
@@ -332,7 +328,7 @@ const parsedLocals = (data.locales || []).map((loc: any) => ({
         direccion: draft.location, // en el schema es "direccion"
         horas: draft.hours,
         especialidades: draft.tags, // en el schema es "especialidades"
-imagen: draft.photo?.startsWith("file://") ? "" : draft.photo || "",
+        imagen: draft.photo?.startsWith("file://") ? "" : draft.photo || "",
       };
 
       let url = "";
@@ -397,21 +393,63 @@ imagen: draft.photo?.startsWith("file://") ? "" : draft.photo || "",
     }
   };
 
-const pickServicePhoto = async () => {
-  const res = await ImagePicker.launchImageLibraryAsync({
-    allowsEditing: true,
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.8,
-  });
+  const pickServicePhoto = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"], // 👈 Nueva API correcta
+      allowsEditing: true,
+      quality: 0.8,
+    });
 
-  if (res.canceled || !res.assets?.length) return;
+    if (res.canceled) return;
 
-const uri = res.assets[0].uri;
-setDraft((p) => ({ ...p, photo: uri }));
+    const asset = res.assets[0];
 
-};
+    const localUri = asset.uri;
+    const mimeType = asset.mimeType ?? "image/jpeg";
 
+    console.log("🔥 URI FINAL:", localUri);
+    console.log("🔥 MIME:", mimeType);
 
+    const cloudUrl = await uploadToCloudinary(localUri, mimeType);
+
+    if (!cloudUrl) {
+      alert("Error subiendo foto a Cloudinary");
+      return;
+    }
+
+    setDraft((prev) => ({ ...prev, photo: cloudUrl }));
+  };
+
+  const uploadToCloudinary = async (uri: string, mimeType: string) => {
+    try {
+      // Convertir blob:http://... a un blob real
+      const blob = await fetch(uri).then((r) => r.blob());
+
+      const data = new FormData();
+      data.append("file", blob);
+      data.append("upload_preset", "imagescloudexp"); // tu preset EXACTO
+
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload",
+        {
+          method: "POST",
+          body: data,
+        }
+      );
+
+      const json = await res.json();
+
+      if (json.secure_url) {
+        return json.secure_url;
+      }
+
+      console.log("❌ Cloudinary error response:", json);
+      return null;
+    } catch (err) {
+      console.log("❌ Error subiendo archivo:", err);
+      return null;
+    }
+  };
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -441,8 +479,10 @@ setDraft((p) => ({ ...p, photo: uri }));
   const [localTags, setLocalTags] = useState<string[]>([]);
   const [localAmenityInput, setLocalAmenityInput] = useState("");
   const [localTagInput, setLocalTagInput] = useState("");
-const [categories, setCategories] = useState<{ _id: string; nombre: string }[]>([]);
-const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categories, setCategories] = useState<
+    { _id: string; nombre: string }[]
+  >([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   const openLocalModal = (loc: LocalItem) => {
     setActiveLocal(loc);
@@ -452,74 +492,89 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     setLocalTags(loc.specialTags || []);
     setLocalModalOpen(true);
   };
-const saveLocalCompletion = async () => {
-  if (!activeLocal) return;
+  const saveLocalCompletion = async () => {
+    if (!activeLocal) return;
 
-  try {
-    const res = await fetch(
-      `http://localhost:3000/api/locales/${activeLocal.id}/completar`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: localUrl.trim(),
-photos: localPhotos.map(p => p.startsWith("file://") ? "" : p),
-          amenities: localAmenities,
-          tags: localTags,
-        }),
+    try {
+      const res = await fetch(
+        `http://localhost:3000/api/locales/${activeLocal.id}/completar`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: localUrl.trim(),
+            photos: localPhotos,
+            amenities: localAmenities,
+            tags: localTags,
+          }),
+        }
+      );
+
+      let json = null;
+      try {
+        json = await res.json();
+      } catch {
+        console.log("⚠️ Backend devolvió algo que NO es JSON");
       }
-    );
 
-let json = null;
-try {
-  json = await res.json();
-} catch {
-  console.log("⚠️ Backend devolvió algo que NO es JSON");
-}
+      console.log("🔥 Local actualizado:", json);
 
-console.log("🔥 Local actualizado:", json);
+      // 🔄 actualizar UI sin recargar app
+      setLocals((prev) =>
+        prev.map((l) =>
+          l.id === activeLocal.id
+            ? {
+                ...l,
+                url: localUrl.trim(),
+                photos: localPhotos,
+                amenities: localAmenities,
+                specialTags: localTags,
+                verified: true, // 🔥 si su reclamo fue aprobado
+              }
+            : l
+        )
+      );
 
+      setLocalModalOpen(false);
+    } catch (err) {
+      console.log("❌ Error guardando local:", err);
+      alert("Error al guardar los datos.");
+    }
+  };
 
-    // 🔄 actualizar UI sin recargar app
-    setLocals((prev) =>
-      prev.map((l) =>
-        l.id === activeLocal.id ? {
-          ...l,
-          url: localUrl.trim(),
-          photos: localPhotos,
-          amenities: localAmenities,
-          specialTags: localTags,
-          verified: true   // 🔥 si su reclamo fue aprobado
-        } : l
-      )
-    );
+  const addLocalPhoto = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
 
-    setLocalModalOpen(false);
+    if (res.canceled) return;
 
-  } catch (err) {
-    console.log("❌ Error guardando local:", err);
-    alert("Error al guardar los datos.");
-  }
-};
+    const asset = res.assets[0];
 
+    // Siempre existe asset.uri
+    const localUri = asset.uri;
 
-const addLocalPhoto = async () => {
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    quality: 0.8,
-  });
+    // El MIME puede venir undefined, así que lo aseguramos:
+    const mimeType = asset.mimeType || "image/jpeg";
 
-  if (res.canceled || !res.assets?.length) return;
+    console.log("🔥 URI:", localUri);
+    console.log("🔥 MIME:", mimeType);
 
-  const localUri = res.assets[0].uri;
+    // Subir a Cloudinary
+    const cloudUrl = await uploadToCloudinary(localUri, mimeType);
 
-  // 🔥 Subir a Cloudinary
-setLocalPhotos((prev) => [localUri, ...prev]);
+    if (!cloudUrl) {
+      alert("Error subiendo la imagen a Cloudinary");
+      return;
+    }
 
-};
+    // Guardar en tu estado
+    setLocalPhotos((prev) => [cloudUrl, ...prev]);
+  };
 
-console.log("🔄 ProfileViewScreen render, user:", user?._id);
+  console.log("🔄 ProfileViewScreen render, user:", user?._id);
 
   /* ============================================
        LOADING
@@ -552,41 +607,45 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
 
       <ScrollView contentContainerStyle={{ padding: 14 }}>
         {/* PERFIL */}
-<View style={styles.card}>
-  <View style={styles.rowBetween}>
-    {/* IZQUIERDA: INFO DE PERFIL */}
-    <View style={styles.row}>
-      <View style={styles.avatarWrap}>
-        {profile.avatar ? (
-          <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.avatarFallbackText}>{profile.name[0]}</Text>
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            {/* IZQUIERDA: INFO DE PERFIL */}
+            <View style={styles.row}>
+              <View style={styles.avatarWrap}>
+                {profile.avatar ? (
+                  <Image
+                    source={{ uri: profile.avatar }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Text style={styles.avatarFallbackText}>
+                      {profile.name[0]}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={{ marginLeft: 10 }}>
+                <Text style={styles.name}>{profile.name}</Text>
+                <Text style={styles.grayText}>{profile.email}</Text>
+                <Text style={styles.grayText}>{profile.phone}</Text>
+
+                <Text style={styles.ratingText}>
+                  ⭐ {profile.rating} ({profile.reviews})
+                </Text>
+              </View>
+            </View>
+
+            {/* DERECHA: BOTÓN EDITAR PERFIL */}
+            <TouchableOpacity
+              style={styles.smallEditBtn}
+              onPress={() => router.push("/EditProfileScreen")}
+            >
+              <Text style={styles.smallEditBtnText}>Editar</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
-
-      <View style={{ marginLeft: 10 }}>
-        <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.grayText}>{profile.email}</Text>
-        <Text style={styles.grayText}>{profile.phone}</Text>
-
-        <Text style={styles.ratingText}>
-          ⭐ {profile.rating} ({profile.reviews})
-        </Text>
-      </View>
-    </View>
-
-    {/* DERECHA: BOTÓN EDITAR PERFIL */}
-    <TouchableOpacity
-      style={styles.smallEditBtn}
-      onPress={() => router.push("/EditProfileScreen")}
-    >
-      <Text style={styles.smallEditBtnText}>Editar</Text>
-    </TouchableOpacity>
-  </View>
-</View>
-
+        </View>
 
         {/* SERVICIOS */}
         <View style={styles.card}>
@@ -685,14 +744,15 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
                   {l.verified ? "Verificado" : "No verificado"}
                 </Text>
                 {l.claims?.some((c) => c.estado === "aprobado") && (
-  <TouchableOpacity
-    style={styles.completeBtnFull}
-    onPress={() => openLocalModal(l)}
-  >
-    <Text style={styles.completeBtnText}>Completar registro</Text>
-  </TouchableOpacity>
-)}
-
+                  <TouchableOpacity
+                    style={styles.completeBtnFull}
+                    onPress={() => openLocalModal(l)}
+                  >
+                    <Text style={styles.completeBtnText}>
+                      Completar registro
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.localArrow}>
@@ -701,27 +761,34 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
             </TouchableOpacity>
           ))}
         </View>
-{/* BOTÓN CERRAR SESIÓN */}
-<View style={{ marginTop: 14, marginHorizontal:80, backgroundColor: "#111" }}>
-  <TouchableOpacity
-    onPress={handleLogout}
-    activeOpacity={0.85}
-    style={{
-      backgroundColor: "#e63946",
-      paddingVertical: 14,
-      
-      borderRadius: 12,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.15)",
-    }}
-  >
-    <Text style={{ color: "#ffffffff", fontWeight: "800", fontSize: 16 }}>
-      Cerrar sesión
-    </Text>
-  </TouchableOpacity>
-</View>
+        {/* BOTÓN CERRAR SESIÓN */}
+        <View
+          style={{
+            marginTop: 14,
+            marginHorizontal: 80,
+            backgroundColor: "#111",
+          }}
+        >
+          <TouchableOpacity
+            onPress={handleLogout}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: "#e63946",
+              paddingVertical: 14,
 
+              borderRadius: 12,
+              alignItems: "center",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.15)",
+            }}
+          >
+            <Text
+              style={{ color: "#ffffffff", fontWeight: "800", fontSize: 16 }}
+            >
+              Cerrar sesión
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* ================================
@@ -769,20 +836,18 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
               onChangeText={(v) => setDraft((p) => ({ ...p, name: v }))}
             />
 
-{categoriesLoading ? (
-  <Text style={{ color: "#666" }}>Cargando...</Text>
-) : (
-  <Dropdown
-    value={draft.category}
-    onChange={(v) => setDraft((p) => ({ ...p, category: v }))}
-    options={categories.map((c) => ({
-      label: c.nombre,
-      value: c.nombre,
-    }))}
-  />
-)}
-
-
+            {categoriesLoading ? (
+              <Text style={{ color: "#666" }}>Cargando...</Text>
+            ) : (
+              <Dropdown
+                value={draft.category}
+                onChange={(v) => setDraft((p) => ({ ...p, category: v }))}
+                options={categories.map((c) => ({
+                  label: c.nombre,
+                  value: c.nombre,
+                }))}
+              />
+            )}
 
             <TextInput
               placeholder="Precio por hora"
@@ -867,105 +932,130 @@ console.log("🔄 ProfileViewScreen render, user:", user?._id);
             MODAL: COMPLETAR LOCAL
       ================================= */}
       <Modal visible={localModalOpen} transparent animationType="fade">
-  <KeyboardAvoidingView
-    style={{ flex: 1 }}
-    behavior={Platform.OS === "ios" ? "padding" : undefined}
-  >
-    <View style={styles.modalBackdrop}>
-      <View style={styles.modalContainer}>
-
-        {/* HEADER */}
-        <View style={styles.modalHeaderPro}>
-          <Text style={styles.modalTitlePro}>Completar registro del local</Text>
-          <TouchableOpacity onPress={() => setLocalModalOpen(false)}>
-            <X size={22} color="#fbbf24" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false}>
-
-          {/* URL */}
-          <Text style={styles.modalLabel}>Página web o link del local</Text>
-          <TextInput
-            placeholder="https://"
-            placeholderTextColor="#777"
-            value={localUrl}
-            onChangeText={setLocalUrl}
-            style={styles.modalInputPro}
-          />
-
-          {/* FOTOS DEL LOCAL */}
-          <Text style={styles.modalLabel}>Fotos del local</Text>
-          <TouchableOpacity style={styles.photoUploadBox} onPress={addLocalPhoto}>
-            <Text style={{ color: "#fbbf24", fontSize: 16, fontWeight: "700" }}>+ Subir foto</Text>
-          </TouchableOpacity>
-
-          <View style={styles.photoGallery}>
-            {localPhotos.map((p, i) => (
-              <Image key={i} source={{ uri: p }} style={styles.galleryImg} />
-            ))}
-          </View>
-
-          {/* AMENITIES */}
-          <Text style={styles.modalLabel}>Amenidades</Text>
-          <TextInput
-            placeholder="Ej: Wi-Fi, Estacionamiento, Mesas al aire libre..."
-            placeholderTextColor="#777"
-            value={localAmenityInput}
-            onChangeText={setLocalAmenityInput}
-            onSubmitEditing={() => {
-              if (!localAmenityInput.trim()) return;
-              setLocalAmenities((prev) => [...prev, localAmenityInput.trim()]);
-              setLocalAmenityInput("");
-            }}
-            style={styles.modalInputPro}
-          />
-
-          <View style={styles.tagList}>
-            {localAmenities.map((a, i) => (
-              <View key={i} style={styles.tagChipPro}>
-                <Text style={styles.tagChipTextPro}>{a}</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalContainer}>
+              {/* HEADER */}
+              <View style={styles.modalHeaderPro}>
+                <Text style={styles.modalTitlePro}>
+                  Completar registro del local
+                </Text>
+                <TouchableOpacity onPress={() => setLocalModalOpen(false)}>
+                  <X size={22} color="#fbbf24" />
+                </TouchableOpacity>
               </View>
-            ))}
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* URL */}
+                <Text style={styles.modalLabel}>
+                  Página web o link del local
+                </Text>
+                <TextInput
+                  placeholder="https://"
+                  placeholderTextColor="#777"
+                  value={localUrl}
+                  onChangeText={setLocalUrl}
+                  style={styles.modalInputPro}
+                />
+
+                {/* FOTOS DEL LOCAL */}
+                <Text style={styles.modalLabel}>Fotos del local</Text>
+                <TouchableOpacity
+                  style={styles.photoUploadBox}
+                  onPress={addLocalPhoto}
+                >
+                  <Text
+                    style={{
+                      color: "#fbbf24",
+                      fontSize: 16,
+                      fontWeight: "700",
+                    }}
+                  >
+                    + Subir foto
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.photoGallery}>
+                  {localPhotos.map((p, i) => (
+                    <Image
+                      key={i}
+                      source={{ uri: p }}
+                      style={styles.galleryImg}
+                    />
+                  ))}
+                </View>
+
+                {/* AMENITIES */}
+                <Text style={styles.modalLabel}>Amenidades</Text>
+                <TextInput
+                  placeholder="Ej: Wi-Fi, Estacionamiento, Mesas al aire libre..."
+                  placeholderTextColor="#777"
+                  value={localAmenityInput}
+                  onChangeText={setLocalAmenityInput}
+                  onSubmitEditing={() => {
+                    if (!localAmenityInput.trim()) return;
+                    setLocalAmenities((prev) => [
+                      ...prev,
+                      localAmenityInput.trim(),
+                    ]);
+                    setLocalAmenityInput("");
+                  }}
+                  style={styles.modalInputPro}
+                />
+
+                <View style={styles.tagList}>
+                  {localAmenities.map((a, i) => (
+                    <View key={i} style={styles.tagChipPro}>
+                      <Text style={styles.tagChipTextPro}>{a}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* TAGS ESPECIALES */}
+                <Text style={styles.modalLabel}>Hashtags especiales</Text>
+                <TextInput
+                  placeholder="#Familiar #Vegano #Económico"
+                  placeholderTextColor="#777"
+                  value={localTagInput}
+                  onChangeText={setLocalTagInput}
+                  onSubmitEditing={() => {
+                    if (!localTagInput.trim()) return;
+                    setLocalTags((prev) => [...prev, localTagInput.trim()]);
+                    setLocalTagInput("");
+                  }}
+                  style={styles.modalInputPro}
+                />
+
+                <View style={styles.tagList}>
+                  {localTags.map((t, i) => (
+                    <View key={i} style={styles.tagChipPro}>
+                      <Text style={styles.tagChipTextPro}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* BOTÓN GUARDAR */}
+                <TouchableOpacity
+                  style={styles.saveBtnPro}
+                  onPress={saveLocalCompletion}
+                >
+                  <Text style={styles.saveBtnTextPro}>Guardar cambios</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelBtnPro}
+                  onPress={() => setLocalModalOpen(false)}
+                >
+                  <Text style={styles.cancelBtnTextPro}>Cancelar</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
           </View>
-
-          {/* TAGS ESPECIALES */}
-          <Text style={styles.modalLabel}>Hashtags especiales</Text>
-          <TextInput
-            placeholder="#Familiar #Vegano #Económico"
-            placeholderTextColor="#777"
-            value={localTagInput}
-            onChangeText={setLocalTagInput}
-            onSubmitEditing={() => {
-              if (!localTagInput.trim()) return;
-              setLocalTags((prev) => [...prev, localTagInput.trim()]);
-              setLocalTagInput("");
-            }}
-            style={styles.modalInputPro}
-          />
-
-          <View style={styles.tagList}>
-            {localTags.map((t, i) => (
-              <View key={i} style={styles.tagChipPro}>
-                <Text style={styles.tagChipTextPro}>{t}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* BOTÓN GUARDAR */}
-          <TouchableOpacity style={styles.saveBtnPro} onPress={saveLocalCompletion}>
-            <Text style={styles.saveBtnTextPro}>Guardar cambios</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.cancelBtnPro} onPress={() => setLocalModalOpen(false)}>
-            <Text style={styles.cancelBtnTextPro}>Cancelar</Text>
-          </TouchableOpacity>
-
-        </ScrollView>
-      </View>
-    </View>
-  </KeyboardAvoidingView>
-</Modal>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1002,127 +1092,127 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 18,
   },
-modalBackdrop: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.85)",
-  justifyContent: "center",
-  paddingHorizontal: 16,
-},
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
 
-modalContainer: {
-  backgroundColor: "#141414",
-  borderRadius: 20,
-  padding: 18,
-  maxHeight: "88%",
-  borderWidth: 1,
-  borderColor: "rgba(251,191,36,0.25)",
-  shadowColor: "#fbbf24",
-  shadowOpacity: 0.15,
-  shadowRadius: 15,
-},
+  modalContainer: {
+    backgroundColor: "#141414",
+    borderRadius: 20,
+    padding: 18,
+    maxHeight: "88%",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.25)",
+    shadowColor: "#fbbf24",
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+  },
 
-modalHeaderPro: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 12,
-},
+  modalHeaderPro: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
 
-modalTitlePro: {
-  color: "#fff",
-  fontWeight: "900",
-  fontSize: 20,
-},
+  modalTitlePro: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 20,
+  },
 
-modalLabel: {
-  color: "#fbbf24",
-  fontWeight: "700",
-  marginTop: 14,
-  marginBottom: 6,
-},
+  modalLabel: {
+    color: "#fbbf24",
+    fontWeight: "700",
+    marginTop: 14,
+    marginBottom: 6,
+  },
 
-modalInputPro: {
-  backgroundColor: "#1f1f1f",
-  borderWidth: 1,
-  borderColor: "#333",
-  borderRadius: 10,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  color: "#fff",
-  marginBottom: 8,
-},
+  modalInputPro: {
+    backgroundColor: "#1f1f1f",
+    borderWidth: 1,
+    borderColor: "#333",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#fff",
+    marginBottom: 8,
+  },
 
-photoUploadBox: {
-  backgroundColor: "#1f1f1f",
-  height: 65,
-  borderRadius: 14,
-  borderWidth: 1,
-  borderColor: "rgba(251,191,36,0.3)",
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 12,
-},
+  photoUploadBox: {
+    backgroundColor: "#1f1f1f",
+    height: 65,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
 
-photoGallery: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: 10,
-  marginBottom: 12,
-},
+  photoGallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 12,
+  },
 
-galleryImg: {
-  width: 90,
-  height: 90,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: "#333",
-},
+  galleryImg: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
 
-tagList: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: 8,
-},
+  tagList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
 
-tagChipPro: {
-  backgroundColor: "#333",
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 999,
-},
+  tagChipPro: {
+    backgroundColor: "#333",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
 
-tagChipTextPro: {
-  color: "#fff",
-  fontWeight: "600",
-},
+  tagChipTextPro: {
+    color: "#fff",
+    fontWeight: "600",
+  },
 
-saveBtnPro: {
-  backgroundColor: "#fbbf24",
-  paddingVertical: 12,
-  borderRadius: 12,
-  marginTop: 20,
-},
+  saveBtnPro: {
+    backgroundColor: "#fbbf24",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 20,
+  },
 
-saveBtnTextPro: {
-  color: "#111",
-  fontWeight: "900",
-  textAlign: "center",
-  fontSize: 16,
-},
+  saveBtnTextPro: {
+    color: "#111",
+    fontWeight: "900",
+    textAlign: "center",
+    fontSize: 16,
+  },
 
-cancelBtnPro: {
-  paddingVertical: 12,
-  borderRadius: 12,
-  marginTop: 10,
-  borderWidth: 1,
-  borderColor: "#444",
-},
+  cancelBtnPro: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#444",
+  },
 
-cancelBtnTextPro: {
-  textAlign: "center",
-  color: "#ddd",
-  fontWeight: "700",
-},
+  cancelBtnTextPro: {
+    textAlign: "center",
+    color: "#ddd",
+    fontWeight: "700",
+  },
 
   iconBtn: {
     width: 34,
@@ -1236,18 +1326,18 @@ cancelBtnTextPro: {
     flex: 1,
     marginLeft: 10,
   },
-dropdownBox: {
-  backgroundColor: "#222",
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: "#333",
+  dropdownBox: {
+    backgroundColor: "#222",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#333",
 
-  // ❌ quitar esto
-  // overflow: "hidden",
+    // ❌ quitar esto
+    // overflow: "hidden",
 
-  // ✔ agregar esto
-  paddingHorizontal: 6,
-},
+    // ✔ agregar esto
+    paddingHorizontal: 6,
+  },
 
   serviceName: {
     color: "#fff",
@@ -1523,21 +1613,20 @@ dropdownBox: {
     borderRadius: 10,
   },
   rowBetween: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-smallEditBtn: {
-  backgroundColor: "#fbbf24",
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 8,
-},
+  smallEditBtn: {
+    backgroundColor: "#fbbf24",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
 
-smallEditBtnText: {
-  color: "#111",
-  fontWeight: "800",
-},
-
+  smallEditBtnText: {
+    color: "#111",
+    fontWeight: "800",
+  },
 });
