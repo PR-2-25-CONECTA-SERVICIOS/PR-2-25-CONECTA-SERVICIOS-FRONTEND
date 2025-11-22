@@ -28,6 +28,7 @@ interface IService {
   disponible?: boolean;
 }
 
+import { useAuth } from "context/AuthContext";
 
 // 🔥 CATEGORÍAS IGUALES A TU FRONT
 const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
@@ -46,6 +47,8 @@ const [highlighted, setHighlighted] = useState<IService[]>([]);
 const [categories, setCategories] = useState<string[]>(["Todos"]);
 const [loadingCategories, setLoadingCategories] = useState(true);
 
+const { user } = useAuth();
+const [profile, setProfile] = useState<any>(null);
 
   // Responsive grid config
   const { width } = Dimensions.get('window');
@@ -96,6 +99,27 @@ const loadCategories = async () => {
       console.error("❌ Error cargando servicios:", error);
     }
   };
+useEffect(() => {
+  if (!user || !user._id) return;
+
+  const loadProfile = async () => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
+      const raw = await res.text();
+      const data = JSON.parse(raw);
+
+      setProfile({
+        name: data.nombre,
+        email: data.correo,
+        avatar: data.avatar,
+      });
+    } catch (err) {
+      console.log("❌ Error cargando perfil:", err);
+    }
+  };
+
+  loadProfile();
+}, [user?._id]);
 
   // -----------------------------------------
   // 🔥 FILTRO REAL DESDE BACKEND
@@ -195,8 +219,14 @@ const loadCategories = async () => {
         
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>¡Hola, María!</Text>
-            <Text style={styles.subGreeting}>¿Qué servicio necesitas hoy?</Text>
+<Text style={styles.greeting}>
+  ¡Hola, {profile?.name || "Usuario"}!
+</Text>
+
+<Text style={styles.subGreeting}>
+  ¿Qué servicio necesitas hoy?
+</Text>
+
           </View>
 
           <TouchableOpacity

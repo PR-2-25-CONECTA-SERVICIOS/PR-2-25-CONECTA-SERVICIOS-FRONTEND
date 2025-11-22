@@ -355,7 +355,6 @@ export default function MapAdd() {
         const saved = mapLocalToPlace(data.local || data);
         setPlaces((prev) => [saved, ...prev]); // ⬅ aparece en mapa y en lista
 
-        alert("Local creado correctamente.");
 
         // Limpiar formulario y estado
         setFormOpen(false);
