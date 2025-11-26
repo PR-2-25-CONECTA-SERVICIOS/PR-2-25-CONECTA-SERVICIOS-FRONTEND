@@ -13,34 +13,20 @@ import {
 } from "lucide-react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  ChangeEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
 const API_URL = "http://localhost:3000/api/locales";
+const CATEGORY_API = "http://localhost:3000/api/categorias";
 
 // 🔗 Cloudinary
-const CLOUDINARY_URL =
-  "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload";
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
-// Categorías disponibles
-const CATEGORIES = [
-  "Restaurante",
-  "Tienda",
-  "Farmacia",
-  "Servicios",
-  "Otro",
-  "General",
-] as const;
-
-type Category = (typeof CATEGORIES)[number];
+// 📌 Categorías dinámicas desde backend
+type CategoryItem = { _id: string; nombre: string };
 
 type Place = {
   id: string;
@@ -49,7 +35,7 @@ type Place = {
   description: string;
   imageUri?: string;
   coord: { latitude: number; longitude: number };
-  category: Category | string;
+  category: string;
   createdAt: number;
 };
 
@@ -75,7 +61,6 @@ function mapLocalToPlace(local: any): Place {
   };
 }
 
-// Estilo oscuro tipo “dark matter”
 const DARK_STYLE =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
@@ -85,6 +70,8 @@ export default function MapAdd() {
   const markersRef = useRef<Record<string, maplibregl.Marker>>({});
 
   const [currentUser, setCurrentUser] = useState<any | null>(null);
+
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   // Locales del usuario actual
   const [places, setPlaces] = useState<Place[]>([]);
@@ -98,7 +85,7 @@ export default function MapAdd() {
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>(undefined);
-  const [category, setCategory] = useState<Category | string>("General");
+  const [category, setCategory] = useState<string>("General");
 
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -106,55 +93,65 @@ export default function MapAdd() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // =====================================================
-  // 1. Cargar usuario actual
+  // CARGAR USUARIO
   // =====================================================
   useEffect(() => {
     (async () => {
       try {
         const user = await loadUserSession();
-        if (!user || !user._id) {
-          console.log("No hay usuario en sesión (MapAdd web)");
-          return;
-        }
+        if (!user || !user._id) return;
         setCurrentUser(user);
       } catch (e) {
-        console.warn("No se pudo cargar el usuario en MapAdd web", e);
+        console.warn("No se pudo cargar usuario", e);
       }
     })();
   }, []);
 
   // =====================================================
-  // 2. Cargar locales creados por ese usuario
+  // CARGAR CATEGORÍAS DESDE BACKEND
   // =====================================================
   useEffect(() => {
-    if (!currentUser || !currentUser._id) return;
+    const loadCategories = async () => {
+      try {
+        const res = await fetch(CATEGORY_API);
+        const data = await res.json();
+        if (Array.isArray(data)) setCategories(data);
+      } catch (e) {
+        console.log("❌ Error cargando categorías:", e);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  // =====================================================
+  // CARGAR LOCALES DEL USUARIO
+  // =====================================================
+  useEffect(() => {
+    if (!currentUser) return;
 
     (async () => {
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
 
-        const onlyMine = Array.isArray(data)
-          ? data.filter((loc: any) => {
-              // creadoPor puede venir como string o como objeto {_id}
-              const creador =
-                loc.creadoPor && typeof loc.creadoPor === "object"
-                  ? loc.creadoPor._id
-                  : loc.creadoPor;
-              return creador?.toString() === currentUser._id?.toString();
-            })
-          : [];
+        const onlyMine = data.filter((loc: any) => {
+          const creador =
+            typeof loc.creadoPor === "object"
+              ? loc.creadoPor._id
+              : loc.creadoPor;
+          return creador?.toString() === currentUser._id?.toString();
+        });
 
-        const mapped = onlyMine.map(mapLocalToPlace);
-        setPlaces(mapped);
+        setPlaces(onlyMine.map(mapLocalToPlace));
       } catch (e) {
-        console.warn("No se pudieron cargar los locales del usuario", e);
+        console.warn("Error cargando locales", e);
       }
     })();
   }, [currentUser]);
 
   // =====================================================
-  // 3. Inicializar mapa (estilo local sin POIs)
+  // INICIALIZAR MAPA
   // =====================================================
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -163,7 +160,6 @@ export default function MapAdd() {
       const styleRes = await fetch(DARK_STYLE);
       const styleJson = await styleRes.json();
 
-      // Eliminamos POIs, labels, landuse, buildings
       styleJson.layers = styleJson.layers.filter(
         (layer: any) =>
           !layer.id.includes("poi") &&
@@ -172,20 +168,13 @@ export default function MapAdd() {
           !layer.id.includes("building")
       );
 
-      // Congelamos como estilo local
-      styleJson.sources = JSON.parse(JSON.stringify(styleJson.sources));
-      styleJson.layers = JSON.parse(JSON.stringify(styleJson.layers));
-
-      const initialCenter: [number, number] = [-66.163, -17.3835];
-
       map.current = new maplibregl.Map({
         container: mapContainer.current as HTMLElement,
         style: styleJson,
-        center: initialCenter,
+        center: [-66.163, -17.3835],
         zoom: 14.5,
       });
 
-      // Evento para crear local (click en el mapa)
       map.current.on("click", (e) => {
         const { lng, lat } = e.lngLat;
         setDraftCoord({ latitude: lat, longitude: lng });
@@ -206,12 +195,11 @@ export default function MapAdd() {
   }, []);
 
   // =====================================================
-  // 4. Pintar markers de los locales del usuario
+  // PINTAR MARKERS
   // =====================================================
   useEffect(() => {
     if (!map.current) return;
 
-    // limpiar anteriores
     Object.values(markersRef.current).forEach((m) => m.remove());
     markersRef.current = {};
 
@@ -238,7 +226,6 @@ export default function MapAdd() {
       dot.style.top = "-3px";
       el.appendChild(dot);
 
-      // círculo interior
       const inner = document.createElement("div");
       inner.style.width = "12px";
       inner.style.height = "12px";
@@ -254,7 +241,7 @@ export default function MapAdd() {
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([p.coord.longitude, p.coord.latitude])
-        .addTo(map.current!);
+        .addTo(map.current as maplibregl.Map);
 
       markersRef.current[p.id] = marker;
     });
@@ -269,7 +256,7 @@ export default function MapAdd() {
   };
 
   // =====================================================
-  // 5. Cloudinary (subir imagen)
+  // CLOUDINARY
   // =====================================================
   const uploadImageToCloudinary = async (file: File) => {
     try {
@@ -283,13 +270,9 @@ export default function MapAdd() {
       });
 
       const json = await res.json();
-      if (json.secure_url) {
-        return json.secure_url as string;
-      }
-      console.log("Respuesta Cloudinary inesperada:", json);
-      return null;
+      return json.secure_url || null;
     } catch (err) {
-      console.log("ERROR CLOUDINARY LOCAL (web):", err);
+      console.log("ERROR CLOUDINARY:", err);
       return null;
     }
   };
@@ -298,32 +281,42 @@ export default function MapAdd() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Preview rápida local
-    const localUrl = URL.createObjectURL(file);
-    setImageUri(localUrl);
+    // Mostrar cargando
+    setImageUri("loading");
 
-    const cloudUrl = await uploadImageToCloudinary(file);
-    if (cloudUrl) {
-      setImageUri(cloudUrl);
-      console.log("📤 Imagen subida (web):", cloudUrl);
-    } else {
-      alert("No se pudo subir la imagen");
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append("upload_preset", CLOUDINARY_PRESET);
+
+      const res = await fetch(CLOUDINARY_URL, {
+        method: "POST",
+        body: data,
+      });
+
+      const json = await res.json();
+
+      if (json.secure_url) {
+        setImageUri(json.secure_url);
+        console.log("📤 Imagen subida a Cloudinary:", json.secure_url);
+      } else {
+        console.error("Cloudinary error:", json);
+        alert("Error al subir imagen a Cloudinary");
+        setImageUri(undefined);
+      }
+    } catch (err) {
+      console.error("Cloudinary exception:", err);
+      alert("Error al subir imagen");
+      setImageUri(undefined);
     }
   };
 
   // =====================================================
-  // 6. Guardar / actualizar local
+  // GUARDAR LOCAL
   // =====================================================
   const handleSave = async () => {
     if (!draftCoord) return;
-    if (!title.trim()) {
-      alert("Pon un nombre para el lugar");
-      return;
-    }
-    if (!currentUser || !currentUser._id) {
-      alert("Debes iniciar sesión para crear locales.");
-      return;
-    }
+    if (!title.trim()) return alert("Pon un nombre");
 
     const payload = {
       nombre: title.trim(),
@@ -337,93 +330,47 @@ export default function MapAdd() {
     };
 
     try {
-      if (!editingId) {
-        // ➕ Crear local
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
+      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
+      const method = editingId ? "PATCH" : "POST";
 
-        if (!res.ok) {
-          console.log("Error al crear local", data);
-          alert(data.mensaje || "No se pudo crear el local.");
-          return;
-        }
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        const saved = mapLocalToPlace(data.local || data);
-        setPlaces((prev) => [saved, ...prev]); // ⬅ aparece en mapa y en lista
+      const data = await res.json();
+      if (!res.ok) return alert("Error al guardar");
 
+      const saved = mapLocalToPlace(data.local || data);
 
-        // Limpiar formulario y estado
-        setFormOpen(false);
-        setDraftCoord(null);
-        setTitle("");
-        setPhone("");
-        setDescription("");
-        setImageUri(undefined);
-        setCategory("General");
-        setEditingId(null);
-        setSelected(saved);
-        setDetailOpen(true);
-        flyTo(saved);
-      } else {
-        // ✏️ Editar local
-        const res = await fetch(`${API_URL}/${editingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
+      if (!editingId) setPlaces((p) => [saved, ...p]);
+      else
+        setPlaces((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
 
-        if (!res.ok) {
-          console.log("Error al actualizar local", data);
-          alert(data.mensaje || "No se pudo actualizar el local.");
-          return;
-        }
-
-        const updated = mapLocalToPlace(data.local || data);
-        setPlaces((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
-        );
-        setFormOpen(false);
-        setSelected(updated);
-        setDetailOpen(true);
-        setEditingId(null);
-        flyTo(updated);
-      }
+      setFormOpen(false);
+      setSelected(saved);
+      setDetailOpen(true);
+      flyTo(saved);
     } catch (e) {
-      console.log("Error en handleSave (web)", e);
-      alert("No se pudo conectar al servidor.");
+      alert("Error guardando.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este lugar?")) return;
-    try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        console.log("Error al eliminar local", data);
-        alert(data.mensaje || "No se pudo eliminar el local.");
-        return;
-      }
+    if (!confirm("¿Eliminar?")) return;
 
-      setPlaces((prev) => prev.filter((p) => p.id !== id));
-      setDetailOpen(false);
-      setSelected(null);
-      setDraftCoord(null);
-    } catch (e) {
-      console.log("Error en handleDelete (web)", e);
-      alert("No se pudo conectar al servidor.");
-    }
+    const res = await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) setPlaces((prev) => prev.filter((p) => p.id !== id));
+    setDetailOpen(false);
+    setSelected(null);
   };
 
   // =====================================================
-  // 7. UI
+  // UI
   // =====================================================
   return (
     <Screen>
@@ -433,21 +380,18 @@ export default function MapAdd() {
           <IconBtn onClick={() => router.replace("/LocalesScreen")}>
             <ArrowLeft size={18} color="#e5e7eb" />
           </IconBtn>
-          {/* 🔥 Barra de búsqueda eliminada (ya no hay input) */}
         </SearchWrap>
 
         <HeaderActions>
           <Chip onClick={() => setListOpen(true)}>
             <List size={16} color="#111827" />
-            <ChipText> Mis lugares</ChipText>
+            <ChipText>Mis lugares</ChipText>
           </Chip>
         </HeaderActions>
       </Header>
 
-      {/* MAPA */}
       <MapContainer ref={mapContainer} />
 
-      {/* LEYENDA */}
       <Legend>
         <LegendTitle>Añadir lugar</LegendTitle>
         <LegendText>Haz clic en el mapa para colocar un pin</LegendText>
@@ -476,22 +420,17 @@ export default function MapAdd() {
             </SubInfo>
 
             <RowBetween style={{ marginTop: 10 }}>
-              <BtnOutlineSm
-                onClick={() => selected && handleDelete(selected.id)}
-              >
+              <BtnOutlineSm onClick={() => handleDelete(selected.id)}>
                 <Trash2 size={14} color="#ef4444" />
               </BtnOutlineSm>
               <BtnOutlineSm
                 onClick={() => {
-                  if (!selected) return;
                   setDraftCoord(selected.coord);
                   setTitle(selected.title);
                   setPhone(selected.phone);
                   setDescription(selected.description);
                   setImageUri(selected.imageUri);
-                  setCategory(
-                    (selected.category as Category) || "General"
-                  );
+                  setCategory(selected.category);
                   setEditingId(selected.id);
                   setDetailOpen(false);
                   setFormOpen(true);
@@ -504,7 +443,7 @@ export default function MapAdd() {
         </Sheet>
       )}
 
-      {/* FORMULARIO */}
+      {/* FORM */}
       {formOpen && (
         <FormSheet>
           <FormCard>
@@ -521,28 +460,26 @@ export default function MapAdd() {
             </RowBetween>
 
             <Label>Nombre del local</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
 
             <Label>Categoría</Label>
             <Select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {categories.length === 0 ? (
+                <option>Cargando...</option>
+              ) : (
+                categories.map((c) => (
+                  <option key={c._id} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))
+              )}
             </Select>
 
             <Label>Teléfono</Label>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
 
             <Label>Descripción</Label>
             <Textarea
@@ -551,7 +488,9 @@ export default function MapAdd() {
             />
 
             <Label>Imagen</Label>
-            {imageUri ? (
+            {imageUri === "loading" ? (
+              <UploadBox>Cargando imagen...</UploadBox>
+            ) : imageUri ? (
               <Img src={imageUri} />
             ) : (
               <UploadBox>
@@ -572,7 +511,7 @@ export default function MapAdd() {
         </FormSheet>
       )}
 
-      {/* LISTA DE LUGARES DEL USUARIO */}
+      {/* LISTA */}
       {listOpen && (
         <ModalBg onClick={() => setListOpen(false)}>
           <ListCard onClick={(e) => e.stopPropagation()}>
@@ -777,7 +716,7 @@ const FormSheet = styled.div`
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 70px; /* evita que tape el navbar */
+  bottom: 70px;
   z-index: 30;
   display: flex;
   justify-content: center;
@@ -855,8 +794,6 @@ const PrimaryBtn = styled.button`
   font-weight: 800;
   cursor: pointer;
 `;
-
-/* LISTA */
 
 const ModalBg = styled.div`
   position: fixed;

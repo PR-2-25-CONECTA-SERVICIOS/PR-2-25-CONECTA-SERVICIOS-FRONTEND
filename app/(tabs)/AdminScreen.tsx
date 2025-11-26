@@ -1,3 +1,4 @@
+// --------------- IMPORTS ---------------
 import {
   AlertTriangle,
   Calendar,
@@ -19,10 +20,11 @@ import {
   View,
 } from "react-native";
 
+// ---------------- CONSTANTES ------------------
 const API_URL = "http://localhost:3000/api/locales";
 const CATEGORY_URL = "http://localhost:3000/api/categorias";
 
-/* ================== TIPOS ================== */
+// ---------------- TIPOS ------------------
 type Status = "pendiente" | "aprobado" | "rechazado";
 
 interface ClaimItem {
@@ -40,83 +42,68 @@ interface ClaimItem {
   fecha: string;
 }
 
-/* ================== PANTALLA ================== */
+// =======================================================
+//                     COMPONENTE PRINCIPAL
+// =======================================================
 export default function AdminScreen() {
   const { width } = useWindowDimensions();
-const [categoryModal, setCategoryModal] = useState(false);
-const [catName, setCatName] = useState("");
-const [catDesc, setCatDesc] = useState("");
 
+  // ---------- estados categorías ----------
+  const [categoryModal, setCategoryModal] = useState(false);
+  const [catName, setCatName] = useState("");
+  const [catDesc, setCatDesc] = useState("");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+
+  // ACORDEÓN
+  const [catOpen, setCatOpen] = useState(false);
+
+  // ---------- estados reclamos ----------
   const [claims, setClaims] = useState<ClaimItem[]>([]);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | Status>("all");
   const [selected, setSelected] = useState<ClaimItem | null>(null);
+
   const [confirm, setConfirm] = useState<{
     type: "approve" | "reject";
     item: ClaimItem | null;
   } | null>(null);
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [newCategory, setNewCategory] = useState("");
-  const [editingCategory, setEditingCategory] = useState<any | null>(null);
-
   const isNarrow = width < 380;
   const kpiBasis = width >= 900 ? "33%" : width >= 520 ? "48%" : "100%";
 
-  /* ============================================
-        CATEGORÍAS (SOLO VISUAL, SIN BACKEND)
-  ============================================ */
-  const addCategory = () => {
-    if (!newCategory.trim()) return;
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c._id === editingCategory._id ? { ...c, nombre: newCategory } : c
-        )
-      );
-      setEditingCategory(null);
-    } else {
-      setCategories((prev) => [
-        ...prev,
-        { _id: Date.now().toString(), nombre: newCategory },
-      ]);
+  // =======================================================
+  //            CATEGORÍAS (Backend real)
+  // =======================================================
+  const loadCategories = async () => {
+    try {
+      const res = await fetch(CATEGORY_URL);
+      const data = await res.json();
+      setCategories(data);
+    } catch (err) {
+      console.log("❌ Error cargando categorías:", err);
     }
-    setNewCategory("");
   };
 
-const deleteCategory = async (id: string) => {
-  try {
-    await fetch(`${CATEGORY_URL}/${id}`, {
-      method: "DELETE",
-    });
+  const deleteCategory = async (id: string) => {
+    try {
+      await fetch(`${CATEGORY_URL}/${id}`, { method: "DELETE" });
+      loadCategories();
+    } catch (err) {
+      console.log("❌ Error eliminando categoría:", err);
+    }
+  };
 
-    loadCategories();
-  } catch (err) {
-    console.log("❌ Error eliminando categoría:", err);
-  }
-};
+  const openEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setCatName(cat.nombre);
+    setCatDesc(cat.descripcion || "");
+    setCategoryModal(true);
+  };
 
-
-const openEditCategory = (cat: any) => {
-  setEditingCategory(cat);
-  setCatName(cat.nombre);
-  setCatDesc(cat.descripcion || "");
-  setCategoryModal(true);
-};
-
-const loadCategories = async () => {
-  try {
-    const res = await fetch("http://localhost:3000/api/categorias");
-    const data = await res.json();
-    setCategories(data);
-  } catch (err) {
-    console.log("❌ Error cargando categorías:", err);
-  }
-};
-
-  /* ============================================================
-       🔥 1. Cargar reclamos reales desde backend
-  ============================================================ */
+  // =======================================================
+  //            RECLAMOS (backend real)
+  // =======================================================
   const loadClaims = async () => {
     try {
       const res = await fetch(`${API_URL}/reclamos/todos`);
@@ -129,46 +116,38 @@ const loadCategories = async () => {
 
   useEffect(() => {
     loadClaims();
-      loadCategories();   // <--- IMPORTANTE
-
+    loadCategories();
   }, []);
 
-  /* ============================================================
-       📊 2. Stats
-  ============================================================ */
-  const stats = useMemo(() => {
-    return {
+  // Stats KPI
+  const stats = useMemo(
+    () => ({
       pending: claims.filter((c) => c.estado === "pendiente").length,
       approved: claims.filter((c) => c.estado === "aprobado").length,
       rejected: claims.filter((c) => c.estado === "rechazado").length,
-    };
-  }, [claims]);
+    }),
+    [claims]
+  );
 
-  /* ============================================================
-       🔎 3. Filtrar lista
-  ============================================================ */
+  // Filtro de reclamos
   const filtered = useMemo(() => {
     const base = claims.filter(
       (r) =>
         r.businessName.toLowerCase().includes(search.toLowerCase()) ||
         r.nombrePropietario.toLowerCase().includes(search.toLowerCase())
     );
+
     if (tab === "all") return base;
     return base.filter((r) => r.estado === tab);
   }, [search, tab, claims]);
 
-  /* ============================================================
-       🟢 4. Aprobar / Rechazar reclamo
-  ============================================================ */
+  // Aprobación
   const approveClaim = async (item: ClaimItem) => {
     try {
       await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          estado: "aprobado",
-          verificado: true,
-        }),
+        body: JSON.stringify({ estado: "aprobado", verificado: true }),
       });
       setConfirm(null);
       setSelected(null);
@@ -183,10 +162,7 @@ const loadCategories = async () => {
       await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          estado: "rechazado",
-          verificado: false,
-        }),
+        body: JSON.stringify({ estado: "rechazado", verificado: false }),
       });
       setConfirm(null);
       setSelected(null);
@@ -196,16 +172,20 @@ const loadCategories = async () => {
     }
   };
 
-  /* ============================================================
-      RENDER
-  ============================================================ */
+  // =======================================================
+  //                      RENDER
+  // =======================================================
+
   const statusText = {
     pendiente: "Pendiente",
     aprobado: "Aprobado",
     rechazado: "Rechazado",
   };
 
-  const statusTone: Record<"pending" | "approved" | "rejected", "soft" | "ok" | "danger"> = {
+  const statusTone: Record<
+    "pending" | "approved" | "rejected",
+    "soft" | "ok" | "danger"
+  > = {
     pending: "soft",
     approved: "ok",
     rejected: "danger",
@@ -214,7 +194,7 @@ const loadCategories = async () => {
   const normalizeStatus = (
     estado: string
   ): "pending" | "approved" | "rejected" => {
-    const map: Record<string, "pending" | "approved" | "rejected"> = {
+    const map: any = {
       pendiente: "pending",
       aprobado: "approved",
       rechazado: "rejected",
@@ -237,80 +217,129 @@ const loadCategories = async () => {
         </Badge>
       </View>
 
-      {/* ================================
-          🔶 SECCIÓN: ADMINISTRAR CATEGORÍAS
-      ================================= */}
+      {/* =======================================================
+               SCROLLVIEW CONTENIDO
+      ======================================================= */}
       <ScrollView style={{ padding: 16 }}>
-        <Text style={styles.h1}>Administrar Categorías</Text>
-        <Text style={styles.h2}>Crear, editar y eliminar categorías</Text>
+        {/* =======================================================
+                    ACORDEÓN DE CATEGORÍAS
+        ======================================================= */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setCatOpen(!catOpen)}
+        >
+          <Card
+            style={{
+              padding: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={styles.h1}>Administrar Categorías</Text>
 
-        {/* AGREGAR / EDITAR */}
-        <Card style={{ marginTop: 16 }}>
-          <View style={{ padding: 14 }}>
-{/* === INPUT + BOTÓN AGREGAR === */}
-<View style={{ flexDirection: "row", gap: 10 }}>
-
-  <Btn
-    style={{ width: 120 }}
-    onPress={() => {
-      setEditingCategory(null); // modo creación
-      setCatName("");
-      setCatDesc("");
-      setCategoryModal(true);   // abrir modal
-    }}
-  >
-    <Text style={{ color: "#111827", fontWeight: "900" }}>Agregar</Text>
-  </Btn>
-</View>
-
-
-          </View>
-        </Card>
-
-        {/* LISTA CATEGORÍAS */}
-        <Card style={{ marginTop: 16 }}>
-          <View style={{ padding: 14 }}>
-            <Text style={{ color: "#fbbf24", fontWeight: "900", marginBottom: 10 }}>
-              Categorías Registradas
+            <Text
+              style={{
+                color: "#fbbf24",
+                fontSize: 22,
+                transform: [{ rotate: catOpen ? "180deg" : "0deg" }],
+              }}
+            >
+              ▼
             </Text>
+          </Card>
+        </TouchableOpacity>
 
-            {categories.length === 0 && (
-              <Text style={{ color: "#6b7280" }}>No hay categorías aún.</Text>
-            )}
-
-            {categories.map((cat) => (
-              <View
-                key={cat._id}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderColor: "rgba(148,163,184,0.15)",
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700" }}>{cat.nombre}</Text>
-
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <Btn variant="outline" size="sm" onPress={() => openEditCategory(cat)}>
-                    <Text style={{ color: "#fbbf24" }}>Editar</Text>
-                  </Btn>
-
-                  <Btn variant="outline" size="sm" onPress={() => deleteCategory(cat._id)}>
-                    <Text style={{ color: "#f87171" }}>Eliminar</Text>
-                  </Btn>
-                </View>
+        {/* ----- CONTENIDO DESPLEGABLE ----- */}
+        {catOpen && (
+          <View style={{ marginTop: 16, gap: 16 }}>
+            {/* BOTÓN AGREGAR */}
+            <Card>
+              <View style={{ padding: 14 }}>
+                <Btn
+                  style={{ width: 150 }}
+                  onPress={() => {
+                    setEditingCategory(null);
+                    setCatName("");
+                    setCatDesc("");
+                    setCategoryModal(true);
+                  }}
+                >
+                  <Text style={{ color: "#111827", fontWeight: "900" }}>
+                    Nueva Categoría
+                  </Text>
+                </Btn>
               </View>
-            ))}
-          </View>
-        </Card>
+            </Card>
 
-        {/* AQUI SIGUE LA PARTE 2… */}
-                {/* ================================
-            🔶 SECCIÓN DE RECLAMOS
-        ================================= */}
-        <Text style={[styles.h1, { marginTop: 28 }]}>Solicitudes de Reclamo</Text>
-        <Text style={styles.h2}>Aprobación y revisión de reclamos enviados</Text>
+            {/* LISTA CATEGORÍAS */}
+            <Card>
+              <View style={{ padding: 14 }}>
+                <Text
+                  style={{
+                    color: "#fbbf24",
+                    fontWeight: "900",
+                    marginBottom: 10,
+                  }}
+                >
+                  Categorías Registradas
+                </Text>
+
+                {categories.length === 0 && (
+                  <Text style={{ color: "#6b7280" }}>
+                    No hay categorías aún.
+                  </Text>
+                )}
+
+                {categories.map((cat) => (
+                  <View
+                    key={cat._id}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      paddingVertical: 10,
+                      borderBottomWidth: 1,
+                      borderColor: "rgba(148,163,184,0.15)",
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                      {cat.nombre}
+                    </Text>
+
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      <Btn
+                        variant="outline"
+                        size="sm"
+                        onPress={() => openEditCategory(cat)}
+                      >
+                        <Text style={{ color: "#fbbf24" }}>Editar</Text>
+                      </Btn>
+
+                      <Btn
+                        variant="outline"
+                        size="sm"
+                        onPress={() => deleteCategory(cat._id)}
+                      >
+                        <Text style={{ color: "#f87171" }}>Eliminar</Text>
+                      </Btn>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          </View>
+        )}
+
+        {/* =======================================================
+                      SECCIÓN RECLAMOS
+        ======================================================= */}
+
+        <Text style={[styles.h1, { marginTop: 28 }]}>
+          Solicitudes de Reclamo
+        </Text>
+        <Text style={styles.h2}>
+          Aprobación y revisión de reclamos enviados
+        </Text>
 
         {/* SEARCH */}
         <View style={{ marginTop: 16 }}>
@@ -326,7 +355,7 @@ const loadCategories = async () => {
           </View>
         </View>
 
-        {/* KPI STATS */}
+        {/* KPI */}
         <View style={[styles.kpiWrap, { marginTop: 20 }]}>
           <KpiCard
             label="Pendientes"
@@ -395,11 +424,12 @@ const loadCategories = async () => {
                     )}
 
                     <View style={{ flex: 1 }}>
-                      {/* Título */}
                       <View style={styles.titleRow}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.title}>{r.businessName}</Text>
-                          <Text style={styles.muted}>{r.nombrePropietario}</Text>
+                          <Text style={styles.muted}>
+                            {r.nombrePropietario}
+                          </Text>
                           <Text style={styles.muted}>{r.correo}</Text>
                         </View>
 
@@ -422,7 +452,6 @@ const loadCategories = async () => {
                         </Text>
                       </View>
 
-                      {/* Botones */}
                       <View style={[styles.actionWrap, { marginTop: 12 }]}>
                         <Btn
                           variant="outline"
@@ -470,13 +499,14 @@ const loadCategories = async () => {
           })}
         </View>
 
-        {/* ESPACIO FINAL */}
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* ================================
-            MODAL DETALLE DE RECLAMO
-      ================================= */}
+      {/* =======================================================
+                    MODALES
+      ======================================================= */}
+
+      {/* Modal: Detalles de Reclamo */}
       <Modal visible={!!selected} transparent animationType="fade">
         <View style={styles.modalOverlay} />
         {selected && (
@@ -501,7 +531,6 @@ const loadCategories = async () => {
                 </View>
               </View>
 
-              {/* Info solicitante */}
               <View style={{ marginTop: 14 }}>
                 <Text style={styles.subTitle}>Información del solicitante</Text>
                 <Text style={styles.bodySm}>
@@ -518,13 +547,11 @@ const loadCategories = async () => {
                 </Text>
               </View>
 
-              {/* Mensaje */}
               <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Mensaje</Text>
                 <Text style={styles.body}>{selected.mensaje}</Text>
               </View>
 
-              {/* Documentos */}
               <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Documentos</Text>
                 {selected.documentos.map((d, i) => (
@@ -534,7 +561,6 @@ const loadCategories = async () => {
                 ))}
               </View>
 
-              {/* Cerrar */}
               <Btn
                 variant="outline"
                 style={{ marginTop: 16 }}
@@ -547,9 +573,7 @@ const loadCategories = async () => {
         )}
       </Modal>
 
-      {/* ================================
-            MODAL CONFIRMACIÓN
-      ================================= */}
+      {/* Modal: Confirmación */}
       <Modal visible={!!confirm} transparent animationType="fade">
         <View style={styles.modalOverlay} />
         {confirm?.item && (
@@ -564,8 +588,7 @@ const loadCategories = async () => {
               <Text style={styles.modalDesc}>
                 ¿Seguro que deseas{" "}
                 {confirm.type === "approve" ? "aprobar" : "rechazar"} la
-                solicitud de:
-                {"\n"}
+                solicitud de:{"\n"}
                 <Text style={styles.bold}>{confirm.item.businessName}</Text>?
               </Text>
 
@@ -604,101 +627,100 @@ const loadCategories = async () => {
           </View>
         )}
       </Modal>
-      {/* MODAL AGREGAR CATEGORÍA */}
-<Modal visible={categoryModal} transparent animationType="fade">
-  <View style={styles.modalOverlay} />
 
-  <View style={styles.modalCenter}>
-    <View style={[styles.modalCard, { maxWidth: 420 }]}>
-<Text style={styles.modalTitle}>
-  {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
-</Text>
+      {/* Modal Categoría */}
+      <Modal visible={categoryModal} transparent animationType="fade">
+        <View style={styles.modalOverlay} />
 
-      <Text style={styles.subTitle}>Nombre</Text>
-      <TextInput
-        style={styles.input}
-        value={catName}
-        onChangeText={setCatName}
-        placeholder="Ej: Comida, Belleza, Servicios…"
-        placeholderTextColor="#6b7280"
-      />
+        <View style={styles.modalCenter}>
+          <View style={[styles.modalCard, { maxWidth: 420 }]}>
+            <Text style={styles.modalTitle}>
+              {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
+            </Text>
 
-      <Text style={[styles.subTitle, { marginTop: 10 }]}>Descripción</Text>
-      <TextInput
-        style={[styles.input, { height: 80 }]}
-        multiline
-        value={catDesc}
-        onChangeText={setCatDesc}
-        placeholder="Descripción breve (opcional)"
-        placeholderTextColor="#6b7280"
-      />
+            <Text style={styles.subTitle}>Nombre</Text>
+            <TextInput
+              style={styles.input}
+              value={catName}
+              onChangeText={setCatName}
+              placeholder="Ej: Comida, Belleza, Servicios…"
+              placeholderTextColor="#6b7280"
+            />
 
-      <View style={[styles.actionWrap, { marginTop: 18 }]}>
-        <Btn
-          variant="outline"
-          style={{ flex: 1 }}
-onPress={() => {
-  setCategoryModal(false);
-  setEditingCategory(null);
-  setCatName("");
-  setCatDesc("");
-}}
-        >
-          <Text style={styles.btnText}>Cancelar</Text>
-        </Btn>
+            <Text style={[styles.subTitle, { marginTop: 10 }]}>
+              Descripción
+            </Text>
+            <TextInput
+              style={[styles.input, { height: 80 }]}
+              multiline
+              value={catDesc}
+              onChangeText={setCatDesc}
+              placeholder="Descripción breve (opcional)"
+              placeholderTextColor="#6b7280"
+            />
 
-<Btn
-  style={{ flex: 1 }}
-  onPress={async () => {
-    if (!catName.trim()) return;
+            <View style={[styles.actionWrap, { marginTop: 18 }]}>
+              <Btn
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setCategoryModal(false);
+                  setEditingCategory(null);
+                  setCatName("");
+                  setCatDesc("");
+                }}
+              >
+                <Text style={styles.btnText}>Cancelar</Text>
+              </Btn>
 
-    try {
-      let endpoint = CATEGORY_URL;
-      let method = "POST";
+              <Btn
+                style={{ flex: 1 }}
+                onPress={async () => {
+                  if (!catName.trim()) return;
 
-      // 🔥 si está editando → PATCH
-      if (editingCategory) {
-        endpoint = `${CATEGORY_URL}/${editingCategory._id}`;
-        method = "PATCH";
-      }
+                  try {
+                    let endpoint = CATEGORY_URL;
+                    let method = "POST";
 
-      const res = await fetch(endpoint, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: catName,
-          descripcion: catDesc,
-        }),
-      });
+                    if (editingCategory) {
+                      endpoint = `${CATEGORY_URL}/${editingCategory._id}`;
+                      method = "PATCH";
+                    }
 
-      await loadCategories();
+                    await fetch(endpoint, {
+                      method,
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        nombre: catName,
+                        descripcion: catDesc,
+                      }),
+                    });
 
-      // cerrar modal y limpiar
-      setCategoryModal(false);
-      setEditingCategory(null);
-      setCatName("");
-      setCatDesc("");
-
-    } catch (err) {
-      console.log("❌ Error guardando categoría:", err);
-    }
-  }}
->
-  <Text style={[styles.btnText, { color: "#111827" }]}>Guardar</Text>
-</Btn>
-
-
-      </View>
-    </View>
-  </View>
-</Modal>
-
+                    await loadCategories();
+                    setCategoryModal(false);
+                    setEditingCategory(null);
+                    setCatName("");
+                    setCatDesc("");
+                  } catch (err) {
+                    console.log("❌ Error guardando categoría:", err);
+                  }
+                }}
+              >
+                <Text style={[styles.btnText, { color: "#111827" }]}>
+                  Guardar
+                </Text>
+              </Btn>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-/* ============================================================
-   COMPONENTES REUSABLES
-============================================================ */
+
+// =======================================================
+//                    COMPONENTES REUSABLES
+// =======================================================
 
 function Card({ children, style }: any) {
   return (
@@ -722,33 +744,15 @@ function KpiCard({ label, value, color, basis }: any) {
   return (
     <Card style={{ flexBasis: basis, flexGrow: 1 }}>
       <View style={styles.kpiCard}>
-        <Text
-          style={{
-            color,
-            fontSize: 24,
-            fontWeight: "900",
-            letterSpacing: 0.2,
-          }}
-        >
-          {value}
-        </Text>
+        <Text style={{ color, fontSize: 24, fontWeight: "900" }}>{value}</Text>
         <Text style={{ color: "#a1a1aa", fontSize: 12 }}>{label}</Text>
       </View>
     </Card>
   );
 }
 
-function Badge({
-  children,
-  tone = "soft",
-}: {
-  children: React.ReactNode;
-  tone?: "soft" | "ok" | "danger" | "warn" | "outline";
-}) {
-  const colors: Record<
-    "soft" | "ok" | "danger" | "warn" | "outline",
-    { bg: string; bd: string }
-  > = {
+function Badge({ children, tone = "soft" }: any) {
+  const colors = {
     soft: { bg: "rgba(148,163,184,0.12)", bd: "rgba(148,163,184,0.2)" },
     ok: { bg: "rgba(52,211,153,0.15)", bd: "rgba(52,211,153,0.35)" },
     danger: { bg: "rgba(248,113,113,0.15)", bd: "rgba(248,113,113,0.35)" },
@@ -756,7 +760,7 @@ function Badge({
     outline: { bg: "transparent", bd: "rgba(148,163,184,0.28)" },
   };
 
-  const map = colors[tone];
+  const map = (colors as any)[tone];
 
   return (
     <View
@@ -851,7 +855,9 @@ function ImageWithFallback({ src, style }: any) {
   );
 }
 
-/* ================== STYLES ================== */
+// =======================================================
+//                     STYLES
+// =======================================================
 const styles = StyleSheet.create({
   header: {
     padding: 16,
@@ -862,15 +868,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-input: {
-  backgroundColor: "#111827",
-  borderColor: "#30363d",
-  borderWidth: 1,
-  padding: 10,
-  borderRadius: 10,
-  color: "#e5e7eb",
-  marginTop: 6,
-},
+
+  input: {
+    backgroundColor: "#111827",
+    borderColor: "#30363d",
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 10,
+    color: "#e5e7eb",
+    marginTop: 6,
+  },
 
   h1: {
     color: "#e5e7eb",
@@ -884,7 +891,11 @@ input: {
     marginTop: 2,
   },
 
-  badgeText: { color: "#e5e7eb", fontSize: 12, fontWeight: "900" },
+  badgeText: {
+    color: "#e5e7eb",
+    fontSize: 12,
+    fontWeight: "900",
+  },
 
   searchWrap: {
     flexDirection: "row",
@@ -922,6 +933,7 @@ input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "transparent",
   },
+
   tabText: { color: "#e5e7eb", fontWeight: "700" },
 
   cardShadow: {
@@ -938,6 +950,7 @@ input: {
     borderRadius: 12,
     backgroundColor: "#111827",
   },
+
   thumbTop: {
     width: "100%",
     height: 160,
@@ -945,6 +958,7 @@ input: {
     backgroundColor: "#111827",
     marginBottom: 10,
   },
+
   thumbLg: {
     width: 84,
     height: 84,
@@ -965,12 +979,17 @@ input: {
   },
 
   muted: { color: "#9ca3af" },
+
   body: { color: "#d1d5db", marginTop: 4, lineHeight: 20 },
+
   bodySm: { color: "#cbd5e1", fontSize: 13 },
+
   subTitle: { color: "#e5e7eb", fontWeight: "800", marginBottom: 4 },
+
   bold: { fontWeight: "800", color: "#e5e7eb" },
 
   footerMeta: { flexDirection: "row", alignItems: "center" },
+
   metaText: { color: "#9ca3af", fontSize: 12 },
 
   actionWrap: {
@@ -1011,6 +1030,7 @@ input: {
     fontWeight: "900",
     fontSize: 18,
   },
+
   modalDesc: { color: "#a1a1aa", marginTop: 6, lineHeight: 20 },
 
   btnText: {
@@ -1020,4 +1040,3 @@ input: {
     letterSpacing: 0.2,
   },
 });
-
