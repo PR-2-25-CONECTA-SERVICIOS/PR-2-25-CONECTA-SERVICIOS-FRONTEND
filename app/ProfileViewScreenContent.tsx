@@ -168,83 +168,81 @@ export default function ProfileViewScreenContent() {
   };
 
   useFocusEffect(
-    useCallback(() => {
-      if (!user || !user._id) return;
+  useCallback(() => {
+    if (!user || !user._id) {
+      router.replace("/(tabs)/Login/LoginScreen");
+      return;
+    }
 
-      let active = true;
-      setLoading(true);
-      loadCategories(); // 🔥 AGREGAR AQUÍ
+    let active = true;
+    setLoading(true);
 
-      const loadProfile = async () => {
-        try {
-          const res = await fetch(API_URL + user._id);
-          const raw = await res.text();
-          const data = JSON.parse(raw);
+    loadCategories();
 
-          if (!active) return;
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(API_URL + user._id);
+        const raw = await res.text();
+        const data = JSON.parse(raw);
 
-          // ============================
-          // 🔥 PERFIL BASE
-          // ============================
-          setProfile({
-            name: data.nombre,
-            email: data.correo,
-            phone: data.telefono,
-            avatar: data.avatar,
-            verified: data.verificado,
-            rating: data.calificacion,
-            reviews: data.reseñas,
-            services: [], // se llena abajo
-            locals: [], // se llena abajo
-          });
+        if (!active) return;
 
-          // ============================
-          // 🔥 SERVICIOS
-          // ============================
-          const parsedServices = (data.servicios || []).map((srv: any) => ({
-            id: srv._id,
-            name: srv.nombre,
-            category: srv.categoria,
-            hourlyPrice: srv.precio,
-            description: srv.descripcion,
-            location: srv.direccion,
-            hours: srv.horas,
-            tags: srv.especialidades,
-            photo: srv.imagen,
-          }));
+        setProfile({
+          name: data.nombre,
+          email: data.correo,
+          phone: data.telefono,
+          avatar: data.avatar,
+          verified: data.verificado,
+          rating: data.calificacion,
+          reviews: data.reseñas,
+          services: [],
+          locals: [],
+        });
 
-          setServices(parsedServices);
+        const parsedServices = (data.servicios || []).map((srv: any) => ({
+          id: srv._id,
+          name: srv.nombre,
+          category: srv.categoria,
+          hourlyPrice: srv.precio,
+          description: srv.descripcion,
+          location: srv.direccion,
+          hours: srv.horas,
+          tags: srv.especialidades,
+          photo: srv.imagen,
+        }));
 
-          // ============================
-          // 🔥 LOCALES
-          // ============================
-          const parsedLocals = (data.locales || []).map((loc: any) => ({
-            id: loc._id,
-            name: loc.nombre,
-            address: loc.direccion,
-            verified: loc.verificado,
-            thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
-            photos: loc.fotos || [],
-            specialTags: loc.tagsEspeciales || [],
-            url: loc.url || "",
-            amenities: loc.servicios || [],
-            claims: loc.reclamos || [], // 🔥 agregar
-          }));
+        setServices(parsedServices);
 
-          setLocals(parsedLocals);
-        } catch (err) {
-          console.log("❌ Error cargando perfil:", err);
-        } finally {
-          if (active) setLoading(false);
-        }
-      };
+        const parsedLocals = (data.locales || []).map((loc: any) => ({
+          id: loc._id,
+          name: loc.nombre,
+          address: loc.direccion,
+          verified: loc.verificado,
+          thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
+          photos: loc.fotos || [],
+          specialTags: loc.tagsEspeciales || [],
+          url: loc.url || "",
+          amenities: loc.servicios || [],
+          claims: loc.reclamos || [],
+        }));
 
-      loadProfile();
-      return () => {
-        active = false;
-      };
-    }, [user?._id])
-  );
+        setLocals(parsedLocals);
+
+      } catch (err) {
+        console.log("❌ Error cargando perfil:", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [user?._id])
+);
+
 
   /* ============================================
        LOGOUT
