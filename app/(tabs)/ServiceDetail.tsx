@@ -33,17 +33,31 @@ interface IService {
   descripcion: string;
   precio: string;
   imagen: string;
-  telefono?: string;        // 👈 AGREGA ESTO
-  direccion?: string;       // (opcionalmente también)
+  telefono?: string;
+  direccion?: string;
   destacado?: boolean;
   disponible?: boolean;
   calificacion?: number;
   opiniones?: number;
+  propietario?: {
+    nombre: string;
+    foto?: string;
+    experiencia?: string;
+    verificado?: boolean;
+  };
   reseñas?: Array<{
-    usuario: string;
+    usuario: {
+      _id: string;
+      nombre: string;
+      avatar?: string;
+    };
     comentario: string;
     calificacion: number;
   }>;
+
+  // 🔥 AÑADIR ESTO
+  propietarioId?: string;
+  usuario?: string;
 }
 
 export default function ServiceDetailScreen() {
@@ -57,23 +71,57 @@ export default function ServiceDetailScreen() {
   const [requestModalVisible, setRequestModalVisible] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
 
+const [myServices, setMyServices] = useState<string[]>([]);
+const isMyService =
+  service &&
+  user &&
+  (
+    service.propietarioId === user._id ||
+    service.usuario === user._id ||
+    myServices.includes(service._id)
+  );
+
+  useEffect(() => {
+  setRequestSent(false);
+  if (id) loadService();
+}, [id]);
   // ----------------------------------------
   // 🔥 Cargar servicio desde el backend
   // ----------------------------------------
-  useEffect(() => {
-    setRequestSent(false);   // Reiniciar al cambiar de servicio
-    if (id) loadService();
-  }, [id]);
+useEffect(() => {
+  if (!user?._id) return;
 
-  const loadService = async () => {
+  const loadMyServices = async () => {
     try {
-      const res = await fetch(`${API_URL}/${id}`);
+      const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
       const json = await res.json();
-      setService(json);
+
+      // json.servicios es un array de objetos
+      const ids = (json.servicios || []).map((s: any) => s._id);
+
+      setMyServices(ids); // solo IDs
     } catch (err) {
-      console.log("❌ Error cargando servicio:", err);
+      console.log("❌ Error cargando servicios del usuario:", err);
     }
   };
+
+  loadMyServices();
+}, [user?._id]);
+
+const loadService = async () => {
+  try {
+    const res = await fetch(`${API_URL}/${id}`);
+    const json = await res.json();
+
+    // 💥 Si el backend no devuelve propietario, lo reconstruimos
+    json.propietarioId = json.propietarioId || json.usuario || json.userId || json.ownerId;
+
+    setService(json);
+  } catch (err) {
+    console.log("❌ Error cargando servicio:", err);
+  }
+};
+
 
   // ----------------------------------------
   // 🔥 Enviar solicitud REAL al backend
@@ -231,7 +279,9 @@ export default function ServiceDetailScreen() {
             service.reseñas.map((r, i) => (
               <View key={i} style={styles.reviewItem}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.reviewUser}>{r.usuario}</Text>
+<Text style={styles.reviewUser}>
+  {r.usuario?.nombre || "Usuario Anónimo"}
+</Text>
                   <View style={styles.row}>{renderStars(r.calificacion)}</View>
                 </View>
                 <Text style={styles.reviewComment}>{r.comentario}</Text>
@@ -243,22 +293,34 @@ export default function ServiceDetailScreen() {
         </View>
 
         {/* CTA */}
-        <View style={{ paddingHorizontal: 16 }}>
-          {!service.disponible ? (
-            <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
-              <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
-            </View>
-          ) : !requestSent ? (
-            <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
-              <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.ctaSent}>
-              <CheckCircle2 size={18} color="#fbbf24" />
-              <Text style={styles.ctaSentText}>Solicitud enviada</Text>
-            </View>
-          )}
-        </View>
+{/* CTA */}
+<View style={{ paddingHorizontal: 16 }}>
+
+  {isMyService ? (
+    // 👇 Si es mi servicio, NO muestro el botón de solicitar
+    <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
+      <Text style={styles.ctaBtnText}>Este es tu servicio</Text>
+    </View>
+  
+  ) : !service.disponible ? (
+    <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
+      <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
+    </View>
+
+  ) : !requestSent ? (
+    <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
+      <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
+    </TouchableOpacity>
+
+  ) : (
+    <View style={styles.ctaSent}>
+      <CheckCircle2 size={18} color="#fbbf24" />
+      <Text style={styles.ctaSentText}>Solicitud enviada</Text>
+    </View>
+  )}
+
+</View>
+
       </View>
 
       {/* MODAL */}

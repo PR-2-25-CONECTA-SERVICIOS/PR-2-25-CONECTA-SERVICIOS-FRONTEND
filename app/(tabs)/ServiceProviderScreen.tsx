@@ -7,11 +7,10 @@ import {
   CheckCircle,
   CheckCircle2,
   Clock,
-  Edit,
   Eye,
   MessageCircle,
   Star,
-  XCircle,
+  XCircle
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -48,8 +47,19 @@ type ProviderData = {
   name: string;
   service: string;
   category: string;
-  rating: number;
-  reviews: number;
+
+  // ⭐ NUEVOS
+  rating: number;         // promedio real
+  reviews: number;        // cantidad real
+  reviewsList?: Array<{
+    usuario: {
+      nombre: string;
+      avatar?: string;
+    };
+    comentario: string;
+    calificacion: number;
+  }>;
+
   avatar: string;
   verified: boolean;
   active: boolean;
@@ -58,6 +68,7 @@ type ProviderData = {
   completedJobs: number;
   responseTime: string;
 };
+
 
 const EMPTY_PROVIDER: ProviderData = {
   name: "",
@@ -151,6 +162,7 @@ export default function ServiceProviderScreen() {
   const handleBack = () => {
     router.replace("/ProfileViewScreen");
   };
+const [finishModalVisible, setFinishModalVisible] = useState(false);
 
   // ====================================================
   // CARGAR DETALLE DEL SERVICIO + SOLICITUDES
@@ -171,20 +183,24 @@ export default function ServiceProviderScreen() {
         if (!resService.ok) throw new Error("HTTP " + resService.status);
         const s = JSON.parse(rawService);
 
-        const header: ProviderData = {
-          name: s.propietario?.nombre || "Proveedor",
-          service: s.nombre || "Servicio",
-          category: s.categoria || "General",
-          rating: s.propietario?.rating || 0,
-          reviews: s.opiniones?.length || 0,
-          avatar: s.propietario?.foto || s.imagen || "",
-          verified: true,
-          active: s.disponible ?? true,
-          phone: s.propietario?.telefono || "Sin teléfono",
-          experience: s.propietario?.experiencia || "No especificado",
-          completedJobs: s.trabajosCompletados || 0,
-          responseTime: "15 min promedio",
-        };
+const header: ProviderData = {
+  name: s.propietario?.nombre || "Proveedor",
+  service: s.nombre || "Servicio",
+  category: s.categoria || "General",
+
+  rating: s.calificacion || 0,
+  reviews: s.reseñas?.length || 0,
+  reviewsList: s.reseñas || [],
+
+  avatar: s.propietario?.foto || s.imagen || "",
+  verified: true,
+  active: s.disponible ?? true,
+  phone: s.propietario?.telefono || "Sin teléfono",
+  experience: s.propietario?.experiencia || "No especificado",
+  completedJobs: s.trabajosCompletados || 0,
+  responseTime: "15 min promedio",
+};
+
 
         setProviderData(header);
         setIsActive(header.active);
@@ -474,29 +490,6 @@ export default function ServiceProviderScreen() {
         </View>
       </View>
 
-      {/* Switch Estado */}
-      <View style={styles.statusCard}>
-        <View>
-          <Text style={styles.statusTitle}>Estado del servicio</Text>
-          <Text style={styles.grayText}>
-            {isActive ? "Recibiendo solicitudes" : "No disponible"}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={handleToggleActive}
-          style={[
-            styles.switchBase,
-            { backgroundColor: isActive ? "#fbbf24" : "#374151" },
-          ]}
-        >
-          <View
-            style={[
-              styles.switchThumb,
-              { transform: [{ translateX: isActive ? 20 : 0 }] },
-            ]}
-          />
-        </TouchableOpacity>
-      </View>
 
       {/* CONTENIDO */}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
@@ -524,7 +517,7 @@ export default function ServiceProviderScreen() {
 
         {/* TABS */}
         <View style={styles.tabsList}>
-          {(["requests", "profile", "analytics"] as const).map((key) => (
+          {(["requests", "analytics"] as const).map((key) => (
             <TouchableOpacity
               key={key}
               onPress={() => setTab(key)}
@@ -541,8 +534,7 @@ export default function ServiceProviderScreen() {
               >
                 {key === "requests"
                   ? "Solicitudes"
-                  : key === "profile"
-                  ? "Perfil"
+
                   : "Estadísticas"}
               </Text>
             </TouchableOpacity>
@@ -664,54 +656,7 @@ export default function ServiceProviderScreen() {
           </View>
         )}
 
-        {/* TAB: PERFIL */}
-        {tab === "profile" && (
-          <View style={{ gap: 12 }}>
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.title}>Información del Servicio</Text>
-                <TouchableOpacity style={styles.btnOutlineSm}>
-                  <Edit size={14} color="#e5e7eb" />
-                  <Text style={styles.btnOutlineText}> Editar</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ gap: 10, marginTop: 10 }}>
-                <Field
-                  label="Nombre del servicio"
-                  value={providerData.service}
-                />
-                <Field label="Categoría" value={providerData.category} />
-                <Field
-                  label="Experiencia"
-                  value={providerData.experience || "No especificado"}
-                />
-                <Field
-                  label="Teléfono"
-                  value={providerData.phone || "Sin teléfono"}
-                />
-              </View>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.title}>Servicios Ofrecidos</Text>
-              <View style={styles.badgeWrap}>
-                {/* Si tu servicio tiene especialidades en el backend, puedes mapearlas aquí */}
-                {["Servicio general"].map((t) => (
-                  <View key={t} style={styles.badgeChip}>
-                    <Text style={styles.badgeChipText}>{t}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.btnOutlineSm, { marginTop: 10 }]}
-              >
-                <Text style={styles.btnOutlineText}>+ Agregar servicio</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+       
 
         {/* TAB: ANALYTICS */}
         {tab === "analytics" && (
@@ -741,37 +686,59 @@ export default function ServiceProviderScreen() {
               </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.title}>Reseñas Recientes</Text>
-              <View style={{ gap: 12, marginTop: 10 }}>
-                {/* Aquí podrías mapear s.reseñas desde el backend */}
-                <View style={styles.row}>
-                  <View style={styles.smallAvatar}>
-                    <Text style={styles.smallAvatarText}>AG</Text>
-                  </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
-                    <View
-                      style={[styles.rowCenter, { gap: 8, marginBottom: 4 }]}
-                    >
-                      <Text style={styles.titleSm}>Ana García</Text>
-                      <View style={styles.row}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            size={12}
-                            color="#fbbf24"
-                            fill="#fbbf24"
-                          />
-                        ))}
-                      </View>
-                    </View>
-                    <Text style={styles.grayTextSmall}>
-                      "Excelente servicio, muy puntual y profesional."
-                    </Text>
-                  </View>
-                </View>
+<View style={styles.card}>
+  <Text style={styles.title}>Reseñas Recientes</Text>
+
+  <View style={{ gap: 12, marginTop: 10 }}>
+    {providerData.reviewsList && providerData.reviewsList.length > 0 ? (
+      providerData.reviewsList.map((r, i) => (
+        <View key={i} style={styles.row}>
+          {/* Avatar */}
+          <View style={styles.smallAvatar}>
+            {r.usuario?.avatar ? (
+              <Image
+                source={{ uri: r.usuario.avatar }}
+                style={{ width: "100%", height: "100%", borderRadius: 999 }}
+              />
+            ) : (
+              <Text style={styles.smallAvatarText}>
+                {r.usuario?.nombre?.charAt(0) || "?"}
+              </Text>
+            )}
+          </View>
+
+          {/* Info */}
+          <View style={{ marginLeft: 10, flex: 1 }}>
+            <View style={[styles.rowCenter, { gap: 8, marginBottom: 4 }]}>
+              <Text style={styles.titleSm}>
+                {r.usuario?.nombre || "Usuario"}
+              </Text>
+
+              <View style={styles.row}>
+                {Array.from({ length: r.calificacion }).map((_, i2) => (
+                  <Star
+                    key={i2}
+                    size={12}
+                    color="#fbbf24"
+                    fill="#fbbf24"
+                  />
+                ))}
               </View>
             </View>
+
+            <Text style={styles.grayTextSmall}>
+              {r.comentario}
+            </Text>
+          </View>
+        </View>
+      ))
+    ) : (
+      <Text style={{ color: "#9ca3af" }}>Aún no hay reseñas.</Text>
+    )}
+  </View>
+</View>
+
+
           </View>
         )}
       </ScrollView>
@@ -830,6 +797,34 @@ export default function ServiceProviderScreen() {
           </View>
         </View>
       </Modal>
+{/* MODAL: FINALIZACIÓN DEL SERVICIO */}
+<Modal
+  visible={finishModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setFinishModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modalContainer, styles.modalContainerLg]}>
+      
+      <View style={styles.modalHeaderIcon}>
+        <CheckCircle size={32} color="#34d399" />
+      </View>
+
+      <Text style={styles.modalTitle}>¡Servicio finalizado!</Text>
+      <Text style={styles.modalSubtitle}>
+        Esperamos que el trabajo haya salido perfecto. 🎉
+      </Text>
+
+      <TouchableOpacity
+        style={styles.btnGhost}
+        onPress={() => setFinishModalVisible(false)}
+      >
+        <Text style={styles.btnGhostText}>Cerrar</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
       {/* MODAL: PROGRAMAR */}
       <Modal
@@ -903,9 +898,23 @@ export default function ServiceProviderScreen() {
               <Text style={styles.btnWhatsappText}>Proponer por WhatsApp</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.btnGhost} onPress={saveSchedule}>
-              <Text style={styles.btnGhostText}>Guardar</Text>
-            </TouchableOpacity>
+{/* GUARDAR la programación */}
+<TouchableOpacity style={styles.btnGhost} onPress={saveSchedule}>
+  <Text style={styles.btnGhostText}>Guardar programación</Text>
+</TouchableOpacity>
+
+{/* FINALIZAR SERVICIO */}
+<TouchableOpacity
+  style={[styles.btnWhatsapp, { backgroundColor: "#34d399", marginTop: 4 }]}
+  onPress={() => {
+    updateRequestStatusBackend(scheduleRequest!, "completed");
+    setScheduleModalVisible(false);
+    setFinishModalVisible(true);
+  }}
+>
+  <CheckCircle size={16} color="#fff" />
+  <Text style={styles.btnWhatsappText}>Dar por finalizado</Text>
+</TouchableOpacity>
 
             <TouchableOpacity
               style={styles.btnGhost}
