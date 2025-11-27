@@ -12,7 +12,8 @@ import {
   Send,
   Star,
 } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Image,
   Modal,
@@ -24,6 +25,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+// 🔥 Importar AuthContext
+import { useAuth } from "@/context/AuthContext";
 
 const API_URL = "http://localhost:3000/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
@@ -75,7 +79,7 @@ interface ILocal {
 }
 
 // ------------------------------
-//     DOCUMENT TYPE
+// DOCUMENT TYPE
 // ------------------------------
 type DocFile = {
   name: string;
@@ -84,11 +88,10 @@ type DocFile = {
   uploading: boolean;
 };
 
-// ======================================
-// 🔥 FUNCIÓN UNIVERSAL PARA LEER BASE64
-// Compatible con ANDROID + IOS + WEB
-// ======================================
-const getBase64 = async (uri: string) => {
+// ===============================
+// UNIVERSAL BASE64
+// ===============================
+const getBase64Universal = async (uri: string) => {
   if (Platform.OS === "web") {
     return await new Promise((resolve, reject) => {
       fetch(uri)
@@ -113,59 +116,59 @@ const getBase64 = async (uri: string) => {
 };
 
 // ======================================
+// MAIN COMPONENT
 // ======================================
-//             MAIN COMPONENT
-// ======================================
-// ======================================
-
 export default function BusinessScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+
   const [local, setLocal] = useState<ILocal | null>(null);
   const [open, setOpen] = useState(false);
 
-  // FORM STATE RECLAMO
-  const [ownerName, setOwnerName] = useState("");
-  const [email, setEmail] = useState("");
-  const [tel, setTel] = useState("");
+  // FORM RECLAMO
   const [msg, setMsg] = useState("");
   const [docs, setDocs] = useState<DocFile[]>([]);
 
   const canSubmit = msg.trim() !== "";
 
-  // ------------------------------
-  //     CARGAR LOCAL
-  // ------------------------------
+  // ===============================
+  // CARGAR PERFIL DEL USUARIO
+  // ===============================
+  useEffect(() => {
+    if (!user || !user._id) return;
+
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:3000/api/usuarios/${user._id}`
+        );
+        const data = await res.json();
+
+        setProfile({
+          name: data.nombre,
+          email: data.correo,
+          phone: data.telefono || "",
+        });
+      } catch (err) {
+        console.log("❌ Error cargando perfil:", err);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // ===============================
+  // CARGAR LOCAL
+  // ===============================
   useFocusEffect(
     useCallback(() => {
       if (id) loadLocal();
     }, [id])
   );
-  const getBase64 = async (uri: string) => {
-    // 📌 WEB
-    if (Platform.OS === "web") {
-      return await new Promise((resolve, reject) => {
-        fetch(uri)
-          .then((res) => res.blob())
-          .then((blob) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result?.toString().split(",")[1];
-              resolve(base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          })
-          .catch(reject);
-      });
-    }
 
-    // 📌 ANDROID / iOS
-    return await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-  };
   const loadLocal = async () => {
     try {
       const res = await fetch(`${API_URL}/${id}`);
@@ -176,9 +179,9 @@ export default function BusinessScreen() {
     }
   };
 
-  // ------------------------------
-  //     SUBIR DOC A CLOUDINARY
-  // ------------------------------
+  // ===============================
+  // SUBIR DOCUMENTO CLOUDINARY
+  // ===============================
   const uploadDocumentToCloudinary = async (doc: DocFile) => {
     try {
       const data = new FormData();
@@ -207,9 +210,9 @@ export default function BusinessScreen() {
     }
   };
 
-  // ------------------------------
-  //     ENVIAR RECLAMO
-  // ------------------------------
+  // ===============================
+  // SUBMIT CLAIM
+  // ===============================
   const submitClaim = async () => {
     try {
       const uploadedDocs: string[] = [];
@@ -223,9 +226,9 @@ export default function BusinessScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombrePropietario: ownerName,
-          correo: email,
-          telefono: tel,
+          nombrePropietario: profile?.name,
+          correo: profile?.email,
+          telefono: profile?.phone,
           mensaje: msg,
           documentos: uploadedDocs,
         }),
@@ -236,9 +239,6 @@ export default function BusinessScreen() {
 
       await loadLocal();
       setOpen(false);
-      setOwnerName("");
-      setEmail("");
-      setTel("");
       setMsg("");
       setDocs([]);
     } catch (err) {
@@ -246,10 +246,10 @@ export default function BusinessScreen() {
     }
   };
 
-  if (!local) {
+  if (!local || !profile) {
     return (
       <View style={styles.loadCenter}>
-        <Text style={{ color: "#fff" }}>Cargando local...</Text>
+        <Text style={{ color: "#fff" }}>Cargando...</Text>
       </View>
     );
   }
@@ -260,9 +260,8 @@ export default function BusinessScreen() {
     local.reclamos.length > 0;
 
   // ======================================
-  //               UI
+  // UI
   // ======================================
-
   return (
     <View style={{ flex: 1, backgroundColor: "#0b0b0b" }}>
       {/* HERO */}
@@ -327,16 +326,7 @@ export default function BusinessScreen() {
               </View>
 
               {!local.verificado && !alreadyClaimed && (
-                <Btn
-                  variant="outline"
-                  size="sm"
-                  onPress={() => {
-                    setOwnerName(local.creadoPor?.nombre || "");
-                    setEmail(local.creadoPor?.correo || "");
-                    setTel(local.telefono || "");
-                    setOpen(true);
-                  }}
-                >
+                <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
                   <AlertTriangle size={14} color="#e5e7eb" />
                   <Text
                     style={[
@@ -379,43 +369,38 @@ export default function BusinessScreen() {
         )}
       </ScrollView>
 
-      {/* ============================
-            MODAL RECLAMO
-      ============================ */}
+      {/* MODAL RECLAMO */}
       <Modal visible={open} transparent animationType="fade">
         <View style={styles.modalOverlay} />
         <View style={styles.modalCenter}>
           <View style={styles.claimModalCard}>
             <Text style={styles.claimTitle}>Reclamar Negocio</Text>
             <Text style={styles.claimSubtitle}>
-              Completa los datos para verificar que eres el propietario.
+              Completa los datos para verificar tu identidad.
             </Text>
 
-            {/* CAMPOS */}
-            {/* Nombre — autocompletado y bloqueado */}
+            {/* CAMPOS AUTO */}
             <Field label="Nombre completo">
               <Input
-                value={ownerName}
+                value={profile.name}
                 editable={false}
                 selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
-            {/* Correo — autocompletado y bloqueado */}
             <Field label="Correo">
               <Input
-                value={email}
+                value={profile.email}
                 editable={false}
                 selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
-            {/* Teléfono — autocompletado y bloqueado */}
             <Field label="Teléfono">
               <Input
-                value={tel}
+                value={profile.phone || "Sin número"}
                 editable={false}
                 selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
@@ -439,14 +424,14 @@ export default function BusinessScreen() {
                   if (!res.canceled) {
                     const asset = res.assets[0];
 
-                    const base64 = await getBase64(asset.uri);
+                    const base64 = await getBase64Universal(asset.uri);
                     let fileName = asset.name;
 
-                    // Si no existe nombre, generamos uno con extensión según el tipo MIME
                     if (!fileName) {
                       const ext = asset.mimeType?.split("/")[1] || "pdf";
                       fileName = `documento_${Date.now()}.${ext}`;
                     }
+
                     setDocs((prev) => [
                       ...prev,
                       {
@@ -466,7 +451,6 @@ export default function BusinessScreen() {
               <Text style={styles.uploadDocText}> Subir documento</Text>
             </TouchableOpacity>
 
-            {/* LISTA DOCS */}
             <View style={{ marginTop: 14 }}>
               {docs.map((doc, i) => (
                 <Text key={i} style={styles.docItem}>
@@ -477,19 +461,13 @@ export default function BusinessScreen() {
               ))}
             </View>
 
-            {/* BOTONES */}
             <View style={styles.modalBtnRow}>
               <Btn
                 variant="outline"
                 style={{ flex: 1 }}
                 onPress={() => setOpen(false)}
               >
-                <Text
-                  style={[
-                    styles.textStrong,
-                    { color: "#e5e7eb", fontSize: 12 },
-                  ]}
-                >
+                <Text style={[styles.textStrong, { color: "#e5e7eb" }]}>
                   Cancelar
                 </Text>
               </Btn>
