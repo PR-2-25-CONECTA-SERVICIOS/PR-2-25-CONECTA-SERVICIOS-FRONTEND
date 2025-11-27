@@ -1,9 +1,9 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-
 /* ==========================
    Paleta estilo móvil/dark
 ========================== */
@@ -103,8 +103,7 @@ export default function MapWeb() {
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style:
-        "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center,
       zoom: 15,
     });
@@ -176,6 +175,26 @@ export default function MapWeb() {
         .addTo(mapRef.current!);
     });
   }, [filtered]);
+  function BackBtn({ onClick }: { onClick: () => void }) {
+    return (
+      <div
+        onClick={onClick}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          background: "rgba(17,24,39,0.85)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          border: "1px solid rgba(148,163,184,0.2)",
+        }}
+      >
+        <ArrowLeft size={18} color="#e5e7eb" />
+      </div>
+    );
+  }
 
   /* ==========================
      UI
@@ -199,40 +218,56 @@ export default function MapWeb() {
           zIndex: 50,
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap: 14,
         }}
       >
-        {/* Search */}
+        {/* 🔙 BOTÓN + BUSCADOR */}
         <div
           style={{
-            padding: "10px 14px",
-            background: "#111827",
-            borderRadius: 14,
             display: "flex",
-            border: `1px solid ${t.border}`,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          <input
-            placeholder="Buscar en el mapa..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <BackBtn onClick={() => (window.location.href = "/LocalesScreen")} />
+
+          {/* 🔍 Input */}
+          <div
             style={{
               flex: 1,
-              background: "transparent",
-              border: "none",
-              color: t.text,
-              outline: "none",
+              padding: "10px 14px",
+              background: "#111827",
+              borderRadius: 14,
+              border: `1px solid rgba(148,163,184,0.3)`,
+              display: "flex",
+              alignItems: "center",
             }}
-          />
+          >
+            <input
+              placeholder="Buscar en el mapa..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                color: "#fff",
+                outline: "none",
+                fontSize: 14,
+              }}
+            />
+          </div>
         </div>
 
+        {/* BOTONES */}
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={() => setListOpen(true)}
             style={{
               padding: "10px 18px",
               borderRadius: 12,
-              background: t.chip,
+              background: "#FBBF24",
               color: "#111827",
               fontWeight: "bold",
               border: "none",
@@ -247,7 +282,7 @@ export default function MapWeb() {
             style={{
               padding: "10px 18px",
               borderRadius: 12,
-              background: t.chip,
+              background: "#FBBF24",
               color: "#111827",
               fontWeight: "bold",
               border: "none",
@@ -307,9 +342,7 @@ export default function MapWeb() {
             )}
 
             <h3 style={{ marginTop: 10 }}>{selected.title}</h3>
-            <p style={{ margin: "4px 0", color: t.sub }}>
-              {selected.category}
-            </p>
+            <p style={{ margin: "4px 0", color: t.sub }}>{selected.category}</p>
 
             <p style={{ margin: "6px 0", color: t.text }}>
               ⭐ {selected.rating} — {selected.price}

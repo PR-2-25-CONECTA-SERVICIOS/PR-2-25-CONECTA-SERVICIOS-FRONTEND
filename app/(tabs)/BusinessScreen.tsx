@@ -1,6 +1,7 @@
 // app/(tabs)/BusinessScreen.tsx
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertTriangle,
@@ -9,13 +10,13 @@ import {
   Clock,
   MapPin,
   Send,
-  Star
+  Star,
 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   Image,
-  Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,10 +26,12 @@ import {
 } from "react-native";
 
 const API_URL = "http://localhost:3000/api/locales";
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
+const CLOUDINARY_PRESET = "imagescloudexp";
 
-// --------------------------
-// 🔥 Types basados en tu modelo
-// --------------------------
+// ------------------------------
+//     TYPES
+// ------------------------------
 interface IHours {
   open: string;
   close: string;
@@ -44,12 +47,10 @@ interface ILocal {
   imagen?: string;
   telefono?: string;
 
-  // UBICACIÓN
   lat?: number;
   lng?: number;
-
-  // Datos extra
   url?: string;
+
   fotos?: string[];
   servicios?: string[];
   tagsEspeciales?: string[];
@@ -73,6 +74,49 @@ interface ILocal {
   creadoPor?: any;
 }
 
+// ------------------------------
+//     DOCUMENT TYPE
+// ------------------------------
+type DocFile = {
+  name: string;
+  type: string;
+  base64: string;
+  uploading: boolean;
+};
+
+// ======================================
+// 🔥 FUNCIÓN UNIVERSAL PARA LEER BASE64
+// Compatible con ANDROID + IOS + WEB
+// ======================================
+const getBase64 = async (uri: string) => {
+  if (Platform.OS === "web") {
+    return await new Promise((resolve, reject) => {
+      fetch(uri)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result?.toString().split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        })
+        .catch(reject);
+    });
+  }
+
+  // 📱 Android / iOS
+  return await FileSystem.readAsStringAsync(uri, {
+    encoding: "base64",
+  });
+};
+
+// ======================================
+// ======================================
+//             MAIN COMPONENT
+// ======================================
+// ======================================
 
 export default function BusinessScreen() {
   const router = useRouter();
@@ -81,24 +125,47 @@ export default function BusinessScreen() {
   const [local, setLocal] = useState<ILocal | null>(null);
   const [open, setOpen] = useState(false);
 
-  // Formulario reclamo
+  // FORM STATE RECLAMO
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
   const [tel, setTel] = useState("");
   const [msg, setMsg] = useState("");
-  const [docs, setDocs] = useState<string[]>([]);
+  const [docs, setDocs] = useState<DocFile[]>([]);
 
-  const canSubmit = ownerName.trim() && email.trim();
+  const canSubmit = msg.trim() !== "";
 
-  // --------------------------
-  // 🔥 Cargar local desde backend
-  // --------------------------
+  // ------------------------------
+  //     CARGAR LOCAL
+  // ------------------------------
   useFocusEffect(
     useCallback(() => {
       if (id) loadLocal();
     }, [id])
   );
+  const getBase64 = async (uri: string) => {
+    // 📌 WEB
+    if (Platform.OS === "web") {
+      return await new Promise((resolve, reject) => {
+        fetch(uri)
+          .then((res) => res.blob())
+          .then((blob) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result?.toString().split(",")[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          })
+          .catch(reject);
+      });
+    }
 
+    // 📌 ANDROID / iOS
+    return await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  };
   const loadLocal = async () => {
     try {
       const res = await fetch(`${API_URL}/${id}`);
@@ -109,11 +176,49 @@ export default function BusinessScreen() {
     }
   };
 
-  // --------------------------
-  // 📤 Enviar reclamo de negocio
-  // --------------------------
+  // ------------------------------
+  //     SUBIR DOC A CLOUDINARY
+  // ------------------------------
+  const uploadDocumentToCloudinary = async (doc: DocFile) => {
+    try {
+      const data = new FormData();
+      const file64 = `data:${doc.type};base64,${doc.base64}`;
+
+      data.append("file", file64);
+      data.append("upload_preset", CLOUDINARY_PRESET);
+      data.append("resource_type", "raw");
+
+      const res = await fetch(CLOUDINARY_URL, {
+        method: "POST",
+        body: data,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.log("❌ Error Cloudinary:", json);
+        return null;
+      }
+
+      return json.secure_url;
+    } catch (err) {
+      console.log("❌ Error subiendo documento:", err);
+      return null;
+    }
+  };
+
+  // ------------------------------
+  //     ENVIAR RECLAMO
+  // ------------------------------
   const submitClaim = async () => {
     try {
+      const uploadedDocs: string[] = [];
+
+      for (const doc of docs) {
+        const url = await uploadDocumentToCloudinary(doc);
+        if (url) uploadedDocs.push(url);
+      }
+
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,21 +227,20 @@ export default function BusinessScreen() {
           correo: email,
           telefono: tel,
           mensaje: msg,
-          documentos: docs,
+          documentos: uploadedDocs,
         }),
       });
 
       const json = await res.json();
       console.log("📩 Reclamo enviado:", json);
 
+      await loadLocal();
       setOpen(false);
       setOwnerName("");
       setEmail("");
       setTel("");
       setMsg("");
       setDocs([]);
-
-      await loadLocal();
     } catch (err) {
       console.log("❌ Error enviando reclamo:", err);
     }
@@ -144,20 +248,29 @@ export default function BusinessScreen() {
 
   if (!local) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0b0b0b", alignItems: "center", justifyContent: "center" }}>
+      <View style={styles.loadCenter}>
         <Text style={{ color: "#fff" }}>Cargando local...</Text>
       </View>
     );
   }
 
-  const alreadyClaimed = local.reclamos && local.reclamos.length > 0;
+  const alreadyClaimed =
+    local.reclamos &&
+    Array.isArray(local.reclamos) &&
+    local.reclamos.length > 0;
+
+  // ======================================
+  //               UI
+  // ======================================
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0b0b0b" }}>
-
       {/* HERO */}
       <View style={{ height: 190, backgroundColor: "#111827" }}>
-        <Image source={{ uri: local.imagen }} style={{ width: "100%", height: "100%" }} />
+        <Image
+          source={{ uri: local.imagen }}
+          style={{ width: "100%", height: "100%" }}
+        />
 
         <View style={{ position: "absolute", top: 12, left: 12 }}>
           <TouchableOpacity
@@ -174,9 +287,8 @@ export default function BusinessScreen() {
         </View>
       </View>
 
-      {/* SCROLLVIEW PRINCIPAL */}
+      {/* SCROLLVIEW */}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
-        
         {/* INFO */}
         <Card>
           <View style={{ padding: 12 }}>
@@ -197,34 +309,8 @@ export default function BusinessScreen() {
             </RowIcon>
           </View>
         </Card>
-{/* MINI MAPA */}
-<Card>
-  <View style={{ padding: 0 }}>
-    <Image
-      style={{
-        width: "100%",
-        height: 150,
-        borderTopLeftRadius: 14,
-        borderTopRightRadius: 14,
-      }}
-      source={{
-        uri: `https://maps.locationiq.com/v3/staticmap?key=pk.7c9595e54972eac7089fd1495d8002d0&center=${local.lat},${local.lng}&zoom=15&size=600x300&markers=${local.lat},${local.lng}`,
-      }}
-      resizeMode="cover"
-    />
 
-    <View style={{ padding: 12 }}>
-      <Text style={styles.textStrong}>
-        {local.direccion || "Dirección no disponible"}
-      </Text>
-      <Text style={[styles.textMuted, { marginTop: 2 }]}>
-        La ubicación es aproximada
-      </Text>
-    </View>
-  </View>
-</Card>
-
-        {/* PROPIETARIO */}
+        {/* RECLAMAR NEGOCIO */}
         <Card>
           <View style={{ padding: 12 }}>
             <View style={[styles.rowBetween, { marginBottom: 8 }]}>
@@ -241,9 +327,23 @@ export default function BusinessScreen() {
               </View>
 
               {!local.verificado && !alreadyClaimed && (
-                <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
+                <Btn
+                  variant="outline"
+                  size="sm"
+                  onPress={() => {
+                    setOwnerName(local.creadoPor?.nombre || "");
+                    setEmail(local.creadoPor?.correo || "");
+                    setTel(local.telefono || "");
+                    setOpen(true);
+                  }}
+                >
                   <AlertTriangle size={14} color="#e5e7eb" />
-                  <Text style={[styles.btnText, { color: "#e5e7eb" }]}>
+                  <Text
+                    style={[
+                      styles.textStrong,
+                      { color: "#e5e7eb", fontSize: 12 },
+                    ]}
+                  >
                     {"  "}Reclamar negocio
                   </Text>
                 </Btn>
@@ -267,7 +367,9 @@ export default function BusinessScreen() {
                   <Text style={{ color: "#fbbf24", fontWeight: "700" }}>
                     Negocio no verificado
                   </Text>
-                  <Text style={{ color: "#eab308", marginTop: 2, fontSize: 13 }}>
+                  <Text
+                    style={{ color: "#eab308", marginTop: 2, fontSize: 13 }}
+                  >
                     El propietario aún no ha reclamado este negocio.
                   </Text>
                 </View>
@@ -275,103 +377,13 @@ export default function BusinessScreen() {
             </View>
           </Card>
         )}
-
-        {/* 🔥🔥 A PARTIR DE AQUÍ VAN LOS EXTRAS (solo si verificado) — EN PARTE 2 🔥🔥 */}
-        {/* 🔥🔥 A PARTIR DE AQUÍ VAN LOS EXTRAS (solo si verificado) — EN PARTE 2 🔥🔥 */}
-
-        {/* DATOS EXTRA SOLO SI EL LOCAL ESTÁ VERIFICADO */}
-        {local.verificado && (
-          <>
-            {/* URL / WEB */}
-            {local.url && (
-              <Card>
-                <View style={{ padding: 12 }}>
-                  <Text style={styles.textStrong}>Sitio web oficial</Text>
-                  <TouchableOpacity
-                    style={{ marginTop: 6 }}
-                    onPress={() => {
-                      let link = local.url!;
-                      if (!link.startsWith("http")) {
-                        link = "https://" + link;
-                      }
-                      Linking.openURL(link).catch(() => {});
-                    }}
-                  >
-                    <Text style={{ color: "#60a5fa", textDecorationLine: "underline" }}>
-                      {local.url}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            )}
-
-            {/* SERVICIOS / AMENIDADES */}
-            {local.servicios && local.servicios.length > 0 && (
-              <Card>
-                <View style={{ padding: 12 }}>
-                  <Text style={styles.textStrong}>Servicios que ofrece</Text>
-                  <View style={[styles.grid2gap, { marginTop: 8 }]}>
-                    {local.servicios.map((srv, idx) => (
-                      <BadgeSecondary key={idx}>{srv}</BadgeSecondary>
-                    ))}
-                  </View>
-                </View>
-              </Card>
-            )}
-
-            {/* FOTOS EXTRA */}
-            {local.fotos && local.fotos.length > 0 && (
-              <Card>
-                <View style={{ padding: 12 }}>
-                  <Text style={styles.textStrong}>Galería del local</Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      marginTop: 8,
-                    }}
-                  >
-                    {local.fotos.map((f, idx) => (
-                      <Image
-                        key={idx}
-                        source={{ uri: f }}
-                        style={{
-                          width: 90,
-                          height: 90,
-                          borderRadius: 12,
-                          backgroundColor: "#1f2937",
-                        }}
-                      />
-                    ))}
-                  </View>
-                </View>
-              </Card>
-            )}
-
-            {/* TAGS ESPECIALES */}
-            {local.tagsEspeciales && local.tagsEspeciales.length > 0 && (
-              <Card>
-                <View style={{ padding: 12 }}>
-                  <Text style={styles.textStrong}>Hashtags especiales</Text>
-                  <View style={[styles.grid2gap, { marginTop: 8 }]}>
-                    {local.tagsEspeciales.map((tag, idx) => (
-                      <BadgeSecondary key={idx} small>
-                        {tag}
-                      </BadgeSecondary>
-                    ))}
-                  </View>
-                </View>
-              </Card>
-            )}
-          </>
-        )}
       </ScrollView>
 
-      {/* MODAL RECLAMO */}
+      {/* ============================
+            MODAL RECLAMO
+      ============================ */}
       <Modal visible={open} transparent animationType="fade">
         <View style={styles.modalOverlay} />
-
         <View style={styles.modalCenter}>
           <View style={styles.claimModalCard}>
             <Text style={styles.claimTitle}>Reclamar Negocio</Text>
@@ -379,36 +391,39 @@ export default function BusinessScreen() {
               Completa los datos para verificar que eres el propietario.
             </Text>
 
+            {/* CAMPOS */}
+            {/* Nombre — autocompletado y bloqueado */}
             <Field label="Nombre completo">
               <Input
                 value={ownerName}
-                onChangeText={setOwnerName}
-                style={styles.claimInput}
+                editable={false}
+                selectTextOnFocus={false}
+                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
+            {/* Correo — autocompletado y bloqueado */}
             <Field label="Correo">
               <Input
                 value={email}
-                onChangeText={setEmail}
-                style={styles.claimInput}
+                editable={false}
+                selectTextOnFocus={false}
+                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
+            {/* Teléfono — autocompletado y bloqueado */}
             <Field label="Teléfono">
               <Input
                 value={tel}
-                onChangeText={setTel}
-                style={styles.claimInput}
+                editable={false}
+                selectTextOnFocus={false}
+                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
             <Field label="Mensaje">
-              <Textarea
-                value={msg}
-                onChangeText={setMsg}
-                style={styles.claimTextarea}
-              />
+              <Textarea value={msg} onChangeText={setMsg} />
             </Field>
 
             {/* SUBIR DOCUMENTO */}
@@ -417,13 +432,30 @@ export default function BusinessScreen() {
               onPress={async () => {
                 try {
                   const res = await DocumentPicker.getDocumentAsync({
-                    type: "*/*",
                     copyToCacheDirectory: true,
                     multiple: false,
                   });
 
                   if (!res.canceled) {
-                    setDocs((prev) => [...prev, res.assets[0].uri]);
+                    const asset = res.assets[0];
+
+                    const base64 = await getBase64(asset.uri);
+                    let fileName = asset.name;
+
+                    // Si no existe nombre, generamos uno con extensión según el tipo MIME
+                    if (!fileName) {
+                      const ext = asset.mimeType?.split("/")[1] || "pdf";
+                      fileName = `documento_${Date.now()}.${ext}`;
+                    }
+                    setDocs((prev) => [
+                      ...prev,
+                      {
+                        name: fileName,
+                        type: asset.mimeType,
+                        base64,
+                        uploading: false,
+                      },
+                    ]);
                   }
                 } catch (err) {
                   console.log("❌ Error seleccionando documento:", err);
@@ -431,14 +463,16 @@ export default function BusinessScreen() {
               }}
             >
               <Camera size={18} color="#fbbf24" />
-              <Text style={styles.uploadDocText}>  Subir documento</Text>
+              <Text style={styles.uploadDocText}> Subir documento</Text>
             </TouchableOpacity>
 
             {/* LISTA DOCS */}
             <View style={{ marginTop: 14 }}>
-              {docs.map((d, i) => (
+              {docs.map((doc, i) => (
                 <Text key={i} style={styles.docItem}>
-                  📄 {d}
+                  {doc.uploading
+                    ? "📤 Subiendo documento..."
+                    : `📄 ${doc.name} (${doc.type})`}
                 </Text>
               ))}
             </View>
@@ -450,7 +484,12 @@ export default function BusinessScreen() {
                 style={{ flex: 1 }}
                 onPress={() => setOpen(false)}
               >
-                <Text style={[styles.btnText, { color: "#e5e7eb" }]}>
+                <Text
+                  style={[
+                    styles.textStrong,
+                    { color: "#e5e7eb", fontSize: 12 },
+                  ]}
+                >
                   Cancelar
                 </Text>
               </Btn>
@@ -464,7 +503,7 @@ export default function BusinessScreen() {
                 onPress={submitClaim}
               >
                 <Send size={16} color="#111827" />
-                <Text style={styles.sendBtnText}>  Enviar</Text>
+                <Text style={styles.sendBtnText}> Enviar</Text>
               </Btn>
             </View>
           </View>
@@ -473,11 +512,12 @@ export default function BusinessScreen() {
     </View>
   );
 }
-/* =========================
-   ELEMENTOS “UI” INLINE
-   ========================= */
 
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
+/* ==============================
+          ELEMENTOS UI
+============================== */
+
+function Card({ children, style }: any) {
   return (
     <View
       style={[
@@ -486,10 +526,6 @@ function Card({ children, style }: { children: React.ReactNode; style?: any }) {
           borderRadius: 14,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: "rgba(148,163,184,0.2)",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 6,
-          shadowOffset: { width: 0, height: 2 },
           marginBottom: 12,
         },
         style,
@@ -500,209 +536,86 @@ function Card({ children, style }: { children: React.ReactNode; style?: any }) {
   );
 }
 
-function CardHeader({ title }: { title: string }) {
+function Field({ label, children }: any) {
   return (
-    <View
-      style={{
-        padding: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: "rgba(148,163,184,0.2)",
-      }}
-    >
-      <Text style={{ fontWeight: "800", fontSize: 16, color: "#e5e7eb" }}>
-        {title}
-      </Text>
-    </View>
-  );
-}
-
-function BadgeSecondary({
-  children,
-  small,
-  center,
-}: {
-  children: React.ReactNode;
-  small?: boolean;
-  center?: boolean;
-}) {
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(148,163,184,0.12)",
-        borderColor: "rgba(148,163,184,0.25)",
-        borderWidth: 1,
-        paddingHorizontal: small ? 8 : 10,
-        paddingVertical: small ? 2 : 4,
-        borderRadius: 999,
-        alignSelf: center ? "center" : "flex-start",
-      }}
-    >
-      <Text
-        style={{
-          color: "#e5e7eb",
-          fontWeight: "700",
-          fontSize: small ? 10 : 12,
-        }}
-      >
-        {children as any}
-      </Text>
-    </View>
-  );
-}
-
-function Btn({
-  children,
-  onPress,
-  variant = "default",
-  size = "sm",
-  style,
-  disabled,
-}: {
-  children: React.ReactNode;
-  onPress?: () => void;
-  variant?: "default" | "outline";
-  size?: "sm" | "md";
-  style?: any;
-  disabled?: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        {
-          borderRadius: 10,
-          paddingVertical: size === "sm" ? 8 : 10,
-          paddingHorizontal: size === "sm" ? 10 : 14,
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 1,
-        },
-        variant === "default"
-          ? { backgroundColor: "#111827", borderColor: "#111827" }
-          : { backgroundColor: "transparent", borderColor: "#374151" },
-        disabled && { opacity: 0.5 },
-        style,
-      ]}
-    >
-      {typeof children === "string" ? (
-        <Text
-          style={[styles.btnText, variant === "outline" && { color: "#e5e7eb" }]}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
-    </TouchableOpacity>
-  );
-}
-
-function Avatar({ initials, small }: { initials: string; small?: boolean }) {
-  const size = small ? 32 : 48;
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 999,
-        backgroundColor: "#111827",
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: "#374151",
-      }}
-    >
-      <Text style={{ color: "#e5e7eb", fontWeight: "700" }}>{initials}</Text>
-    </View>
-  );
-}
-
-function RowIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <View style={styles.row}>
-      <View style={{ width: 18, alignItems: "center" }}>{icon}</View>
-      <Text style={styles.textBody}>  {children as any}</Text>
-    </View>
-  );
-}
-
-function Input(props: React.ComponentProps<typeof TextInput>) {
-  return (
-    <TextInput
-      {...props}
-      placeholderTextColor="#6b7280"
-      style={[
-        {
-          backgroundColor: "#111827",
-          borderWidth: 1,
-          borderColor: "#374151",
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          color: "#e5e7eb",
-        },
-        props.style,
-      ]}
-    />
-  );
-}
-
-function Textarea(
-  props: React.ComponentProps<typeof TextInput> & {
-    value?: string;
-    onChangeText?: (t: string) => void;
-  }
-) {
-  return (
-    <TextInput
-      {...props}
-      multiline
-      placeholderTextColor="#6b7280"
-      style={[
-        {
-          backgroundColor: "#111827",
-          borderWidth: 1,
-          borderColor: "#374151",
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          minHeight: 90,
-          textAlignVertical: "top",
-          color: "#e5e7eb",
-        },
-        props.style,
-      ]}
-    />
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View>
+    <View style={{ marginBottom: 12 }}>
       <Text style={styles.inputLabel}>{label}</Text>
       {children}
     </View>
   );
 }
 
-// Imagen con fallback simple
-function ImageWithFallback({ src, style }: { src: string; style?: any }) {
-  const [err, setErr] = useState(false);
-  if (err || !src)
-    return <View style={[{ backgroundColor: "#1f2937" }, style]} />;
+function Input(props: any) {
   return (
-    <Image
-      source={{ uri: src }}
-      style={style}
-      onError={() => setErr(true)}
+    <TextInput
+      {...props}
+      placeholderTextColor="#6b7280"
+      style={[styles.inputBase, props.style]}
     />
   );
 }
 
-/* ============ STYLES ============ */
+function Textarea(props: any) {
+  return (
+    <TextInput
+      {...props}
+      multiline
+      placeholderTextColor="#6b7280"
+      style={[styles.textareaBase, props.style]}
+    />
+  );
+}
+
+function Avatar({ initials }: any) {
+  return (
+    <View style={styles.avatar}>
+      <Text style={{ color: "#e5e7eb", fontWeight: "700" }}>{initials}</Text>
+    </View>
+  );
+}
+
+function RowIcon({ icon, children }: any) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      {icon}
+      <Text style={styles.textBody}> {children}</Text>
+    </View>
+  );
+}
+
+function Btn({ children, onPress, variant, style, disabled }: any) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.btnBase,
+        variant === "outline" ? styles.btnOutline : styles.btnDefault,
+        disabled && { opacity: 0.5 },
+        style,
+      ]}
+    >
+      {children}
+    </TouchableOpacity>
+  );
+}
+
+/* ==============================
+              STYLES
+============================== */
 const styles = StyleSheet.create({
+  loadCenter: {
+    flex: 1,
+    backgroundColor: "#0b0b0b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  textStrong: { color: "#e5e7eb", fontWeight: "700" },
+  textMuted: { color: "#9ca3af" },
+  textBody: { color: "#d1d5db" },
+
   row: { flexDirection: "row", alignItems: "center" },
   rowBetween: {
     flexDirection: "row",
@@ -710,7 +623,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  // back button
   backBtn: {
     width: 40,
     height: 40,
@@ -718,8 +630,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(17,24,39,0.85)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148,163,184,0.25)",
   },
 
   heroOverlay: {
@@ -733,31 +643,65 @@ const styles = StyleSheet.create({
   heroTitle: { color: "#fff", fontWeight: "800", fontSize: 20 },
   heroSubtitle: { color: "rgba(255,255,255,0.9)", marginTop: 2 },
 
-  textStrong: { color: "#e5e7eb", fontWeight: "700" },
-  textStrongSm: { color: "#e5e7eb", fontWeight: "700", fontSize: 13 },
-  textMuted: { color: "#9ca3af" },
-  textBody: { color: "#d1d5db" },
+  inputLabel: {
+    color: "#e5e7eb",
+    fontSize: 12,
+    marginBottom: 6,
+    fontWeight: "600",
+  },
 
-  grid2: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  grid2gap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-
-  uploadBox: {
-    aspectRatio: 1,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderStyle: "dashed",
+  inputBase: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
     borderColor: "#374151",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#e5e7eb",
+  },
+
+  textareaBase: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#374151",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 90,
+    textAlignVertical: "top",
+    color: "#e5e7eb",
+  },
+
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: "#111827",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0f0f10",
-    padding: 6,
+    borderWidth: 1,
+    borderColor: "#374151",
   },
+
+  uploadDocBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(251,191,36,0.1)",
+    borderWidth: 1,
+    borderColor: "#fbbf24",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+
+  uploadDocText: { color: "#fbbf24", fontWeight: "700" },
+
+  docItem: { color: "#9ca3af", marginTop: 4 },
 
   modalOverlay: {
     position: "absolute",
-    inset: 0 as any,
+    inset: 0,
     backgroundColor: "rgba(0,0,0,0.7)",
   },
   modalCenter: {
@@ -777,50 +721,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(148,163,184,0.25)",
   },
 
-  claimTitle: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "800",
-  },
-
-  claimSubtitle: {
-    color: "#9ca3af",
-    fontSize: 13,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-
-  claimInput: {
-    marginBottom: 16,
-    height: 48,
-  },
-
-  claimTextarea: {
-    marginBottom: 18,
-    minHeight: 100,
-  },
-
-  uploadDocBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(251,191,36,0.1)",
-    borderWidth: 1,
-    borderColor: "#fbbf24",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginTop: 4,
-  },
-
-  uploadDocText: {
-    color: "#fbbf24",
-    fontWeight: "700",
-  },
-
-  docItem: {
-    color: "#9ca3af",
-    marginTop: 4,
-  },
+  claimTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  claimSubtitle: { color: "#9ca3af", marginBottom: 16 },
 
   modalBtnRow: {
     flexDirection: "row",
@@ -828,20 +730,20 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
+  btnBase: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  btnDefault: { backgroundColor: "#111827", borderColor: "#111827" },
+  btnOutline: { backgroundColor: "transparent", borderColor: "#374151" },
+
   sendBtn: {
     backgroundColor: "#fbbf24",
     borderColor: "#fbbf24",
   },
-
-  sendBtnText: {
-    color: "#111827",
-    fontWeight: "900",
-  },
-
-  inputLabel: {
-    color: "#e5e7eb",
-    fontSize: 12,
-    marginBottom: 6,
-    fontWeight: "600",
-  },
+  sendBtnText: { color: "#111827", fontWeight: "900" },
 });

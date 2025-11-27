@@ -554,10 +554,45 @@ export default function AdminScreen() {
 
               <View style={{ marginTop: 12 }}>
                 <Text style={styles.subTitle}>Documentos</Text>
-                {selected.documentos.map((d, i) => (
-                  <Text key={i} style={styles.bodySm}>
-                    📄 {d}
+
+                {selected.documentos.length === 0 && (
+                  <Text style={styles.bodySm}>
+                    No se adjuntaron documentos.
                   </Text>
+                )}
+
+                {selected.documentos.map((d, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      backgroundColor: "#111827",
+                      borderRadius: 10,
+                      marginTop: 6,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                    onPress={() => {
+                      // Abrirá el documento en otra pestaña (web)
+                      window.open(d, "_blank");
+                    }}
+                  >
+                    <Text style={{ color: "#e5e7eb", flex: 1 }}>
+                      📄 Documento {i + 1}
+                    </Text>
+
+                    <Text
+                      style={{
+                        color: "#fbbf24",
+                        fontWeight: "900",
+                        fontSize: 12,
+                      }}
+                    >
+                      Descargar
+                    </Text>
+                  </TouchableOpacity>
                 ))}
               </View>
 
