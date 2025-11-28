@@ -46,20 +46,6 @@ function toMinutes(t: string) {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
-function isOpenNow(hours?: Hours, now = new Date()) {
-  if (!hours) return { open: false, label: 'Horario no definido' };
-
-  const key = weekdayKey(now);
-  const today = hours[key];
-  if (!today) return { open: false, label: 'Cerrado' };
-
-  const mins = now.getHours() * 60 + now.getMinutes();
-  const openM = toMinutes(today.open);
-  const closeM = toMinutes(today.close);
-
-  const open = mins >= openM && mins < closeM;
-  return { open, label: open ? 'Abierto ahora' : `Abre a las ${today.open}` };
-}
 
 export default function LocalesScreen() {
   const router = useRouter();
@@ -148,7 +134,6 @@ const loadCategories = async () => {
   );
 
   const renderFeatured = ({ item }: { item: Local }) => {
-    const status = isOpenNow(item.horario);
     return (
       <TouchableOpacity
         style={styles.featuredCard}
@@ -156,9 +141,7 @@ const loadCategories = async () => {
         activeOpacity={0.85}
       >
         <Image source={{ uri: item.imagen }} style={styles.featuredImage} />
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{status.label}</Text>
-        </View>
+
         <TouchableOpacity style={styles.heartBtn} activeOpacity={0.7}>
           <Ionicons name="heart-outline" size={18} color="#fff" />
         </TouchableOpacity>
@@ -176,7 +159,6 @@ const loadCategories = async () => {
   };
 
   const renderLocal = ({ item }: { item: Local }) => {
-    const status = isOpenNow(item.horario);
     return (
       <TouchableOpacity
         style={styles.card}
@@ -187,20 +169,14 @@ const loadCategories = async () => {
         <View style={styles.cardBody}>
           <View >
             <Text style={styles.cardTitle}>{item.nombre}</Text>
-            <Ionicons name="heart-outline" size={18} color="#9ca3af" />
+
           </View>
 
           <Text style={styles.cardCategory}>{item.categoria}</Text>
 
-          <View style={[styles.inline, { marginBottom: 6 }]}>
-            <Ionicons name="star" size={14} color="#FFD700" />
-            <Text style={styles.rateText}>{item.calificacion || 0}</Text>
-            <Text style={styles.muted}>({item.opiniones || 0})</Text>
-          </View>
 
-          <Text style={[styles.status, status.open ? styles.statusOpen : styles.statusClosed]}>
-            {status.label}
-          </Text>
+
+
         </View>
       </TouchableOpacity>
     );

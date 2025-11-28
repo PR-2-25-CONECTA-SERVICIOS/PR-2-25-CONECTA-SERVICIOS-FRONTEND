@@ -1,10 +1,12 @@
 // app/(tabs)/history.tsx
+import { useFocusEffect } from "@react-navigation/native";
 import {
   CheckCircle,
   Clock,
   Star,
   XCircle
 } from "lucide-react-native";
+import { useCallback } from "react";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -148,14 +150,35 @@ const loadHistory = async (userId: string) => {
 };
 
 
-useEffect(() => {
-  (async () => {
-    const data = await loadUserSession();
-    setSession(data);
+useFocusEffect(
+  useCallback(() => {
+    let active = true;
 
-    await loadHistory(data.id);
-  })();
-}, []);
+    (async () => {
+      const data = await loadUserSession();
+
+      if (!active) return;
+
+      setSession(data);
+      await loadHistory(data.id);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [])
+);
+// 🔄 Actualización automática cada 4 segundos
+useEffect(() => {
+  if (!session?.id) return;
+
+  const interval = setInterval(() => {
+    loadHistory(session.id);
+  }, 4000); // cada 4 segundos
+
+  return () => clearInterval(interval);
+}, [session?.id]);
+
 
   // Filtrado por tabs
   const filtered = useMemo(() => {

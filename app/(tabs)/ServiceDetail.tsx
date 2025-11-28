@@ -39,12 +39,28 @@ interface IService {
   disponible?: boolean;
   calificacion?: number;
   opiniones?: number;
+
   propietario?: {
+    _id: string;
     nombre: string;
-    foto?: string;
+    telefono?: string;
+    correo?: string;
+    avatar?: string;
     experiencia?: string;
     verificado?: boolean;
   };
+
+  // 👇 ESTA ERA LA QUE ESTABA MAL
+  propietarioId?: {
+    _id: string;
+    nombre: string;
+    telefono?: string;
+    correo?: string;
+    avatar?: string;
+    experiencia?: string;
+    verificado?: boolean;
+  };
+
   reseñas?: Array<{
     usuario: {
       _id: string;
@@ -54,11 +70,8 @@ interface IService {
     comentario: string;
     calificacion: number;
   }>;
-
-  // 🔥 AÑADIR ESTO
-  propietarioId?: string;
-  usuario?: string;
 }
+
 
 export default function ServiceDetailScreen() {
   const router = useRouter();
@@ -76,10 +89,11 @@ const isMyService =
   service &&
   user &&
   (
-    service.propietarioId === user._id ||
-    service.usuario === user._id ||
-    myServices.includes(service._id)
+    service.propietarioId?._id === user._id ||      // propietario populated
+    service.propietarioId === user._id ||           // propietario como string (fallback)
+    myServices.includes(service._id)                // servicios del usuario
   );
+
 
   useEffect(() => {
   setRequestSent(false);
@@ -113,14 +127,16 @@ const loadService = async () => {
     const res = await fetch(`${API_URL}/${id}`);
     const json = await res.json();
 
-    // 💥 Si el backend no devuelve propietario, lo reconstruimos
-    json.propietarioId = json.propietarioId || json.usuario || json.userId || json.ownerId;
+    console.log("📌 Servicio recibido:", json);
 
+    // El backend YA devuelve propietario correctamente
     setService(json);
+
   } catch (err) {
     console.log("❌ Error cargando servicio:", err);
   }
 };
+
 
 
   // ----------------------------------------
@@ -160,14 +176,35 @@ const loadService = async () => {
   // ----------------------------------------
   // Utilidades
   // ----------------------------------------
-  const callNow = () => {
-    Linking.openURL(`tel:${service?.telefono || "00000000"}`).catch(() => {});
-  };
+const callNow = () => {
+const phone = service?.propietario?.telefono;
 
-  const openWhatsApp = (msg: string) => {
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    Linking.openURL(url).catch(() => {});
-  };
+
+  if (!phone) {
+    alert("El propietario no tiene un número registrado.");
+    return;
+  }
+
+  Linking.openURL(`tel:${phone}`);
+};
+
+
+
+const openWhatsApp = () => {
+const phone = service?.propietario?.telefono;
+
+
+  if (!phone) {
+    alert("El propietario no tiene un número registrado.");
+    return;
+  }
+
+  const msg = `Hola, me interesa el servicio: ${service.nombre}`;
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+
+  Linking.openURL(url);
+};
+
 
   const renderStars = (rating: number) => {
     const full = Math.floor(rating);
@@ -242,7 +279,9 @@ const loadService = async () => {
             </View>
             <View style={styles.rowCenter}>
               <MapPin size={16} color="#e5e7eb" />
-              <Text style={[styles.grayText, { marginLeft: 6 }]}>1 km</Text>
+              <Text style={[styles.grayText, { marginLeft: 6 }]}>
+                {service.direccion || "Ubicación no disponible"}
+              </Text>
             </View>
           </View>
         </View>
@@ -250,15 +289,19 @@ const loadService = async () => {
         {/* Acciones rápidas */}
         <View style={[styles.card, { paddingVertical: 14 }]}>
           <View style={styles.quickRow}>
-            <TouchableOpacity
-              style={[styles.quickBtn, { backgroundColor: "#25D366" }]}
-              onPress={() => openWhatsApp(`Hola, me interesa el servicio: ${service.nombre}`)}
-            >
+<TouchableOpacity
+  style={[styles.quickBtn, { backgroundColor: "#25D366" }]}
+  onPress={openWhatsApp}
+>
+
               <MessageCircle size={16} color="#111827" />
               <Text style={styles.quickBtnText}>WhatsApp</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickBtn, { backgroundColor: "#fbbf24" }]} onPress={callNow}>
+<TouchableOpacity
+  style={[styles.quickBtn, { backgroundColor: "#fbbf24" }]}
+  onPress={callNow}
+>
               <Phone size={16} color="#111827" />
               <Text style={styles.quickBtnText}>Llamar</Text>
             </TouchableOpacity>

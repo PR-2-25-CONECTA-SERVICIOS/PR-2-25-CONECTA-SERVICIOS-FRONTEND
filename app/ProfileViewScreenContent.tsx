@@ -74,6 +74,18 @@ export default function ProfileViewScreenContent() {
     label: string;
     value: string;
   };
+const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+const [deleteTarget, setDeleteTarget] = useState<any>(null);
+const [deleteType, setDeleteType] = useState<"service" | "local" | null>(null);
+const [hours, setHours] = useState({
+  lunes: { open: "", close: "" },
+  martes: { open: "", close: "" },
+  miercoles: { open: "", close: "" },
+  jueves: { open: "", close: "" },
+  viernes: { open: "", close: "" },
+  sabado: { open: "", close: "" },
+  domingo: { open: "", close: "" },
+});
 
   type DropdownProps = {
     value: string;
@@ -235,6 +247,7 @@ export default function ProfileViewScreenContent() {
       }
     };
 
+
     loadProfile();
 
     return () => {
@@ -390,6 +403,41 @@ export default function ProfileViewScreenContent() {
       alert("Error al guardar el servicio.");
     }
   };
+  const openDeleteModal = (type: "service" | "local", item: any) => {
+  setDeleteType(type);
+  setDeleteTarget(item);
+  setDeleteModalOpen(true);
+};
+
+const confirmDelete = async () => {
+  if (!deleteTarget || !deleteType) return;
+  
+  try {
+    if (deleteType === "service") {
+      // DELETE servicio
+      await fetch(`${API_URL}${user._id}/servicios/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      // Actualizar UI
+      setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+    }
+
+    if (deleteType === "local") {
+      // DELETE local
+      await fetch(`http://localhost:3000/api/locales/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      // Actualizar UI
+      setLocals((prev) => prev.filter((l) => l.id !== deleteTarget.id));
+    }
+  } catch (err) {
+    console.log("❌ Error eliminando:", err);
+  }
+
+  setDeleteModalOpen(false);
+};
 
   const pickServicePhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -655,46 +703,40 @@ export default function ProfileViewScreenContent() {
             </TouchableOpacity>
           </View>
           {services.map((svc) => (
-            <TouchableOpacity
-              key={svc.id}
-              style={styles.serviceItem}
-              activeOpacity={0.8}
-              onPress={() =>
-                router.push({
-                  pathname: "/ServiceProviderScreen",
-                  params: { id: svc.id },
-                })
-              }
-            >
-              <View style={styles.serviceThumb}>
-                {svc.photo ? (
-                  <Image
-                    source={{ uri: svc.photo }}
-                    style={{ width: "100%", height: "100%" }}
-                  />
-                ) : (
-                  <View style={styles.serviceThumbFallback}>
-                    <Text style={{ color: "#666" }}>Sin foto</Text>
-                  </View>
-                )}
-              </View>
+  <View key={svc.id} style={styles.serviceItem}>
+    
+    {/* Thumbnail */}
+    <View style={styles.serviceThumb}>
+      {svc.photo ? (
+        <Image source={{ uri: svc.photo }} style={{ width: "100%", height: "100%" }} />
+      ) : (
+        <View style={styles.serviceThumbFallback}>
+          <Text style={{ color: "#666" }}>Sin foto</Text>
+        </View>
+      )}
+    </View>
 
-              <View style={styles.actionCol}>
-                <Text style={styles.serviceName}>{svc.name}</Text>
-                <Text style={styles.serviceMeta}>
-                  {svc.category} • {svc.hourlyPrice}
-                </Text>
-                <Text style={styles.serviceDesc}>{svc.description}</Text>
+    {/* Info */}
+    <View style={styles.actionCol}>
+      <Text style={styles.serviceName}>{svc.name}</Text>
+      <Text style={styles.serviceMeta}>{svc.category} • {svc.hourlyPrice}</Text>
+      <Text style={styles.serviceDesc}>{svc.description}</Text>
 
-                <TouchableOpacity
-                  style={styles.smallActionBtn}
-                  onPress={() => openEdit(svc)}
-                >
-                  <Text style={{ color: "#fbbf24" }}>Editar</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
+        <TouchableOpacity onPress={() => openEdit(svc)}>
+          <Text style={{ color: "#fbbf24" }}>Editar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => openDeleteModal("service", svc)}>
+          <Text style={{ color: "#e63946", fontWeight: "700" }}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+
+  </View>
+))}
+
+
         </View>
 
         {/* LOCALES */}
@@ -708,56 +750,39 @@ export default function ProfileViewScreenContent() {
           )}
 
           {locals.map((l) => (
-            <TouchableOpacity
-              key={l.id}
-              activeOpacity={0.85}
-              style={styles.localItem}
-              onPress={() =>
-                router.push({
-                  pathname: "/BusinessScreen",
-                  params: { id: l.id },
-                })
-              }
-            >
-              <View style={styles.localThumbWrap}>
-                {l.thumb ? (
-                  <Image source={{ uri: l.thumb }} style={styles.localThumb} />
-                ) : (
-                  <View style={styles.localThumbFallback}>
-                    <Text style={{ color: "#999" }}>No foto</Text>
-                  </View>
-                )}
-              </View>
+  <View key={l.id} style={styles.localItem}>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.localName} numberOfLines={1}>
-                  {l.name}
-                </Text>
+    <TouchableOpacity
+      style={{ flexDirection: "row", flex: 1 }}
+      activeOpacity={0.85}
+      onPress={() => router.push({ pathname: "/BusinessScreen", params: { id: l.id } })}
+    >
+      <View style={styles.localThumbWrap}>
+        {l.thumb ? (
+          <Image source={{ uri: l.thumb }} style={styles.localThumb} />
+        ) : (
+          <View style={styles.localThumbFallback}>
+            <Text style={{ color: "#999" }}>No foto</Text>
+          </View>
+        )}
+      </View>
 
-                <Text style={styles.localAddress} numberOfLines={2}>
-                  {l.address}
-                </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.localName}>{l.name}</Text>
+        <Text style={styles.localAddress}>{l.address}</Text>
+        <Text style={styles.localStatus}>{l.verified ? "Verificado" : "No verificado"}</Text>
+      </View>
+    </TouchableOpacity>
 
-                <Text style={styles.localStatus}>
-                  {l.verified ? "Verificado" : "No verificado"}
-                </Text>
-                {l.claims?.some((c) => c.estado === "aprobado") && (
-                  <TouchableOpacity
-                    style={styles.completeBtnFull}
-                    onPress={() => openLocalModal(l)}
-                  >
-                    <Text style={styles.completeBtnText}>
-                      Completar registro
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+    {/* Botón eliminar */}
+    <TouchableOpacity onPress={() => openDeleteModal("local", l)}>
+      <Text style={{ color: "#e63946", fontWeight: "900", fontSize: 16 }}>🗑</Text>
+    </TouchableOpacity>
 
-              <View style={styles.localArrow}>
-                <Text style={{ color: "#fbbf24", fontSize: 18 }}>›</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+  </View>
+))}
+
+
         </View>
         {/* BOTÓN CERRAR SESIÓN */}
         <View
@@ -847,13 +872,21 @@ export default function ProfileViewScreenContent() {
               />
             )}
 
-            <TextInput
-              placeholder="Precio por hora"
-              placeholderTextColor="#666"
-              style={styles.input}
-              value={draft.hourlyPrice}
-              onChangeText={(v) => setDraft((p) => ({ ...p, hourlyPrice: v }))}
-            />
+<View style={styles.priceRow}>
+  <TextInput
+    placeholder="Precio por hora"
+    placeholderTextColor="#666"
+    style={styles.priceInput}
+    keyboardType="numeric"
+    value={draft.hourlyPrice}
+    onChangeText={(v) => setDraft((p) => ({ ...p, hourlyPrice: v }))}
+  />
+
+  <View style={styles.priceSuffix}>
+    <Text style={{ color: "#fff", fontWeight: "800" }}>Bs</Text>
+  </View>
+</View>
+
 
             <TextInput
               placeholder="Descripción"
@@ -1054,7 +1087,32 @@ export default function ProfileViewScreenContent() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Modal visible={deleteModalOpen} transparent animationType="fade">
+  <View style={styles.modalOverlay}>
+    <View style={[styles.modalCard, { maxWidth: 350 }]}>
+      <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 12 }}>
+        ¿Eliminar {deleteType === "service" ? "servicio" : "local"}?
+      </Text>
+
+      <Text style={{ color: "#ccc", marginBottom: 20 }}>
+        ¿Seguro que deseas eliminar "{deleteTarget?.name}"? Esta acción no se puede deshacer.
+      </Text>
+
+      <TouchableOpacity
+        style={[styles.saveBtn, { backgroundColor: "#e63946" }]}
+        onPress={confirmDelete}
+      >
+        <Text style={styles.saveBtnText}>Eliminar</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cancelBtn} onPress={() => setDeleteModalOpen(false)}>
+        <Text style={styles.cancelBtnText}>Cancelar</Text>
+      </TouchableOpacity>
     </View>
+  </View>
+</Modal>
+    </View>
+    
   );
 }
 
@@ -1342,6 +1400,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15,
   },
+priceRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 10,
+},
+
+priceInput: {
+  flex: 1,
+  height: 45,
+  backgroundColor: "#222",
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#333",
+  paddingHorizontal: 12,
+  color: "#fff",
+},
+
+priceSuffix: {
+  height: 45,
+  paddingHorizontal: 14,
+  backgroundColor: "#333",
+  borderRadius: 10,
+  marginLeft: 8,
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  borderColor: "#444",
+},
 
   serviceMeta: {
     color: "#ccc",

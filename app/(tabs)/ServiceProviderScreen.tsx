@@ -1,4 +1,5 @@
 // app/ServiceProviderScreen.tsx
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -12,7 +13,7 @@ import {
   Star,
   XCircle
 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
@@ -24,6 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 
 const API_BASE = "http://localhost:3000";
 const SERVICES_API = `${API_BASE}/api/servicios`;
@@ -167,11 +169,9 @@ const [finishModalVisible, setFinishModalVisible] = useState(false);
   // ====================================================
   // CARGAR DETALLE DEL SERVICIO + SOLICITUDES
   // ====================================================
-  useEffect(() => {
-    if (!serviceId) {
-      setLoading(false);
-      return;
-    }
+  useFocusEffect(
+  useCallback(() => {
+    if (!serviceId) return;
 
     const loadData = async () => {
       try {
@@ -183,47 +183,37 @@ const [finishModalVisible, setFinishModalVisible] = useState(false);
         if (!resService.ok) throw new Error("HTTP " + resService.status);
         const s = JSON.parse(rawService);
 
-const header: ProviderData = {
-  name: s.propietario?.nombre || "Proveedor",
-  service: s.nombre || "Servicio",
-  category: s.categoria || "General",
-
-  rating: s.calificacion || 0,
-  reviews: s.reseñas?.length || 0,
-  reviewsList: s.reseñas || [],
-
-  avatar: s.propietario?.foto || s.imagen || "",
-  verified: true,
-  active: s.disponible ?? true,
-  phone: s.propietario?.telefono || "Sin teléfono",
-  experience: s.propietario?.experiencia || "No especificado",
-  completedJobs: s.trabajosCompletados || 0,
-  responseTime: "15 min promedio",
-};
-
+        const header: ProviderData = {
+          name: s.propietario?.nombre || "Proveedor",
+          service: s.nombre || "Servicio",
+          category: s.categoria || "General",
+          rating: s.calificacion || 0,
+          reviews: s.reseñas?.length || 0,
+          reviewsList: s.reseñas || [],
+          avatar: s.propietario?.foto || s.imagen || "",
+          verified: true,
+          active: s.disponible ?? true,
+          phone: s.propietario?.telefono || "Sin teléfono",
+          experience: s.propietario?.experiencia || "No especificado",
+          completedJobs: s.trabajosCompletados || 0,
+          responseTime: "15 min promedio",
+        };
 
         setProviderData(header);
         setIsActive(header.active);
 
-        // 2) Solicitudes de este servicio
+        // 2) Solicitudes
         const resReq = await fetch(`${SERVICES_API}/${serviceId}/solicitudes`);
         const rawReq = await resReq.text();
         console.log("📥 Solicitudes:", resReq.status, rawReq);
 
-        if (!resReq.ok) {
-          // si aún no hay solicitudes, puede devolver 404 o similar, no rompemos
-          try {
-            const errObj = JSON.parse(rawReq);
-            console.log("Info solicitudes:", errObj);
-          } catch {
-            console.log("Sin solicitudes o error leve");
-          }
-        } else {
+        if (resReq.ok) {
           const dataReq = JSON.parse(rawReq);
+
           const mapped: Req[] = dataReq.map((r: any) => ({
             id: r._id,
             client: r.cliente?.nombre || "Cliente",
-            service: r.descripcion || s.nombre || "Servicio",
+            service: r.descripcion || "",
             date:
               r.fechaCita ||
               (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
@@ -234,7 +224,10 @@ const header: ProviderData = {
             clientAvatar: r.cliente?.foto || "",
             urgent: false,
           }));
+
           setRequests(mapped);
+        } else {
+          setRequests([]);
         }
       } catch (err) {
         console.log("❌ Error cargando ServiceProviderScreen:", err);
@@ -244,7 +237,43 @@ const header: ProviderData = {
     };
 
     loadData();
-  }, [serviceId]);
+
+    // cleanup
+    return () => {};
+  }, [serviceId])
+);
+
+
+useEffect(() => {
+  if (!serviceId) return;
+
+  const interval = setInterval(() => {
+    fetch(`${SERVICES_API}/${serviceId}/solicitudes`)
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data.map((r: any) => ({
+          id: r._id,
+          client: r.cliente?.nombre || "Cliente",
+          service: r.descripcion || "",
+          date:
+            r.fechaCita ||
+            (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
+          time: r.horaCita || "",
+          status: mapEstadoToStatus(r.estado),
+          price: r.precio || "",
+          location: r.categoria || "Sin dirección",
+          clientAvatar: r.cliente?.foto || "",
+          urgent: false,
+        }));
+
+        setRequests(mapped);
+      })
+      .catch(() => {});
+  }, 4000);
+
+  return () => clearInterval(interval);
+}, [serviceId]);
+
 
   // ====================================================
   // TOGGLE DISPONIBILIDAD DEL SERVICIO

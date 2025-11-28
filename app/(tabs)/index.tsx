@@ -1,6 +1,7 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from 'expo-router';
 import { Heart, MapPin, Search, Star } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -13,6 +14,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { useAuth } from "context/AuthContext";
+
+// =======================================
+// Interfaces
+// =======================================
 interface IService {
   _id: string;
   nombre: string;
@@ -20,77 +27,75 @@ interface IService {
   descripcion: string;
   precio: string;
   imagen: string;
+  direccion?: string;
 
-  // ⭐ EXTRAS
   calificacion?: number;
   opiniones?: number;
-  distancia?: string; 
+  distancia?: string;
   disponible?: boolean;
 }
 
-import { useAuth } from "context/AuthContext";
-
-// 🔥 CATEGORÍAS IGUALES A TU FRONT
-const categories = ['Todos', 'Plomería', 'Limpieza', 'Restaurantes', 'Delivery', 'Electricidad'];
-
-// 🔥 URL REAL DE TU BACKEND
+// =======================================
+// Backend URL
+// =======================================
 const API_URL = "http://localhost:3000/api/servicios";
 
+// =======================================
+// Componente principal
+// =======================================
 export default function ServiceCatalogScreen() {
   const router = useRouter();
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
-const [services, setServices] = useState<IService[]>([]);
-const [highlighted, setHighlighted] = useState<IService[]>([]);
-const [categories, setCategories] = useState<string[]>(["Todos"]);
-const [loadingCategories, setLoadingCategories] = useState(true);
+  const [services, setServices] = useState<IService[]>([]);
+  const [highlighted, setHighlighted] = useState<IService[]>([]);
+  const [categories, setCategories] = useState<string[]>(["Todos"]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
-const { user } = useAuth();
-const [profile, setProfile] = useState<any>(null);
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
 
-  // Responsive grid config
+  // =======================================
+  // Responsive Grid
+  // =======================================
   const { width } = Dimensions.get('window');
   const isWide = width >= 720;
   const numColumns = isWide ? 3 : 2;
+
   const horizontalGap = 12;
   const gridPadding = 16;
   const cardWidth =
     (width - gridPadding * 2 - horizontalGap * (numColumns - 1)) / numColumns;
 
-  // -----------------------------------------
-  // 🔥 CARGAR SERVICIOS AL INICIAR
-  // -----------------------------------------
-  useEffect(() => {
-    loadInitialData();
-      loadCategories();  
+  // =======================================
+  // Cargar Categorías
+  // =======================================
+  const loadCategories = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/api/categorias");
+      const data = await res.json();
 
-  }, []);
-const loadCategories = async () => {
-  try {
-    const res = await fetch("http://localhost:3000/api/categorias");
-    const data = await res.json();
+      const names = data.map((c: any) => c.nombre);
+      setCategories(["Todos", ...names]);
 
-    // Convertir [{_id,nombre}] → ["Plomería","Limpieza"]
-    const names = data.map((c: any) => c.nombre);
+    } catch (err) {
+      console.log("❌ Error cargando categorías:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
-    setCategories(["Todos", ...names]);
-  } catch (err) {
-    console.log("❌ Error cargando categorías:", err);
-  } finally {
-    setLoadingCategories(false);
-  }
-};
-
+  // =======================================
+  // Cargar servicios iniciales
+  // =======================================
   const loadInitialData = async () => {
     try {
-      // Todos los servicios
       const all = await fetch(API_URL);
       const jsonAll = await all.json();
       setServices(jsonAll);
 
-      // Destacados
       const high = await fetch(`${API_URL}/destacados`);
       const jsonHigh = await high.json();
       setHighlighted(jsonHigh);
@@ -99,31 +104,60 @@ const loadCategories = async () => {
       console.error("❌ Error cargando servicios:", error);
     }
   };
-useEffect(() => {
-  if (!user || !user._id) return;
 
-  const loadProfile = async () => {
-    try {
-      const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
-      const raw = await res.text();
-      const data = JSON.parse(raw);
+  // =======================================
+  // Cargar cuando vuelve la pantalla
+  // =======================================
+  useFocusEffect(
+    useCallback(() => {
+      loadInitialData();
+      loadCategories();
+      filterFromBackend();
+    }, [])
+  );
 
-      setProfile({
-        name: data.nombre,
-        email: data.correo,
-        avatar: data.avatar,
-      });
-    } catch (err) {
-      console.log("❌ Error cargando perfil:", err);
-    }
-  };
+  // =======================================
+  // Auto refresco cada 10s
+  // =======================================
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadInitialData();
+      filterFromBackend();
+    }, 10000);
 
-  loadProfile();
-}, [user?._id]);
+    return () => clearInterval(interval);
+  }, []);
 
-  // -----------------------------------------
-  // 🔥 FILTRO REAL DESDE BACKEND
-  // -----------------------------------------
+  // =======================================
+  // Cargar perfil del usuario
+  // =======================================
+  useFocusEffect(
+    useCallback(() => {
+      if (!user || !user._id) return;
+
+      const loadProfile = async () => {
+        try {
+          const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
+          const raw = await res.text();
+          const data = JSON.parse(raw);
+
+          setProfile({
+            name: data.nombre,
+            email: data.correo,
+            avatar: data.avatar + "?t=" + Date.now(),
+          });
+        } catch (err) {
+          console.log("❌ Error cargando perfil:", err);
+        }
+      };
+
+      loadProfile();
+    }, [user?._id])
+  );
+
+  // =======================================
+  // Filtrado desde backend
+  // =======================================
   useEffect(() => {
     filterFromBackend();
   }, [search, selectedCategory]);
@@ -132,20 +166,19 @@ useEffect(() => {
     try {
       const url = `${API_URL}/buscar?q=${search}&categoria=${selectedCategory}`;
       const res = await fetch(url);
-      const json = await res.json();
 
+      const json = await res.json();
       setServices(json);
+
     } catch (e) {
       console.log("Error filtrando:", e);
     }
   };
 
-  //------------------------------------------
-  // UI RENDER METHODS
-  //------------------------------------------
-
+  // =======================================
+  // Render categoría
+  // =======================================
   const renderCategory = ({ item }: { item: string }) => (
-
     <TouchableOpacity
       style={[
         styles.categoryButton,
@@ -165,8 +198,10 @@ useEffect(() => {
     </TouchableOpacity>
   );
 
+  // =======================================
+  // Render servicio
+  // =======================================
   const renderService = ({ item }: { item: IService }) => (
-
     <TouchableOpacity
       style={[styles.serviceCard, { width: cardWidth }]}
       onPress={() => router.push(`/ServiceDetail?id=${item._id}`)}
@@ -186,13 +221,7 @@ useEffect(() => {
 
           <View style={styles.badgeDark}>
             <MapPin size={12} color="#e5e7eb" />
-            <Text style={styles.badgeDarkText}>{item.distancia || "1 km"}</Text>
-          </View>
-        </View>
-
-        <View style={styles.heartWrap}>
-          <View style={styles.heartBtn}>
-            <Heart size={14} color="#e5e7eb" />
+            <Text style={styles.badgeDarkText}>{item.direccion || "1 km"}</Text>
           </View>
         </View>
       </View>
@@ -207,26 +236,26 @@ useEffect(() => {
     </TouchableOpacity>
   );
 
-  //------------------------------------------
-
+  // =======================================
+  // UI
+  // =======================================
   return (
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        
+
+        {/* HEADER */}
         <View style={styles.header}>
           <View>
-<Text style={styles.greeting}>
-  ¡Hola, {profile?.name || "Usuario"}!
-</Text>
+            <Text style={styles.greeting}>
+              ¡Hola, {profile?.name || "Usuario"}!
+            </Text>
 
-<Text style={styles.subGreeting}>
-  ¿Qué servicio necesitas hoy?
-</Text>
-
+            <Text style={styles.subGreeting}>
+              ¿Qué servicio necesitas hoy?
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -234,14 +263,24 @@ useEffect(() => {
             style={styles.profileBtn}
             activeOpacity={0.9}
           >
-            <Text style={styles.profileInitials}>MA</Text>
+            {profile?.avatar ? (
+              <Image
+                source={{ uri: profile.avatar }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <Text style={styles.profileInitials}>
+                {profile?.name?.[0] || "U"}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* Search */}
+        {/* BUSCADOR */}
         <View style={styles.searchRow}>
           <View style={styles.searchWrap}>
             <Search size={16} color="#cbd5e1" />
+
             <TextInput
               style={styles.searchInput}
               placeholder="Buscar servicios, restaurantes…"
@@ -251,24 +290,25 @@ useEffect(() => {
               returnKeyType="search"
             />
           </View>
-
-
         </View>
 
-{loadingCategories ? (
-  <Text style={{ color: "#999", paddingHorizontal: 16 }}>Cargando categorías...</Text>
-) : (
-  <FlatList
-    horizontal
-    data={categories}
-    renderItem={renderCategory}
-    keyExtractor={item => item}
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={styles.categoriesRow}
-  />
-)}
+        {/* CATEGORÍAS */}
+        {loadingCategories ? (
+          <Text style={{ color: "#999", paddingHorizontal: 16 }}>
+            Cargando categorías...
+          </Text>
+        ) : (
+          <FlatList
+            horizontal
+            data={categories}
+            renderItem={renderCategory}
+            keyExtractor={item => item}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesRow}
+          />
+        )}
 
-        {/* Highlighted */}
+        {/* DESTACADOS */}
         {highlighted.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Servicios Destacados</Text>
@@ -290,7 +330,10 @@ useEffect(() => {
                     activeOpacity={0.95}
                   >
                     <View style={styles.highlightImageWrap}>
-                      <Image source={{ uri: item.imagen }} style={styles.highlightImage} />
+                      <Image
+                        source={{ uri: item.imagen }}
+                        style={styles.highlightImage}
+                      />
 
                       <View style={styles.topRow}>
                         <View style={styles.badgeGold}>
@@ -309,13 +352,17 @@ useEffect(() => {
                           <Star size={12} color="#fbbf24" />
                           <Text style={styles.badgeDarkText}>
                             {item.calificacion || 0}{' '}
-                            <Text style={{ color: '#9ca3af' }}>({item.opiniones || 0})</Text>
+                            <Text style={{ color: '#9ca3af' }}>
+                              ({item.opiniones || 0})
+                            </Text>
                           </Text>
                         </View>
 
                         <View style={styles.badgeDark}>
                           <MapPin size={12} color="#e5e7eb" />
-                          <Text style={styles.badgeDarkText}>{item.distancia || "1 km"}</Text>
+                          <Text style={styles.badgeDarkText}>
+                            {item.distancia || "1 km"}
+                          </Text>
                         </View>
                       </View>
                     </View>
@@ -329,7 +376,9 @@ useEffect(() => {
                         {item.descripcion}
                       </Text>
 
-                      <Text style={styles.highlightPrice}>{item.precio || "$ -"}</Text>
+                      <Text style={styles.highlightPrice}>
+                        {item.precio || "$ -"}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -338,7 +387,7 @@ useEffect(() => {
           </View>
         )}
 
-        {/* All services */}
+        {/* TODOS LOS SERVICIOS */}
         <View style={[styles.section, { paddingTop: 6 }]}>
           <Text style={styles.sectionTitle}>Todos los Servicios</Text>
 
@@ -349,23 +398,28 @@ useEffect(() => {
             showsVerticalScrollIndicator={false}
             columnWrapperStyle={{
               gap: horizontalGap,
-              paddingHorizontal: gridPadding
+              paddingHorizontal: gridPadding,
             }}
             ItemSeparatorComponent={() => <View style={{ height: horizontalGap }} />}
             scrollEnabled={false}
             renderItem={renderService}
           />
         </View>
+
       </ScrollView>
     </View>
   );
 }
 
-// ---------------------------------------------
-// 🔥 TUS ESTILOS ORIGINALES COMPLETOS
-// ---------------------------------------------
+// =======================================
+// Estilos completos
+// =======================================
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0b0b0b', paddingTop: Platform.select({ ios: 52, android: 36 }) },
+  screen: {
+    flex: 1,
+    backgroundColor: '#0b0b0b',
+    paddingTop: Platform.select({ ios: 52, android: 36 }),
+  },
 
   header: {
     paddingHorizontal: 16,
@@ -374,8 +428,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  greeting: { fontSize: 22, color: '#fbbf24', fontWeight: '800' },
-  subGreeting: { fontSize: 13, color: '#cbd5e1', marginTop: 2 },
+
+  greeting: {
+    fontSize: 22,
+    color: '#fbbf24',
+    fontWeight: '800',
+  },
+
+  subGreeting: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    marginTop: 2,
+  },
+
   profileBtn: {
     width: 40,
     height: 40,
@@ -384,9 +449,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileInitials: { color: '#111827', fontWeight: '900' },
 
-  searchRow: { paddingHorizontal: 16, flexDirection: 'row', gap: 10, marginBottom: 10 },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 999,
+  },
+
+  profileInitials: {
+    color: '#111827',
+    fontWeight: '900',
+  },
+
+  searchRow: {
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+
   searchWrap: {
     flex: 1,
     flexDirection: 'row',
@@ -399,17 +480,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
   },
-  searchInput: { flex: 1, color: '#e5e7eb', fontSize: 14, paddingVertical: 8 },
-  filterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fbbf24',
+
+  searchInput: {
+    flex: 1,
+    color: '#e5e7eb',
+    fontSize: 14,
+    paddingVertical: 8,
   },
 
-  categoriesRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  categoriesRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+
   categoryButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -419,14 +503,28 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.2)',
     marginRight: 8,
   },
+
   categoryButtonSelected: {
     backgroundColor: 'rgba(251,191,36,0.15)',
     borderColor: 'rgba(251,191,36,0.6)',
   },
-  categoryText: { color: '#e5e7eb', fontSize: 13, fontWeight: '600' },
-  categoryTextSelected: { color: '#fbbf24', fontWeight: '800' },
 
-  section: { marginTop: 8, marginBottom: 4 },
+  categoryText: {
+    color: '#e5e7eb',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  categoryTextSelected: {
+    color: '#fbbf24',
+    fontWeight: '800',
+  },
+
+  section: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+
   sectionTitle: {
     color: '#e5e7eb',
     fontWeight: '800',
@@ -435,7 +533,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Highlighted card
   highlightCard: {
     backgroundColor: '#0f0f10',
     borderRadius: 14,
@@ -443,8 +540,18 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(148,163,184,0.2)',
   },
-  highlightImageWrap: { position: 'relative', width: '100%', height: 150 },
-  highlightImage: { width: '100%', height: '100%' },
+
+  highlightImageWrap: {
+    position: 'relative',
+    width: '100%',
+    height: 150,
+  },
+
+  highlightImage: {
+    width: '100%',
+    height: '100%',
+  },
+
   topRow: {
     position: 'absolute',
     top: 10,
@@ -453,6 +560,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+
   bottomRow: {
     position: 'absolute',
     bottom: 10,
@@ -461,13 +569,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+
   badgeGold: {
     backgroundColor: 'rgba(251,191,36,0.9)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  badgeGoldText: { color: '#111827', fontWeight: '900', fontSize: 11 },
+
+  badgeGoldText: {
+    color: '#111827',
+    fontWeight: '900',
+    fontSize: 11,
+  },
 
   badgeDark: {
     backgroundColor: 'rgba(17,17,19,0.7)',
@@ -480,9 +594,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  badgeDarkText: { color: '#e5e7eb', fontWeight: '700', fontSize: 11 },
 
-  heartWrap: { position: 'absolute', top: 10, right: 10 },
+  badgeDarkText: {
+    color: '#e5e7eb',
+    fontWeight: '700',
+    fontSize: 11,
+  },
+
   heartBtn: {
     width: 30,
     height: 30,
@@ -494,12 +612,27 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148,163,184,0.35)',
   },
 
-  highlightBody: { padding: 12, gap: 4 },
-  highlightName: { color: '#e5e7eb', fontWeight: '800' },
-  highlightDesc: { color: '#cbd5e1', fontSize: 12 },
-  highlightPrice: { color: '#fbbf24', fontWeight: '900', marginTop: 4 },
+  highlightBody: {
+    padding: 12,
+    gap: 4,
+  },
 
-  // Services grid
+  highlightName: {
+    color: '#e5e7eb',
+    fontWeight: '800',
+  },
+
+  highlightDesc: {
+    color: '#cbd5e1',
+    fontSize: 12,
+  },
+
+  highlightPrice: {
+    color: '#fbbf24',
+    fontWeight: '900',
+    marginTop: 4,
+  },
+
   serviceCard: {
     backgroundColor: '#0f0f10',
     borderRadius: 14,
@@ -507,8 +640,18 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(148,163,184,0.2)',
   },
-  serviceImageWrap: { position: 'relative', width: '100%', height: 110 },
-  serviceImage: { width: '100%', height: '100%' },
+
+  serviceImageWrap: {
+    position: 'relative',
+    width: '100%',
+    height: 110,
+  },
+
+  serviceImage: {
+    width: '100%',
+    height: '100%',
+  },
+
   overlayRow: {
     position: 'absolute',
     left: 8,
@@ -517,8 +660,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  serviceBody: { padding: 10, gap: 4 },
-  serviceName: { color: '#e5e7eb', fontWeight: '800' },
-  serviceCategory: { color: '#9ca3af', fontSize: 12 },
-  servicePrice: { color: '#fbbf24', fontWeight: '900', marginTop: 2 },
+
+  serviceBody: {
+    padding: 10,
+    gap: 4,
+  },
+
+  serviceName: {
+    color: '#e5e7eb',
+    fontWeight: '800',
+  },
+
+  serviceCategory: {
+    color: '#9ca3af',
+    fontSize: 12,
+  },
+
+  servicePrice: {
+    color: '#fbbf24',
+    fontWeight: '900',
+    marginTop: 2,
+  },
 });

@@ -133,6 +133,9 @@ export default function BusinessScreen() {
   const [docs, setDocs] = useState<DocFile[]>([]);
 
   const canSubmit = msg.trim() !== "";
+const myClaim = local?.reclamos?.find(
+  (r: any) => r.userId === user._id
+);
 
   // ===============================
   // CARGAR PERFIL DEL USUARIO
@@ -225,13 +228,15 @@ export default function BusinessScreen() {
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombrePropietario: profile?.name,
-          correo: profile?.email,
-          telefono: profile?.phone,
-          mensaje: msg,
-          documentos: uploadedDocs,
-        }),
+body: JSON.stringify({
+  userId: user._id,                 // 👈 NUEVO
+  nombrePropietario: profile?.name,
+  correo: profile?.email,
+  telefono: profile?.phone,
+  mensaje: msg,
+  documentos: uploadedDocs,
+}),
+
       });
 
       const json = await res.json();
@@ -254,10 +259,6 @@ export default function BusinessScreen() {
     );
   }
 
-  const alreadyClaimed =
-    local.reclamos &&
-    Array.isArray(local.reclamos) &&
-    local.reclamos.length > 0;
 
   // ======================================
   // UI
@@ -325,19 +326,33 @@ export default function BusinessScreen() {
                 </View>
               </View>
 
-              {!local.verificado && !alreadyClaimed && (
-                <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
-                  <AlertTriangle size={14} color="#e5e7eb" />
-                  <Text
-                    style={[
-                      styles.textStrong,
-                      { color: "#e5e7eb", fontSize: 12 },
-                    ]}
-                  >
-                    {"  "}Reclamar negocio
-                  </Text>
-                </Btn>
-              )}
+{/* LÓGICA DEL BOTÓN DE RECLAMO */}
+{!local.verificado && (
+  <>
+
+    {/* SI YA HICE RECLAMO */}
+    {myClaim && myClaim.estado === "pendiente" && (
+      <BadgePending />
+    )}
+
+    {/* SI MI RECLAMO FUE RECHAZADO → puedo reclamar de nuevo */}
+    {myClaim && myClaim.estado === "rechazado" && (
+      <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
+        <AlertTriangle size={14} color="#e5e7eb" />
+        <Text style={{ color: "#e5e7eb" }}>  Reclamar negocio</Text>
+      </Btn>
+    )}
+
+    {/* SI NUNCA HE RECLAMADO → mostrar botón */}
+    {!myClaim && (
+      <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
+        <AlertTriangle size={14} color="#e5e7eb" />
+        <Text style={{ color: "#e5e7eb" }}>  Reclamar negocio</Text>
+      </Btn>
+    )}
+  </>
+)}
+
             </View>
           </View>
         </Card>
@@ -487,6 +502,24 @@ export default function BusinessScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+function BadgePending() {
+  return (
+    <View
+      style={{
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        backgroundColor: "rgba(251,191,36,0.15)",
+        borderColor: "#fbbf24",
+        borderWidth: 1,
+        borderRadius: 10,
+      }}
+    >
+      <Text style={{ color: "#fbbf24", fontWeight: "700" }}>
+        Tu solicitud está en revisión
+      </Text>
     </View>
   );
 }

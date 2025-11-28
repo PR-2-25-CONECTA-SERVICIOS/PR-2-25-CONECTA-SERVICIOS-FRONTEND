@@ -40,7 +40,9 @@ interface ClaimItem {
   documentos: string[];
   estado: Status;
   fecha: string;
+  userId: string;   // 👈 NUEVO: ID del usuario que reclama
 }
+
 
 // =======================================================
 //                     COMPONENTE PRINCIPAL
@@ -114,10 +116,18 @@ export default function AdminScreen() {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
+  loadClaims();
+  loadCategories();
+
+  // 🔁 Auto-refresh cada 5 segundos
+  const interval = setInterval(() => {
     loadClaims();
-    loadCategories();
-  }, []);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, []);
+
 
   // Stats KPI
   const stats = useMemo(
@@ -142,35 +152,43 @@ export default function AdminScreen() {
   }, [search, tab, claims]);
 
   // Aprobación
-  const approveClaim = async (item: ClaimItem) => {
-    try {
-      await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "aprobado", verificado: true }),
-      });
-      setConfirm(null);
-      setSelected(null);
-      loadClaims();
-    } catch (err) {
-      console.log("❌ Error aprobando reclamo:", err);
-    }
-  };
+const approveClaim = async (item: ClaimItem) => {
+  try {
+    await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        estado: "aprobado",
+        verificado: true,
+        userId: item.userId,          // 👈 PASARLO EXPLÍCITO
+      }),
+    });
+    setConfirm(null);
+    setSelected(null);
+    loadClaims();
+  } catch (err) {
+    console.log("❌ Error aprobando reclamo:", err);
+  }
+};
 
-  const rejectClaim = async (item: ClaimItem) => {
-    try {
-      await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "rechazado", verificado: false }),
-      });
-      setConfirm(null);
-      setSelected(null);
-      loadClaims();
-    } catch (err) {
-      console.log("❌ Error rechazando reclamo:", err);
-    }
-  };
+const rejectClaim = async (item: ClaimItem) => {
+  try {
+    await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        estado: "rechazado",
+        verificado: false,
+        userId: item.userId,          // (opcional pero consistente)
+      }),
+    });
+    setConfirm(null);
+    setSelected(null);
+    loadClaims();
+  } catch (err) {
+    console.log("❌ Error rechazando reclamo:", err);
+  }
+};
 
   // =======================================================
   //                      RENDER

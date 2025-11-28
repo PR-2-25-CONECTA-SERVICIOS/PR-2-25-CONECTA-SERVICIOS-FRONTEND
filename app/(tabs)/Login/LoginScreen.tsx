@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
+import { useAuth } from "../../../context/AuthContext";
+
 import { useState } from "react";
 import {
   Image,
@@ -11,12 +13,12 @@ import {
 } from "react-native";
 import { Button } from "../../../components/ui/button";
 
-import { saveUserSession } from "../../../utils/secureStore";
 
 const API_URL = "http://localhost:3000/api/auth/login";
 
 export default function LoginScreen() {
   const router = useRouter();
+const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,13 +47,13 @@ export default function LoginScreen() {
       }
 
       // Guardar sesión local (user)
-      await saveUserSession({
+
+await login({
   _id: data.usuario._id,
-  
   nombre: data.usuario.nombre,
   correo: data.usuario.correo,
-  rol: data.usuario.rol,        // 👈 SUPER IMPORTANTE
-  avatar: data.usuario.avatar,  // opcional
+  rol: data.usuario.rol,
+  avatar: data.usuario.avatar,
 });
 
 
