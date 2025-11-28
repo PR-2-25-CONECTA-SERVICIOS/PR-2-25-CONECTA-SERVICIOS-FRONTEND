@@ -24,7 +24,7 @@ import {
 
 import { useAuth } from "@/context/AuthContext"; // ⭐ IMPORTANTE – USAR USER REAL
 
-const API_URL = "http://localhost:3000/api/servicios";
+const API_URL = "http://192.168.0.6:3000/api/servicios";
 
 interface IService {
   _id: string;
@@ -107,7 +107,7 @@ useEffect(() => {
 
   const loadMyServices = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
+      const res = await fetch(`http://192.168.0.6:3000/api/usuarios/${user._id}`);
       const json = await res.json();
 
       // json.servicios es un array de objetos

@@ -31,7 +31,7 @@ import { useAuth } from "@/context/AuthContext";
 // =====================
 // CONFIG
 // =====================
-const API_URL = "http://localhost:3000/api/locales";
+const API_URL = "http://192.168.0.6:3000/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
@@ -141,7 +141,7 @@ export default function BusinessScreen() {
     const loadProfile = async () => {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/usuarios/${user._id}`
+          `http://192.168.0.6:3000/api/usuarios/${user._id}`
         );
         const data = await res.json();
         setProfile({
