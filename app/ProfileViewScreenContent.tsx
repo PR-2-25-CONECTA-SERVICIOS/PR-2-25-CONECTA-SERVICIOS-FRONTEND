@@ -703,7 +703,17 @@ const confirmDelete = async () => {
             </TouchableOpacity>
           </View>
           {services.map((svc) => (
-  <View key={svc.id} style={styles.serviceItem}>
+<TouchableOpacity
+  key={svc.id}
+  style={styles.serviceItem}
+  activeOpacity={0.8}
+  onPress={() =>
+    router.push({
+      pathname: "/ServiceProviderScreen",
+      params: { id: svc.id },
+    })
+  }
+>
     
     {/* Thumbnail */}
     <View style={styles.serviceThumb}>
@@ -733,7 +743,7 @@ const confirmDelete = async () => {
       </View>
     </View>
 
-  </View>
+</TouchableOpacity>
 ))}
 
 
