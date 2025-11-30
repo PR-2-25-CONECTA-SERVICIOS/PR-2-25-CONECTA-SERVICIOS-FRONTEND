@@ -9,8 +9,7 @@ import {
   Camera,
   Clock,
   MapPin,
-  Send,
-  Star,
+  Send
 } from "lucide-react-native";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -292,11 +291,7 @@ body: JSON.stringify({
         {/* INFO */}
         <Card>
           <View style={{ padding: 12 }}>
-            <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
-              <Star size={16} color="#fbbf24" fill="#fbbf24" />
-              <Text style={styles.textStrong}>{local.calificacion}</Text>
-              <Text style={styles.textMuted}>({local.reseñas} reseñas)</Text>
-            </View>
+
 
             <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>
               {local.direccion || "Dirección no definida"}

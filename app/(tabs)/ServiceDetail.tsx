@@ -246,11 +246,7 @@ const phone = service?.propietario?.telefono;
           </View>
         </View>
 
-        <View style={styles.availabilityBadge}>
-          <Text style={service.disponible ? styles.availableText : styles.notAvailableText}>
-            {service.disponible ? "Disponible" : "No disponible"}
-          </Text>
-        </View>
+
       </View>
 
       {/* BODY */}
@@ -338,29 +334,24 @@ const phone = service?.propietario?.telefono;
         {/* CTA */}
 {/* CTA */}
 <View style={{ paddingHorizontal: 16 }}>
+{isMyService ? (
+  // 👉 Si es mi servicio
+  <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
+    <Text style={styles.ctaBtnText}>Este es tu servicio</Text>
+  </View>
 
-  {isMyService ? (
-    // 👇 Si es mi servicio, NO muestro el botón de solicitar
-    <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
-      <Text style={styles.ctaBtnText}>Este es tu servicio</Text>
-    </View>
-  
-  ) : !service.disponible ? (
-    <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
-      <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
-    </View>
+) : requestSent ? (
+  // 👉 Si ya envié la solicitud
+  <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
+    <Text style={styles.ctaBtnText}>Solicitud Enviada</Text>
+  </View>
 
-  ) : !requestSent ? (
-    <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
-      <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
-    </TouchableOpacity>
-
-  ) : (
-    <View style={styles.ctaSent}>
-      <CheckCircle2 size={18} color="#fbbf24" />
-      <Text style={styles.ctaSentText}>Solicitud enviada</Text>
-    </View>
-  )}
+) : (
+  // 👉 Si NO es mío y NO envié solicitud todavía
+  <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
+    <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
+  </TouchableOpacity>
+)}
 
 </View>
 
