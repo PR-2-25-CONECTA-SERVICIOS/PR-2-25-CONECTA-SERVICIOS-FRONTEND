@@ -45,8 +45,8 @@ import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
 // ⚠️ Si pruebas en dispositivo físico, cambia localhost por la IP de tu PC
-const API_URL = "http://192.168.0.6:3000/api/locales";
-const CATEGORY_API = "http://192.168.0.6:3000/api/categorias";
+const API_URL = "http://192.168.1.71:3000/api/locales";
+const CATEGORY_API = "http://192.168.1.71:3000/api/categorias";
 
 // 🔗 Cloudinary
 const CLOUDINARY_URL =

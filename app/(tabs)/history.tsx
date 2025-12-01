@@ -27,7 +27,7 @@ import {
 import { loadUserSession } from "../../utils/secureStore";
 
 // 📌 Ruta correcta (solo para solicitudes)
-const USER_API = "http://192.168.0.6:3000/api/usuarios";
+const USER_API = "http://192.168.1.71:3000/api/usuarios";
 
 // Tipos
 type Status = "finalizado" | "pendiente" | "cancelado" | "aceptado";

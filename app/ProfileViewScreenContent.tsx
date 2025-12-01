@@ -22,7 +22,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 // 🔥 TU BACKEND REAL
-const API_URL = "http://localhost:3000/api/usuarios/";
+const API_URL = "http://192.168.1.71:3000/api/usuarios/";
 
 type Service = {
   id: string;
@@ -62,6 +62,8 @@ type Profile = {
 };
 
 export default function ProfileViewScreenContent() {
+  
+  
   const router = useRouter();
   const { user, logout } = useAuth();
   const rootState = useRootNavigationState();
@@ -169,7 +171,7 @@ const [hours, setHours] = useState({
   ============================================ */
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/categorias");
+      const res = await fetch("http://192.168.1.71:3000/api/categorias");
       const data = await res.json();
       setCategories(data);
     } catch (err) {
@@ -703,7 +705,17 @@ const confirmDelete = async () => {
             </TouchableOpacity>
           </View>
           {services.map((svc) => (
-  <View key={svc.id} style={styles.serviceItem}>
+  <TouchableOpacity
+  key={svc.id}
+  style={styles.serviceItem}
+  activeOpacity={0.8}
+  onPress={() =>
+    router.push({
+      pathname: "/ServiceProviderScreen",
+      params: { id: svc.id },
+    })
+  }
+>
     
     {/* Thumbnail */}
     <View style={styles.serviceThumb}>
@@ -733,7 +745,7 @@ const confirmDelete = async () => {
       </View>
     </View>
 
-  </View>
+  </TouchableOpacity>
 ))}
 
 
@@ -771,6 +783,24 @@ const confirmDelete = async () => {
         <Text style={styles.localName}>{l.name}</Text>
         <Text style={styles.localAddress}>{l.address}</Text>
         <Text style={styles.localStatus}>{l.verified ? "Verificado" : "No verificado"}</Text>
+        {/* BOTÓN COMPLETAR REGISTRO */}
+{l.verified && (
+  <TouchableOpacity
+    style={{
+      backgroundColor: "#fbbf24",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginRight: 10,
+    }}
+    onPress={() => openLocalModal(l)}
+  >
+    <Text style={{ color: "#111", fontWeight: "900" }}>
+      Completar registro
+    </Text>
+  </TouchableOpacity>
+)}
+
       </View>
     </TouchableOpacity>
 

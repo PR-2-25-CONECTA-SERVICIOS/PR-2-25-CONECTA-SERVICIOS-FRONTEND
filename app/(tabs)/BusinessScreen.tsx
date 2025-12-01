@@ -31,7 +31,7 @@ import { useAuth } from "@/context/AuthContext";
 // =====================
 // CONFIG
 // =====================
-const API_URL = "http://192.168.0.6:3000/api/locales";
+const API_URL = "http://192.168.1.71:3000/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
@@ -129,8 +129,10 @@ export default function BusinessScreen() {
   const [docs, setDocs] = useState<DocFile[]>([]);
   const canSubmit = msg.trim() !== "";
 
-  const myClaim =
-    local?.reclamos?.find((r: any) => r.userId === user._id) || null;
+const myClaim = local?.reclamos
+  ?.filter((r: any) => r && r.userId) // elimina nulls y reclamos corruptos
+  ?.find((r: any) => r.userId === user?._id) || null;
+
 
   // ==========================
   // LOAD USER PROFILE
@@ -141,7 +143,7 @@ export default function BusinessScreen() {
     const loadProfile = async () => {
       try {
         const res = await fetch(
-          `http://192.168.0.6:3000/api/usuarios/${user._id}`
+          `http://192.168.1.71:3000/api/usuarios/${user._id}`
         );
         const data = await res.json();
         setProfile({

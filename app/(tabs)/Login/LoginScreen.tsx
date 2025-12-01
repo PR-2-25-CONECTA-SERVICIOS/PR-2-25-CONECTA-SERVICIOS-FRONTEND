@@ -11,10 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Button } from "../../../components/ui/button";
 
 
-const API_URL = "http://192.168.0.6:3000/api/auth/login";
+const API_URL = "http://192.168.1.71:3000/api/auth/login";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -110,9 +109,13 @@ await login({
         {msg.length > 0 && <Text style={styles.msg}>{msg}</Text>}
 
         {/* Botón Login */}
-        <Button onPress={handleLogin} style={styles.loginButton}>
-          Iniciar Sesión
-        </Button>
+<TouchableOpacity
+  style={[styles.loginButton, { alignItems: "center" }]}
+  onPress={handleLogin}
+>
+  <Text style={{ fontWeight: "700" }}>Iniciar Sesión</Text>
+</TouchableOpacity>
+
 
         <TouchableOpacity>
           <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>

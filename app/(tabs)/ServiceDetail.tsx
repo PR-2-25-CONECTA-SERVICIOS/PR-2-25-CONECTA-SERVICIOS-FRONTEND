@@ -24,7 +24,7 @@ import {
 
 import { useAuth } from "@/context/AuthContext"; // ⭐ IMPORTANTE – USAR USER REAL
 
-const API_URL = "http://192.168.0.6:3000/api/servicios";
+const API_URL = "http://192.168.1.71:3000/api/servicios";
 
 interface IService {
   _id: string;
@@ -340,27 +340,23 @@ const phone = service?.propietario?.telefono;
 <View style={{ paddingHorizontal: 16 }}>
 
   {isMyService ? (
-    // 👇 Si es mi servicio, NO muestro el botón de solicitar
-    <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
-      <Text style={styles.ctaBtnText}>Este es tu servicio</Text>
-    </View>
-  
-  ) : !service.disponible ? (
-    <View style={[styles.ctaBtn, { opacity: 0.6 }]}>
-      <Text style={styles.ctaBtnText}>Servicio No Disponible</Text>
-    </View>
+  // 👉 Si es mi servicio
+  <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
+    <Text style={styles.ctaBtnText}>Este es tu servicio</Text>
+  </View>
 
-  ) : !requestSent ? (
-    <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
-      <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
-    </TouchableOpacity>
+) : requestSent ? (
+  // 👉 Si ya envié la solicitud
+  <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
+    <Text style={styles.ctaBtnText}>Solicitud Enviada</Text>
+  </View>
 
-  ) : (
-    <View style={styles.ctaSent}>
-      <CheckCircle2 size={18} color="#fbbf24" />
-      <Text style={styles.ctaSentText}>Solicitud enviada</Text>
-    </View>
-  )}
+) : (
+  // 👉 Si NO es mío y NO envié solicitud todavía
+  <TouchableOpacity style={styles.ctaBtn} onPress={sendServiceRequest}>
+    <Text style={styles.ctaBtnText}>Solicitar Servicio Ahora</Text>
+  </TouchableOpacity>
+)}
 
 </View>
 
