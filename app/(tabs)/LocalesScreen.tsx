@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-const API_URL = "http://192.168.1.71:3000/api/locales";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 type Hours = Record<DayKey, { open: string; close: string } | null>;
@@ -72,7 +72,7 @@ useFocusEffect(
 
 const loadCategories = async () => {
   try {
-    const res = await fetch("http://192.168.0.6:3000/api/categorias");
+    const res = await fetch("https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias");
     const json = await res.json();
 
     const names = json.map((c: any) => c.nombre);

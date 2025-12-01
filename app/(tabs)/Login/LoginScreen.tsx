@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 
-const API_URL = "http://192.168.1.71:3000/api/auth/login";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/auth/login";
 
 export default function LoginScreen() {
   const router = useRouter();

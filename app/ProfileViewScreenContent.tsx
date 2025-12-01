@@ -22,7 +22,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 // 🔥 TU BACKEND REAL
-const API_URL = "http://192.168.1.71:3000/api/usuarios/";
+const API_URL =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/";
 
 type Service = {
   id: string;
@@ -62,8 +63,6 @@ type Profile = {
 };
 
 export default function ProfileViewScreenContent() {
-  
-  
   const router = useRouter();
   const { user, logout } = useAuth();
   const rootState = useRootNavigationState();
@@ -76,18 +75,20 @@ export default function ProfileViewScreenContent() {
     label: string;
     value: string;
   };
-const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-const [deleteTarget, setDeleteTarget] = useState<any>(null);
-const [deleteType, setDeleteType] = useState<"service" | "local" | null>(null);
-const [hours, setHours] = useState({
-  lunes: { open: "", close: "" },
-  martes: { open: "", close: "" },
-  miercoles: { open: "", close: "" },
-  jueves: { open: "", close: "" },
-  viernes: { open: "", close: "" },
-  sabado: { open: "", close: "" },
-  domingo: { open: "", close: "" },
-});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteType, setDeleteType] = useState<"service" | "local" | null>(
+    null
+  );
+  const [hours, setHours] = useState({
+    lunes: { open: "", close: "" },
+    martes: { open: "", close: "" },
+    miercoles: { open: "", close: "" },
+    jueves: { open: "", close: "" },
+    viernes: { open: "", close: "" },
+    sabado: { open: "", close: "" },
+    domingo: { open: "", close: "" },
+  });
 
   type DropdownProps = {
     value: string;
@@ -171,7 +172,9 @@ const [hours, setHours] = useState({
   ============================================ */
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://192.168.1.71:3000/api/categorias");
+      const res = await fetch(
+        "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias"
+      );
       const data = await res.json();
       setCategories(data);
     } catch (err) {
@@ -182,82 +185,79 @@ const [hours, setHours] = useState({
   };
 
   useFocusEffect(
-  useCallback(() => {
-    if (!user || !user._id) {
-      router.replace("/(tabs)/Login/LoginScreen");
-      return;
-    }
-
-    let active = true;
-    setLoading(true);
-
-    loadCategories();
-
-    const loadProfile = async () => {
-      try {
-        const res = await fetch(API_URL + user._id);
-        const raw = await res.text();
-        const data = JSON.parse(raw);
-
-        if (!active) return;
-
-        setProfile({
-          name: data.nombre,
-          email: data.correo,
-          phone: data.telefono,
-          avatar: data.avatar,
-          verified: data.verificado,
-          rating: data.calificacion,
-          reviews: data.reseñas,
-          services: [],
-          locals: [],
-        });
-
-        const parsedServices = (data.servicios || []).map((srv: any) => ({
-          id: srv._id,
-          name: srv.nombre,
-          category: srv.categoria,
-          hourlyPrice: srv.precio,
-          description: srv.descripcion,
-          location: srv.direccion,
-          hours: srv.horas,
-          tags: srv.especialidades,
-          photo: srv.imagen,
-        }));
-
-        setServices(parsedServices);
-
-        const parsedLocals = (data.locales || []).map((loc: any) => ({
-          id: loc._id,
-          name: loc.nombre,
-          address: loc.direccion,
-          verified: loc.verificado,
-          thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
-          photos: loc.fotos || [],
-          specialTags: loc.tagsEspeciales || [],
-          url: loc.url || "",
-          amenities: loc.servicios || [],
-          claims: loc.reclamos || [],
-        }));
-
-        setLocals(parsedLocals);
-
-      } catch (err) {
-        console.log("❌ Error cargando perfil:", err);
-      } finally {
-        if (active) setLoading(false);
+    useCallback(() => {
+      if (!user || !user._id) {
+        router.replace("/(tabs)/Login/LoginScreen");
+        return;
       }
-    };
 
+      let active = true;
+      setLoading(true);
 
-    loadProfile();
+      loadCategories();
 
-    return () => {
-      active = false;
-    };
-  }, [user?._id])
-);
+      const loadProfile = async () => {
+        try {
+          const res = await fetch(API_URL + user._id);
+          const raw = await res.text();
+          const data = JSON.parse(raw);
 
+          if (!active) return;
+
+          setProfile({
+            name: data.nombre,
+            email: data.correo,
+            phone: data.telefono,
+            avatar: data.avatar,
+            verified: data.verificado,
+            rating: data.calificacion,
+            reviews: data.reseñas,
+            services: [],
+            locals: [],
+          });
+
+          const parsedServices = (data.servicios || []).map((srv: any) => ({
+            id: srv._id,
+            name: srv.nombre,
+            category: srv.categoria,
+            hourlyPrice: srv.precio,
+            description: srv.descripcion,
+            location: srv.direccion,
+            hours: srv.horas,
+            tags: srv.especialidades,
+            photo: srv.imagen,
+          }));
+
+          setServices(parsedServices);
+
+          const parsedLocals = (data.locales || []).map((loc: any) => ({
+            id: loc._id,
+            name: loc.nombre,
+            address: loc.direccion,
+            verified: loc.verificado,
+            thumb: loc.thumb || loc.imagen || loc.fotoPrincipal,
+            photos: loc.fotos || [],
+            specialTags: loc.tagsEspeciales || [],
+            url: loc.url || "",
+            amenities: loc.servicios || [],
+            claims: loc.reclamos || [],
+          }));
+
+          setLocals(parsedLocals);
+        } catch (err) {
+          console.log("❌ Error cargando perfil:", err);
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+
+      loadProfile();
+
+      return () => {
+        active = false;
+      };
+    }, [user?._id])
+  );
 
   /* ============================================
        LOGOUT
@@ -406,40 +406,43 @@ const [hours, setHours] = useState({
     }
   };
   const openDeleteModal = (type: "service" | "local", item: any) => {
-  setDeleteType(type);
-  setDeleteTarget(item);
-  setDeleteModalOpen(true);
-};
+    setDeleteType(type);
+    setDeleteTarget(item);
+    setDeleteModalOpen(true);
+  };
 
-const confirmDelete = async () => {
-  if (!deleteTarget || !deleteType) return;
-  
-  try {
-    if (deleteType === "service") {
-      // DELETE servicio
-      await fetch(`${API_URL}${user._id}/servicios/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
+  const confirmDelete = async () => {
+    if (!deleteTarget || !deleteType) return;
 
-      // Actualizar UI
-      setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+    try {
+      if (deleteType === "service") {
+        // DELETE servicio
+        await fetch(`${API_URL}${user._id}/servicios/${deleteTarget.id}`, {
+          method: "DELETE",
+        });
+
+        // Actualizar UI
+        setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      }
+
+      if (deleteType === "local") {
+        // DELETE local
+        await fetch(
+          `https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales/${deleteTarget.id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        // Actualizar UI
+        setLocals((prev) => prev.filter((l) => l.id !== deleteTarget.id));
+      }
+    } catch (err) {
+      console.log("❌ Error eliminando:", err);
     }
 
-    if (deleteType === "local") {
-      // DELETE local
-      await fetch(`http://localhost:3000/api/locales/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
-
-      // Actualizar UI
-      setLocals((prev) => prev.filter((l) => l.id !== deleteTarget.id));
-    }
-  } catch (err) {
-    console.log("❌ Error eliminando:", err);
-  }
-
-  setDeleteModalOpen(false);
-};
+    setDeleteModalOpen(false);
+  };
 
   const pickServicePhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -470,31 +473,33 @@ const confirmDelete = async () => {
 
   const uploadToCloudinary = async (uri: string, mimeType: string) => {
     try {
-      // Convertir blob:http://... a un blob real
-      const blob = await fetch(uri).then((r) => r.blob());
-
       const data = new FormData();
-      data.append("file", blob);
-      data.append("upload_preset", "imagescloudexp"); // tu preset EXACTO
+
+      data.append("file", {
+        uri: uri,
+        name: "photo.jpg",
+        type: mimeType || "image/jpeg",
+      } as any);
+
+      data.append("upload_preset", "imagescloudexp");
 
       const res = await fetch(
         "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload",
         {
           method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
           body: data,
         }
       );
 
       const json = await res.json();
+      console.log("🔥 Cloudinary:", json);
 
-      if (json.secure_url) {
-        return json.secure_url;
-      }
-
-      console.log("❌ Cloudinary error response:", json);
-      return null;
+      return json.secure_url || null;
     } catch (err) {
-      console.log("❌ Error subiendo archivo:", err);
+      console.log("❌ CLOUD ERROR:", err);
       return null;
     }
   };
@@ -545,7 +550,7 @@ const confirmDelete = async () => {
 
     try {
       const res = await fetch(
-        `http://localhost:3000/api/locales/${activeLocal.id}/completar`,
+        `https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales/${activeLocal.id}/completar`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -600,17 +605,12 @@ const confirmDelete = async () => {
     if (res.canceled) return;
 
     const asset = res.assets[0];
-
-    // Siempre existe asset.uri
     const localUri = asset.uri;
-
-    // El MIME puede venir undefined, así que lo aseguramos:
-    const mimeType = asset.mimeType || "image/jpeg";
+    const mimeType = asset.mimeType ?? "image/jpeg";
 
     console.log("🔥 URI:", localUri);
     console.log("🔥 MIME:", mimeType);
 
-    // Subir a Cloudinary
     const cloudUrl = await uploadToCloudinary(localUri, mimeType);
 
     if (!cloudUrl) {
@@ -705,50 +705,55 @@ const confirmDelete = async () => {
             </TouchableOpacity>
           </View>
           {services.map((svc) => (
-  <TouchableOpacity
-  key={svc.id}
-  style={styles.serviceItem}
-  activeOpacity={0.8}
-  onPress={() =>
-    router.push({
-      pathname: "/ServiceProviderScreen",
-      params: { id: svc.id },
-    })
-  }
->
-    
-    {/* Thumbnail */}
-    <View style={styles.serviceThumb}>
-      {svc.photo ? (
-        <Image source={{ uri: svc.photo }} style={{ width: "100%", height: "100%" }} />
-      ) : (
-        <View style={styles.serviceThumbFallback}>
-          <Text style={{ color: "#666" }}>Sin foto</Text>
-        </View>
-      )}
-    </View>
+            <TouchableOpacity
+              key={svc.id}
+              style={styles.serviceItem}
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push({
+                  pathname: "/ServiceProviderScreen",
+                  params: { id: svc.id },
+                })
+              }
+            >
+              {/* Thumbnail */}
+              <View style={styles.serviceThumb}>
+                {svc.photo ? (
+                  <Image
+                    source={{ uri: svc.photo }}
+                    style={{ width: "100%", height: "100%" }}
+                  />
+                ) : (
+                  <View style={styles.serviceThumbFallback}>
+                    <Text style={{ color: "#666" }}>Sin foto</Text>
+                  </View>
+                )}
+              </View>
 
-    {/* Info */}
-    <View style={styles.actionCol}>
-      <Text style={styles.serviceName}>{svc.name}</Text>
-      <Text style={styles.serviceMeta}>{svc.category} • {svc.hourlyPrice}</Text>
-      <Text style={styles.serviceDesc}>{svc.description}</Text>
+              {/* Info */}
+              <View style={styles.actionCol}>
+                <Text style={styles.serviceName}>{svc.name}</Text>
+                <Text style={styles.serviceMeta}>
+                  {svc.category} • {svc.hourlyPrice}
+                </Text>
+                <Text style={styles.serviceDesc}>{svc.description}</Text>
 
-      <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
-        <TouchableOpacity onPress={() => openEdit(svc)}>
-          <Text style={{ color: "#fbbf24" }}>Editar</Text>
-        </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
+                  <TouchableOpacity onPress={() => openEdit(svc)}>
+                    <Text style={{ color: "#fbbf24" }}>Editar</Text>
+                  </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => openDeleteModal("service", svc)}>
-          <Text style={{ color: "#e63946", fontWeight: "700" }}>Eliminar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-
-  </TouchableOpacity>
-))}
-
-
+                  <TouchableOpacity
+                    onPress={() => openDeleteModal("service", svc)}
+                  >
+                    <Text style={{ color: "#e63946", fontWeight: "700" }}>
+                      Eliminar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* LOCALES */}
@@ -762,57 +767,66 @@ const confirmDelete = async () => {
           )}
 
           {locals.map((l) => (
-  <View key={l.id} style={styles.localItem}>
+            <View key={l.id} style={styles.localItem}>
+              <TouchableOpacity
+                style={{ flexDirection: "row", flex: 1 }}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: "/BusinessScreen",
+                    params: { id: l.id },
+                  })
+                }
+              >
+                <View style={styles.localThumbWrap}>
+                  {l.thumb ? (
+                    <Image
+                      source={{ uri: l.thumb }}
+                      style={styles.localThumb}
+                    />
+                  ) : (
+                    <View style={styles.localThumbFallback}>
+                      <Text style={{ color: "#999" }}>No foto</Text>
+                    </View>
+                  )}
+                </View>
 
-    <TouchableOpacity
-      style={{ flexDirection: "row", flex: 1 }}
-      activeOpacity={0.85}
-      onPress={() => router.push({ pathname: "/BusinessScreen", params: { id: l.id } })}
-    >
-      <View style={styles.localThumbWrap}>
-        {l.thumb ? (
-          <Image source={{ uri: l.thumb }} style={styles.localThumb} />
-        ) : (
-          <View style={styles.localThumbFallback}>
-            <Text style={{ color: "#999" }}>No foto</Text>
-          </View>
-        )}
-      </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.localName}>{l.name}</Text>
+                  <Text style={styles.localAddress}>{l.address}</Text>
+                  <Text style={styles.localStatus}>
+                    {l.verified ? "Verificado" : "No verificado"}
+                  </Text>
+                  {/* BOTÓN COMPLETAR REGISTRO */}
+                  {l.verified && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: "#fbbf24",
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        borderRadius: 8,
+                        marginRight: 10,
+                      }}
+                      onPress={() => openLocalModal(l)}
+                    >
+                      <Text style={{ color: "#111", fontWeight: "900" }}>
+                        Completar registro
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-      <View style={{ flex: 1 }}>
-        <Text style={styles.localName}>{l.name}</Text>
-        <Text style={styles.localAddress}>{l.address}</Text>
-        <Text style={styles.localStatus}>{l.verified ? "Verificado" : "No verificado"}</Text>
-        {/* BOTÓN COMPLETAR REGISTRO */}
-{l.verified && (
-  <TouchableOpacity
-    style={{
-      backgroundColor: "#fbbf24",
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      marginRight: 10,
-    }}
-    onPress={() => openLocalModal(l)}
-  >
-    <Text style={{ color: "#111", fontWeight: "900" }}>
-      Completar registro
-    </Text>
-  </TouchableOpacity>
-)}
-
-      </View>
-    </TouchableOpacity>
-
-    {/* Botón eliminar */}
-    <TouchableOpacity onPress={() => openDeleteModal("local", l)}>
-      <Text style={{ color: "#e63946", fontWeight: "900", fontSize: 16 }}>🗑</Text>
-    </TouchableOpacity>
-
-  </View>
-))}
-
-
+              {/* Botón eliminar */}
+              <TouchableOpacity onPress={() => openDeleteModal("local", l)}>
+                <Text
+                  style={{ color: "#e63946", fontWeight: "900", fontSize: 16 }}
+                >
+                  🗑
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
         {/* BOTÓN CERRAR SESIÓN */}
         <View
@@ -902,21 +916,22 @@ const confirmDelete = async () => {
               />
             )}
 
-<View style={styles.priceRow}>
-  <TextInput
-    placeholder="Precio por hora"
-    placeholderTextColor="#666"
-    style={styles.priceInput}
-    keyboardType="numeric"
-    value={draft.hourlyPrice}
-    onChangeText={(v) => setDraft((p) => ({ ...p, hourlyPrice: v }))}
-  />
+            <View style={styles.priceRow}>
+              <TextInput
+                placeholder="Precio por hora"
+                placeholderTextColor="#666"
+                style={styles.priceInput}
+                keyboardType="numeric"
+                value={draft.hourlyPrice}
+                onChangeText={(v) =>
+                  setDraft((p) => ({ ...p, hourlyPrice: v }))
+                }
+              />
 
-  <View style={styles.priceSuffix}>
-    <Text style={{ color: "#fff", fontWeight: "800" }}>Bs</Text>
-  </View>
-</View>
-
+              <View style={styles.priceSuffix}>
+                <Text style={{ color: "#fff", fontWeight: "800" }}>Bs</Text>
+              </View>
+            </View>
 
             <TextInput
               placeholder="Descripción"
@@ -1118,31 +1133,41 @@ const confirmDelete = async () => {
         </KeyboardAvoidingView>
       </Modal>
       <Modal visible={deleteModalOpen} transparent animationType="fade">
-  <View style={styles.modalOverlay}>
-    <View style={[styles.modalCard, { maxWidth: 350 }]}>
-      <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 12 }}>
-        ¿Eliminar {deleteType === "service" ? "servicio" : "local"}?
-      </Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 350 }]}>
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 18,
+                fontWeight: "800",
+                marginBottom: 12,
+              }}
+            >
+              ¿Eliminar {deleteType === "service" ? "servicio" : "local"}?
+            </Text>
 
-      <Text style={{ color: "#ccc", marginBottom: 20 }}>
-        ¿Seguro que deseas eliminar "{deleteTarget?.name}"? Esta acción no se puede deshacer.
-      </Text>
+            <Text style={{ color: "#ccc", marginBottom: 20 }}>
+              ¿Seguro que deseas eliminar "{deleteTarget?.name}"? Esta acción no
+              se puede deshacer.
+            </Text>
 
-      <TouchableOpacity
-        style={[styles.saveBtn, { backgroundColor: "#e63946" }]}
-        onPress={confirmDelete}
-      >
-        <Text style={styles.saveBtnText}>Eliminar</Text>
-      </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: "#e63946" }]}
+              onPress={confirmDelete}
+            >
+              <Text style={styles.saveBtnText}>Eliminar</Text>
+            </TouchableOpacity>
 
-      <TouchableOpacity style={styles.cancelBtn} onPress={() => setDeleteModalOpen(false)}>
-        <Text style={styles.cancelBtnText}>Cancelar</Text>
-      </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setDeleteModalOpen(false)}
+            >
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
-  </View>
-</Modal>
-    </View>
-    
   );
 }
 
@@ -1430,34 +1455,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15,
   },
-priceRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginBottom: 10,
-},
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
 
-priceInput: {
-  flex: 1,
-  height: 45,
-  backgroundColor: "#222",
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: "#333",
-  paddingHorizontal: 12,
-  color: "#fff",
-},
+  priceInput: {
+    flex: 1,
+    height: 45,
+    backgroundColor: "#222",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#333",
+    paddingHorizontal: 12,
+    color: "#fff",
+  },
 
-priceSuffix: {
-  height: 45,
-  paddingHorizontal: 14,
-  backgroundColor: "#333",
-  borderRadius: 10,
-  marginLeft: 8,
-  alignItems: "center",
-  justifyContent: "center",
-  borderWidth: 1,
-  borderColor: "#444",
-},
+  priceSuffix: {
+    height: 45,
+    paddingHorizontal: 14,
+    backgroundColor: "#333",
+    borderRadius: 10,
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#444",
+  },
 
   serviceMeta: {
     color: "#ccc",

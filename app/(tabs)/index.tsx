@@ -38,7 +38,7 @@ interface IService {
 // =======================================
 // Backend URL
 // =======================================
-const API_URL = "http://192.168.1.71:3000/api/servicios";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/servicios";
 
 // =======================================
 // Componente principal
@@ -74,7 +74,7 @@ export default function ServiceCatalogScreen() {
   // =======================================
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://192.168.1.71:3000/api/categorias");
+      const res = await fetch("https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias");
       const data = await res.json();
 
       const names = data.map((c: any) => c.nombre);
@@ -136,7 +136,7 @@ export default function ServiceCatalogScreen() {
       const loadProfile = async () => {
         try {
           const res = await fetch(
-            `http://192.168.1.71:3000/api/usuarios/${user._id}`
+            `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${user._id}`
           );
           const raw = await res.text();
           const data = JSON.parse(raw);

@@ -27,7 +27,7 @@ import {
 } from "react-native";
 
 
-const API_BASE = "http://192.168.1.71:3000";
+const API_BASE = "https://pr-2-25-conecta-servicios-backend.onrender.com";
 const SERVICES_API = `${API_BASE}/api/servicios`;
 
 type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";

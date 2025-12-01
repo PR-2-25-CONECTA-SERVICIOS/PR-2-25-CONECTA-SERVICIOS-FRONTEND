@@ -31,7 +31,7 @@ import { useAuth } from "@/context/AuthContext";
 // =====================
 // CONFIG
 // =====================
-const API_URL = "http://192.168.1.71:3000/api/locales";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
@@ -143,7 +143,7 @@ const myClaim = local?.reclamos
     const loadProfile = async () => {
       try {
         const res = await fetch(
-          `http://192.168.1.71:3000/api/usuarios/${user._id}`
+          `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${user._id}`
         );
         const data = await res.json();
         setProfile({
@@ -576,7 +576,7 @@ const myClaim = local?.reclamos
                         name: fileName,
                         type: asset.mimeType,
                         base64,
-                        uploading: false,
+                        uploading: false, 
                       },
                     ]);
                   }
