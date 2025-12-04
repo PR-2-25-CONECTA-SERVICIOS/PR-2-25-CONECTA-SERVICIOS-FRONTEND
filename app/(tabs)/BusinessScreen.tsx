@@ -8,8 +8,7 @@ import {
   ArrowLeft,
   Camera,
   MapPin,
-  Send,
-  Star
+  Send
 } from "lucide-react-native";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -285,9 +284,16 @@ const myClaim = local?.reclamos
         <Card>
           <View style={{ padding: 12 }}>
             <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
-              <Star size={16} color="#fbbf24" fill="#fbbf24" />
-              <Text style={styles.textStrong}>{local.calificacion}</Text>
-              <Text style={styles.textMuted}>({local.reseñas} reseñas)</Text>
+              <Text style={styles.textStrong}>Número:</Text>
+
+              <Text style={styles.textBody}>{local.telefono}</Text>
+
+            </View>
+            <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
+              <Text style={styles.textStrong}>Categoría:</Text>
+
+              <Text style={styles.textBody}>{local.categoria}</Text>
+
             </View>
 
             <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>

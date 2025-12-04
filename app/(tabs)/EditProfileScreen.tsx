@@ -23,13 +23,14 @@ export default function EditProfileScreen() {
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
+const [name, setName] = useState("");
+const [phone, setPhone] = useState("");
+const [email, setEmail] = useState("");
+const [photo, setPhoto] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+const [errors, setErrors] = useState<{name?:string, phone?:string, email?:string}>({});
 
   /* ---------------------------------------------
       CARGAR PERFIL DESDE SESIÓN + BACKEND
@@ -139,21 +140,42 @@ export default function EditProfileScreen() {
       }
     }
   };
+const validateForm = () => {
+  const newErrors: any = {};
+
+  // Nombre no vacío
+  if (!name.trim()) newErrors.name = "El nombre no puede estar vacío.";
+
+  // Teléfono Bolivia
+  if (!/^(6|7)\d{7}$/.test(phone.trim())) 
+    newErrors.phone = "Debe tener 8 dígitos y comenzar con 6 o 7.";
+
+  // Email válido
+  if (!email.trim()) newErrors.email = "El correo no puede estar vacío.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) 
+    newErrors.email = "Formato de correo no válido.";
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
   /* ---------------------------------------------
      GUARDAR PERFIL
   ----------------------------------------------*/
   const handleSave = async () => {
+      if (!validateForm()) return; // ⛔ detiene si hay errores
+
     if (!userId) return;
 
     try {
       setSaving(true);
 
-      const body = {
-        nombre: name.trim(),
-        telefono: phone.trim(),
-        avatar: photo ?? "",
-      };
+    const body = {
+      nombre: name.trim(),
+      telefono: phone.trim(),
+      correo: email.trim(),
+      avatar: photo ?? "",
+    };
 
       const res = await fetch(API_URL + userId, {
         method: "PUT",
@@ -226,29 +248,38 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
 
         {/* INPUTS */}
-        <TextInput
-          style={styles.input}
-          placeholder="Nombre"
-          placeholderTextColor="#888"
-          value={name}
-          onChangeText={setName}
-        />
+        {/* NOMBRE */}
+<TextInput
+  style={[styles.input, errors.name && {borderColor:"red"}]}
+  placeholder="Nombre"
+  placeholderTextColor="#888"
+  value={name}
+  onChangeText={(t)=>{ setName(t); setErrors({...errors}); }}
+/>
+{errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Teléfono"
-          placeholderTextColor="#888"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-        />
+{/* TELÉFONO */}
+<TextInput
+  style={[styles.input, errors.phone && {borderColor:"red"}]}
+  placeholder="Teléfono (8 dígitos)"
+  placeholderTextColor="#888"
+  keyboardType="phone-pad"
+  maxLength={8}
+  value={phone}
+  onChangeText={(t)=>{ setPhone(t.replace(/[^0-9]/g,"")); setErrors({...errors}); }}
+/>
+{errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
-        <TextInput
-          style={[styles.input, { opacity: 0.6 }]}
-          editable={false}
-          value={email}
-          placeholder="Correo"
-        />
+{/* EMAIL ahora editable */}
+<TextInput
+  style={[styles.input, errors.email && {borderColor:"red"}]}
+  placeholder="Correo"
+  placeholderTextColor="#888"
+  value={email}
+  onChangeText={(t)=>{ setEmail(t); setErrors({...errors}); }}
+  keyboardType="email-address"
+/>
+{errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
         {/* GUARDAR */}
         <TouchableOpacity
@@ -298,6 +329,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontSize: 18,
   },
+  errorText:{
+  color:"red",
+  fontSize:13,
+  marginBottom:10,
+  alignSelf:"flex-start"
+}
+,
   iconBtn: {
     width: 38,
     height: 38,

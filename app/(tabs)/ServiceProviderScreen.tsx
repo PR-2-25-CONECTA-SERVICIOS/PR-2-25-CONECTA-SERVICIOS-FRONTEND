@@ -1,6 +1,8 @@
 // app/ServiceProviderScreen.tsx
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Dimensions } from "react-native";
+
 import {
   ArrowLeft,
   Bell,
@@ -29,7 +31,8 @@ import {
 
 const API_BASE = "https://pr-2-25-conecta-servicios-backend.onrender.com";
 const SERVICES_API = `${API_BASE}/api/servicios`;
-
+const { width } = Dimensions.get("window");
+const isSmall = width < 380;
 type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";
 
 type Req = {
@@ -160,6 +163,9 @@ export default function ServiceProviderScreen() {
   const [schedLocation, setSchedLocation] = useState("");
   const [schedNote, setSchedNote] = useState("");
 
+
+  const [servicePrice, setServicePrice] = useState<string>("");
+
   // BACK: volver al perfil
   const handleBack = () => {
     router.replace("/ProfileViewScreen");
@@ -182,6 +188,8 @@ const [finishModalVisible, setFinishModalVisible] = useState(false);
 
         if (!resService.ok) throw new Error("HTTP " + resService.status);
         const s = JSON.parse(rawService);
+setServicePrice(s.precio || "");
+
 
         const header: ProviderData = {
           name: s.propietario?.nombre || "Proveedor",
@@ -226,6 +234,21 @@ const [finishModalVisible, setFinishModalVisible] = useState(false);
           }));
 
           setRequests(mapped);
+          // Actualizar trabajos completados y rating desde reseñas reales
+setProviderData(prev => ({
+  ...prev,
+  completedJobs: mapped.filter(r => r.status === "completed").length,
+rating: s.reseñas && s.reseñas.length > 0 
+        ? Number((s.reseñas.reduce((sum:any,r:any)=>sum+r.calificacion,0) / s.reseñas.length).toFixed(1))
+        : 0,
+
+  reviews: s.reseñas?.length || 0,
+}));
+
+          setProviderData(prev => ({
+  ...prev,
+  completedJobs: mapped.filter(r => r.status === "completed").length
+}));
         } else {
           setRequests([]);
         }
@@ -260,7 +283,8 @@ useEffect(() => {
             (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
           time: r.horaCita || "",
           status: mapEstadoToStatus(r.estado),
-          price: r.precio || "",
+          price: r.precio || servicePrice || "",
+
           location: r.categoria || "Sin dirección",
           clientAvatar: r.cliente?.foto || "",
           urgent: false,
@@ -272,7 +296,7 @@ useEffect(() => {
   }, 4000);
 
   return () => clearInterval(interval);
-}, [serviceId]);
+}, [serviceId, servicePrice]);
 
 
   // ====================================================
@@ -430,23 +454,18 @@ useEffect(() => {
   // ====================================================
   // STATS (a partir de las solicitudes)
   // ====================================================
-  const stats = useMemo(() => {
-    let completed = 0;
-    let income = 0;
+const stats = useMemo(() => {
+  let completed = 0, income = 0;
+  requests.forEach(r => {
+    if(r.status==="completed"){
+      completed++;
+      const num = parseFloat(String(r.price).replace(/[^0-9.]/g,""));
+      if(!isNaN(num)) income += num;
+    }
+  });
+  return { completed, income };
+}, [requests]);
 
-    requests.forEach((r) => {
-      if (r.status === "completed") {
-        completed++;
-        const num = parseFloat(r.price.replace(/[^0-9.]/g, ""));
-        if (!isNaN(num)) income += num;
-      }
-    });
-
-    return {
-      completed,
-      income,
-    };
-  }, [requests]);
 
   if (loading) {
     return (
@@ -625,7 +644,8 @@ useEffect(() => {
                         {req.price}
                       </Text>
 
-                      <View style={[styles.pill, { borderColor: pill.color }]}>
+                      <View style={[styles.pill, isSmall && styles.pillSmall, { borderColor: pill.color }]}>
+
                         <pill.Icon size={12} color={pill.color} />
                         <Text style={[styles.pillText, { color: pill.color }]}>
                           {pill.text}
@@ -635,7 +655,8 @@ useEffect(() => {
                   </View>
 
                   {/* Fila inferior: fecha + acciones */}
-                  <View style={styles.footerRow}>
+                  <View style={[styles.footerRow, styles.responsifyRow]}>
+
                     <Text style={styles.grayTextSmall}>
                       {req.date} • {req.time}
                     </Text>
@@ -704,10 +725,7 @@ useEffect(() => {
                   }
                   valueColor="#34d399"
                 />
-                <KV
-                  label="Tiempo de respuesta promedio"
-                  value={providerData.responseTime}
-                />
+
                 <KV
                   label="Calificación promedio"
                   value={`${providerData.rating}/5.0`}
@@ -994,7 +1012,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ---------- STYLES ----------
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#0b0b0b" },
 
@@ -1006,6 +1023,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f0f10",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(251,191,36,0.2)",
+  },
+  headerSmall: {
+    flexWrap: "wrap",       // 👈 solo en pantallas chicas
   },
 
   backBtn: {
@@ -1021,6 +1041,8 @@ const styles = StyleSheet.create({
   },
 
   avatarWrap: { width: 64, height: 64, borderRadius: 999, overflow: "hidden" },
+  avatarSmall: { width: 52, height: 52 },   // 👈 solo override en small
+
   avatar: { width: "100%", height: "100%" },
   avatarFallback: {
     backgroundColor: "#1f2937",
@@ -1030,6 +1052,7 @@ const styles = StyleSheet.create({
   avatarFallbackText: { color: "#e5e7eb", fontWeight: "700" },
 
   providerName: { color: "white", fontWeight: "700", fontSize: 16 },
+  providerNameSmall: { fontSize: 14 },      // 👈 size para pantallas chicas
   providerSubtitle: { color: "#9ca3af", fontSize: 13 },
 
   rowCenter: { flexDirection: "row", alignItems: "center" },
@@ -1038,6 +1061,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   row: { flexDirection: "row", alignItems: "center" },
 
   ratingText: {
@@ -1125,6 +1149,7 @@ const styles = StyleSheet.create({
   },
   cardStat: { flex: 1 },
   statNumber: { fontSize: 22, fontWeight: "800" },
+  statNumberSmall: { fontSize: 18 },   // 👈 versión chica
 
   tabsList: {
     flexDirection: "row",
@@ -1279,7 +1304,6 @@ const styles = StyleSheet.create({
   rowLineLabel: { color: "#9ca3af", fontSize: 12 },
   rowLineValue: { color: "#e5e7eb", fontWeight: "700", fontSize: 13 },
 
-  // Botón WhatsApp verde
   btnWhatsapp: {
     alignSelf: "stretch",
     marginTop: 6,
@@ -1297,8 +1321,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 0.2,
   },
+  responsifyRow: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 6, // importante para espaciado limpio
+},
+pillSmall: {
+  paddingHorizontal: 3,
+  paddingVertical: 2,
+  transform: [{ scale: 0.9 }], // un poco más compacto
+},
 
-  // Botón ghost
+
   btnGhost: {
     alignSelf: "stretch",
     marginTop: 8,
@@ -1311,7 +1347,6 @@ const styles = StyleSheet.create({
   },
   btnGhostText: { color: "#e5e7eb", fontWeight: "700" },
 
-  // Inputs modal
   input: {
     width: "100%",
     height: 48,
