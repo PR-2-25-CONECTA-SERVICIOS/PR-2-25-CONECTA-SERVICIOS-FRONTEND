@@ -4,12 +4,12 @@ import { useAuth } from "../../../context/AuthContext";
 
 import { useState } from "react";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 
@@ -125,7 +125,7 @@ await login({
       {/* Registro */}
       <Text style={styles.registerText}>
         ¿No tienes cuenta?{" "}
-        <Link href="/Login/RegisterScreen">
+        <Link href="/inicio/RegisterScreen">
           <Text style={styles.linkText}>Regístrate aquí</Text>
         </Link>
       </Text>

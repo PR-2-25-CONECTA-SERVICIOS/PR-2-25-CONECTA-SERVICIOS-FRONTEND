@@ -62,7 +62,7 @@ export default function SplashScreen({ onNext }: { onNext: () => void }) {
         <Text style={styles.subtitle}>
           Encuentra y conecta con los mejores servicios y negocios cerca de ti
         </Text>
-        <Button onPress={() => router.push('/Login/LoginScreen')} style={styles.button}>
+        <Button onPress={() => router.push('/inicio/LoginScreen')} style={styles.button}>
           Comenzar
         </Button>
       </View>

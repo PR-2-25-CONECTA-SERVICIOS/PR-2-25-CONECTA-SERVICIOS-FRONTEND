@@ -31,6 +31,9 @@ export default function TabLayout() {
     "/Login/LoginScreen",
     "/Login/RegisterScreen",
     "/Login/SplashScreen",
+    "/inicio/LoginScreen",
+    "/inicio/RegisterScreen",
+    "/inicio/SplashScreen",
   ]);
 
   const hideTabs = HIDE_SET.has(pathname) || pathname.startsWith("/Login");
@@ -70,6 +73,12 @@ export default function TabLayout() {
     "Login/LoginScreen",
     "Login/RegisterScreen",
     "Login/SplashScreen",
+        "login/LoginScreen",
+    "login/RegisterScreen",
+    "login/SplashScreen",
+        "inicio/LoginScreen",
+    "inicio/RegisterScreen",
+    "inicio/SplashScreen",
   ];
 
   // 👉 si NO ES admin, ocultamos también AdminScreen

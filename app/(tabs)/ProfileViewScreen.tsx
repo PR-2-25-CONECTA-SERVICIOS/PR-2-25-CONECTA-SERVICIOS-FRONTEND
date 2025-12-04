@@ -19,7 +19,7 @@ export default function ProfileViewScreen() {
   // 🔴 Si no hay usuario -> SACARLO DE TABS AUTOMÁTICO
   useEffect(()=>{
     if(!user){
-      router.replace("/Login/LoginScreen");
+      router.replace("/inicio/LoginScreen");
     }
   },[user]);
 
