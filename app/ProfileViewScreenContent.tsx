@@ -189,7 +189,7 @@ export default function ProfileViewScreenContent() {
   useFocusEffect(
     useCallback(() => {
       if (!user || !user._id) {
-        router.replace("/(tabs)/Login/LoginScreen");
+        router.replace("/(tabs)/inicio/LoginScreen");
         return;
       }
 
