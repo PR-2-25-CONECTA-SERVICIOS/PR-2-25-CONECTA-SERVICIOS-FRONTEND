@@ -363,7 +363,7 @@ export default function MapScreen() {
           borderBottomRightRadius: 18,
           overflow: "hidden",
         }}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === "ios" ? PROVIDER_GOOGLE : undefined}
         initialRegion={initialRegion}
         onRegionChangeComplete={setRegion}
         onPanDrag={onPan}
