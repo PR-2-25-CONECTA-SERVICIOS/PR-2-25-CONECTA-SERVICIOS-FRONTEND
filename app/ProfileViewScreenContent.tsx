@@ -4,7 +4,7 @@ import { useRootNavigationState, useRouter } from "expo-router";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { ArrowLeft, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -65,14 +65,7 @@ type Profile = {
 export default function ProfileViewScreenContent() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  // ⛔ SI NO HAY USUARIO → REDIRIGE SEGURO PASANDO POR UN CICLO DEL RENDER
-useEffect(() => {
-  if (!user) {
-    setTimeout(() => {
-      router.replace("/Login/LoginScreen");
-    }, 100); // pequeño delay para evitar conflicto interno
-  }
-}, [user]);
+
 
   const rootState = useRootNavigationState();
 
