@@ -44,7 +44,7 @@ export default function RootLayout() {
 
               {/* Pantallas principales */}
               <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="Login/LoginScreen" />
+              <Stack.Screen name="inicio/LoginScreen" />
             </Stack>
 
             <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} translucent />

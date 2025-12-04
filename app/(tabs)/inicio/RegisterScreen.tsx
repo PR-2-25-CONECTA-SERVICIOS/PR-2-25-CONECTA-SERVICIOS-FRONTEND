@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Button } from "../../../components/ui/button";
+import { Button } from "../../components/ui/button";
 
 // ===========================
 // 🔗 URL BACKEND
@@ -58,7 +58,7 @@ export default function RegisterScreen() {
         return;
       }
 
-      router.push("/Login/LoginScreen");
+      router.push("/");
 
     } catch (error) {
       console.log("❌ Error en el registro:", error);
@@ -155,7 +155,7 @@ export default function RegisterScreen() {
       {/* Footer */}
       <Text style={styles.footerText}>
         ¿Ya tienes cuenta?{" "}
-        <Link href="/Login/LoginScreen">
+        <Link href="/inicio/LoginScreen">
           <Text style={styles.linkText}>Inicia sesión aquí</Text>
         </Link>
       </Text>

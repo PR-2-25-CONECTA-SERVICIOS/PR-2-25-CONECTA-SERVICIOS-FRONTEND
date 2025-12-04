@@ -46,7 +46,7 @@ export default function Splash() {
     // 🔥 Después del splash → decide Login o Tabs
     const timer = setTimeout(() => {
       if (!loading) { 
-        user ? router.replace("/(tabs)") : router.replace("/Login/LoginScreen");
+        user ? router.replace("/(tabs)") : router.replace("/inicio/LoginScreen");
       }
     }, 2300);
 
