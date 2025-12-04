@@ -1,54 +1,46 @@
-import { useRouter } from "expo-router";
+// context/AuthContext.tsx
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { clearUserSession, loadUserSession, saveUserSession } from "../utils/secureStore";
 
 type AuthContextType = {
   user: any;
-  login: (userData: any) => Promise<void>;
-  logout: () => Promise<void>;
   loading: boolean;
-  setUser: (u: any) => void;
+  login: (u: any) => Promise<void>;
+  logout: () => Promise<void>;
+  setUser: (v: any) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-const [user, setUser] = useState<any | undefined>(undefined);
+  const [user, setUser] = useState<any | null>(null); // 👈 nunca undefined
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
-  // 🚀 Cargar sesión solo una vez
+  // 🔥 Cargar sesión 1 sola vez
   useEffect(() => {
     (async () => {
       try {
         const session = await loadUserSession();
-        setUser(session ?? null);
+        setUser(session); // null o user pero nunca undefined
       } finally {
-        setLoading(false); // RootLayout listo
+        setLoading(false);
       }
     })();
   }, []);
 
-const login = async (userData: any) => {
-  await saveUserSession(userData);
+  const login = async (userData: any) => {
+    await saveUserSession(userData);
+    const newSession = await loadUserSession();
+    setUser(newSession); // 👈 solo actualiza estado, NO navega
+  };
 
-  // 🔥 Recargar sesión real desde secureStore
-  const newSession = await loadUserSession();
-  setUser(newSession);
-
-  router.replace("/(tabs)");
-};
-
-
-const logout = async () => {
-  await clearUserSession();
-  setUser(null);
-  router.replace("/Login/LoginScreen");
-};
-
+  const logout = async () => {
+    await clearUserSession();
+    setUser(null); // 👈 solo cambia estado, NO navega
+  };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

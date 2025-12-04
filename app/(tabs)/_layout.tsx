@@ -62,6 +62,7 @@ export default function TabLayout() {
     "ServiceProviderScreen",
     "map",
     "explore",
+    "Splash",
     "map-add",
     "profile-stack",
 

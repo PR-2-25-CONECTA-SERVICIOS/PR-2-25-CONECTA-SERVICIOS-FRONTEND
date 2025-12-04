@@ -1,33 +1,61 @@
-// app/(tabs)/map-add.web.tsx
-"use client";
-
-import { router } from "expo-router";
+// app/(tabs)/map-add.tsx
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   Camera,
   ImagePlus,
   List,
+  MapPin,
+  Navigation,
   Save,
   Trash2,
   X,
-} from "lucide-react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
-import styled from "styled-components";
+} from "lucide-react-native";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Alert,
+  Animated,
+  Easing,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import MapView, {
+  Marker,
+  PROVIDER_GOOGLE,
+  Region,
+} from "react-native-maps";
 import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
-const API_URL = "http://localhost:3000/api/locales";
-const CATEGORY_API = "http://localhost:3000/api/categorias";
+// ⚠️ Si pruebas en dispositivo físico, cambia localhost por la IP de tu PC
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
+const CATEGORY_API = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias";
 
 // 🔗 Cloudinary
-const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload";
+const CLOUDINARY_URL =
+  "https://api.cloudinary.com/v1_1/deqxfxbaa/image/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
-// 📌 Categorías dinámicas desde backend
-type CategoryItem = { _id: string; nombre: string };
-
+/* =========================================================
+   Tipos
+   ========================================================= */
 type Place = {
   id: string;
   title: string;
@@ -39,7 +67,39 @@ type Place = {
   createdAt: number;
 };
 
-// 🔁 Mapper del Local de Mongo → Place del mapa
+type CategoryItem = { _id: string; nombre: string };
+
+/* =========================================================
+   Paleta
+   ========================================================= */
+const palette = {
+  light: {
+    bg: "#F4F6FA",
+    card: "#FFFFFF",
+    text: "#0f1115",
+    sub: "#6B7280",
+    border: "#E5E7EB",
+    chip: "#FBBF24",
+    legendBg: "#FFFFFF",
+    legendText: "#0f1115",
+    overlay: "rgba(0,0,0,0.45)",
+  },
+  dark: {
+    bg: "#0b0b0b",
+    card: "#0f0f10",
+    text: "#E5E7EB",
+    sub: "#9CA3AF",
+    border: "rgba(148,163,184,0.25)",
+    chip: "#FBBF24",
+    legendBg: "#0f0f10",
+    legendText: "#E5E7EB",
+    overlay: "rgba(0,0,0,0.65)",
+  },
+} as const;
+
+/* =========================================================
+   Helpers
+   ========================================================= */
 function mapLocalToPlace(local: any): Place {
   const lat = Number(local.lat);
   const lng = Number(local.lng);
@@ -61,207 +121,221 @@ function mapLocalToPlace(local: any): Place {
   };
 }
 
-const DARK_STYLE =
-  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+/* =========================================================
+   Pantalla
+   ========================================================= */
+export default function MapAddScreen() {
+  const router = useRouter();
+  const scheme = useColorScheme();
+  const t = scheme === "dark" ? palette.dark : palette.light;
 
-export default function MapAdd() {
-  const mapContainer = useRef<HTMLDivElement | null>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Record<string, maplibregl.Marker>>({});
+  const initialRegion: Region = useMemo(
+    () => ({
+      latitude: -17.3835,
+      longitude: -66.163,
+      latitudeDelta: 0.015,
+      longitudeDelta: 0.015,
+    }),
+    []
+  );
 
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
-
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-
-  // Locales del usuario actual
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [selected, setSelected] = useState<Place | null>(null);
-  const [draftCoord, setDraftCoord] = useState<{
+  const [region, setRegion] = useState(initialRegion);
+  const [followMe, setFollowMe] = useState(false);
+  const [userLoc, setUserLoc] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
 
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [selected, setSelected] = useState<Place | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const mapRef = useRef<MapView | null>(null);
+  const watcher = useRef<Location.LocationSubscription | null>(null);
+
+  // Formulario
+  const [draftCoord, setDraftCoord] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>(undefined);
-  const [category, setCategory] = useState<string>("General");
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [listOpen, setListOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Categorías
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [category, setCategory] = useState<string>(""); // se setea al cargar categorías
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
-  // =====================================================
-  // CARGAR USUARIO
-  // =====================================================
+  // Sheets
+  const form = useRef(new Animated.Value(0)).current;
+  const detail = useRef(new Animated.Value(0)).current;
+  const openForm = () =>
+    Animated.timing(form, {
+      toValue: 1,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  const closeForm = () =>
+    Animated.timing(form, {
+      toValue: 0,
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  const openDetail = () =>
+    Animated.timing(detail, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  const closeDetail = () =>
+    Animated.timing(detail, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+  /* =========================================================
+     Cargar usuario + locales desde el backend
+     ========================================================= */
   useEffect(() => {
     (async () => {
       try {
         const user = await loadUserSession();
-        if (!user || !user._id) return;
+        if (!user || !user._id) {
+          console.log("No hay usuario en sesión");
+          return;
+        }
         setCurrentUser(user);
-      } catch (e) {
-        console.warn("No se pudo cargar usuario", e);
-      }
-    })();
-  }, []);
 
-  // =====================================================
-  // CARGAR CATEGORÍAS DESDE BACKEND
-  // =====================================================
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const res = await fetch(CATEGORY_API);
-        const data = await res.json();
-        if (Array.isArray(data)) setCategories(data);
-      } catch (e) {
-        console.log("❌ Error cargando categorías:", e);
-      }
-    };
-
-    loadCategories();
-  }, []);
-
-  // =====================================================
-  // CARGAR LOCALES DEL USUARIO
-  // =====================================================
-  useEffect(() => {
-    if (!currentUser) return;
-
-    (async () => {
-      try {
         const res = await fetch(API_URL);
         const data = await res.json();
 
-        const onlyMine = data.filter((loc: any) => {
-          const creador =
-            typeof loc.creadoPor === "object"
-              ? loc.creadoPor._id
-              : loc.creadoPor;
-          return creador?.toString() === currentUser._id?.toString();
+        if (!res.ok) {
+          console.log("Error al obtener locales", data);
+          return;
+        }
+
+        // Solo locales creados por este usuario
+        const mios = (data as any[]).filter((l) => {
+          const creador = l.creadoPor;
+          if (!creador) return false;
+          if (typeof creador === "string") return creador === user._id;
+          // por si viene populado
+          return creador._id === user._id;
         });
 
-        setPlaces(onlyMine.map(mapLocalToPlace));
+        const mapped = mios.map(mapLocalToPlace);
+        setPlaces(mapped);
       } catch (e) {
-        console.warn("Error cargando locales", e);
+        console.warn("No se pudieron cargar los locales del backend", e);
       }
     })();
-  }, [currentUser]);
-
-  // =====================================================
-  // INICIALIZAR MAPA
-  // =====================================================
-  useEffect(() => {
-    if (!mapContainer.current) return;
-
-    const loadStyle = async () => {
-      const styleRes = await fetch(DARK_STYLE);
-      const styleJson = await styleRes.json();
-
-      styleJson.layers = styleJson.layers.filter(
-        (layer: any) =>
-          !layer.id.includes("poi") &&
-          !layer.id.includes("poi_label") &&
-          !layer.id.includes("landuse") &&
-          !layer.id.includes("building")
-      );
-
-      map.current = new maplibregl.Map({
-        container: mapContainer.current as HTMLElement,
-        style: styleJson,
-        center: [-66.163, -17.3835],
-        zoom: 14.5,
-      });
-
-      map.current.on("click", (e) => {
-        const { lng, lat } = e.lngLat;
-        setDraftCoord({ latitude: lat, longitude: lng });
-        setTitle("");
-        setPhone("");
-        setDescription("");
-        setImageUri(undefined);
-        setCategory("General");
-        setEditingId(null);
-        setFormOpen(true);
-        setDetailOpen(false);
-      });
-    };
-
-    loadStyle();
-
-    return () => map.current?.remove();
   }, []);
 
-  // =====================================================
-  // PINTAR MARKERS
-  // =====================================================
+  /* =========================================================
+     Cargar categorías
+     ========================================================= */
   useEffect(() => {
-    if (!map.current) return;
+    (async () => {
+      try {
+        const res = await fetch(CATEGORY_API);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setCategories(data);
+          // Si no hay categoría seleccionada, usar la primera
+          if (!category && data.length > 0) {
+            setCategory(data[0].nombre);
+          }
+        }
+      } catch (e) {
+        console.log("❌ Error cargando categorías:", e);
+      }
+    })();
+  }, []);
 
-    Object.values(markersRef.current).forEach((m) => m.remove());
-    markersRef.current = {};
-
-    places.forEach((p) => {
-      const el = document.createElement("div");
-      el.style.width = "26px";
-      el.style.height = "26px";
-      el.style.borderRadius = "999px";
-      el.style.background = "#F59E0B";
-      el.style.boxShadow = "0 0 0 2px #0b0b0b";
-      el.style.display = "flex";
-      el.style.alignItems = "center";
-      el.style.justifyContent = "center";
-      el.style.cursor = "pointer";
-      el.style.position = "relative";
-
-      const dot = document.createElement("div");
-      dot.style.position = "absolute";
-      dot.style.width = "8px";
-      dot.style.height = "8px";
-      dot.style.borderRadius = "999px";
-      dot.style.background = "#FCD34D";
-      dot.style.right = "-3px";
-      dot.style.top = "-3px";
-      el.appendChild(dot);
-
-      const inner = document.createElement("div");
-      inner.style.width = "12px";
-      inner.style.height = "12px";
-      inner.style.borderRadius = "999px";
-      inner.style.background = "#111827";
-      el.appendChild(inner);
-
-      el.onclick = () => {
-        setSelected(p);
-        setDetailOpen(true);
-        flyTo(p);
-      };
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([p.coord.longitude, p.coord.latitude])
-        .addTo(map.current as maplibregl.Map);
-
-      markersRef.current[p.id] = marker;
-    });
-  }, [places]);
-
-  const flyTo = (p: Place) => {
-    map.current?.flyTo({
-      center: [p.coord.longitude, p.coord.latitude],
-      zoom: 16,
-      speed: 0.8,
-    });
+  const handleBack = () => {
+    router.push("/LocalesScreen");
   };
 
-  // =====================================================
-  // CLOUDINARY
-  // =====================================================
-  const uploadImageToCloudinary = async (file: File) => {
+  // Seguir ubicación
+  useEffect(() => {
+    (async () => {
+      if (!followMe) return;
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+
+      const curr = await Location.getCurrentPositionAsync({});
+      const c = {
+        latitude: curr.coords.latitude,
+        longitude: curr.coords.longitude,
+      };
+      setUserLoc(c);
+      animateTo(c);
+
+      watcher.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 1500,
+          distanceInterval: 2,
+        },
+        ({ coords }) => {
+          const cc = { latitude: coords.latitude, longitude: coords.longitude };
+          setUserLoc(cc);
+          if (followMe) animateTo(cc);
+        }
+      );
+    })();
+    return () => {
+      watcher.current?.remove?.();
+      watcher.current = null;
+    };
+  }, [followMe]);
+
+  const animateTo = (c: { latitude: number; longitude: number }) =>
+    mapRef.current?.animateToRegion(
+      { ...c, latitudeDelta: 0.012, longitudeDelta: 0.012 },
+      250
+    );
+
+  const onLongPress = (e: any) => {
+    const coord = e.nativeEvent.coordinate;
+    setDraftCoord(coord);
+    setTitle("");
+    setPhone("");
+    setDescription("");
+    setImageUri(undefined);
+    setEditingId(null); // nuevo local, no edición
+    // Por defecto, usar primera categoría disponible
+    if (categories.length > 0) {
+      setCategory(categories[0].nombre);
+    } else {
+      setCategory("General");
+    }
+    openForm();
+  };
+
+  /* =========================================================
+     CLOUDINARY
+     ========================================================= */
+  const uploadImageToCloudinary = async (imageUri: string) => {
     try {
       const data = new FormData();
-      data.append("file", file);
+
+      data.append("file", {
+        uri: imageUri,
+        type: "image/jpeg",
+        name: "local.jpg",
+      } as any);
+
       data.append("upload_preset", CLOUDINARY_PRESET);
 
       const res = await fetch(CLOUDINARY_URL, {
@@ -270,588 +344,994 @@ export default function MapAdd() {
       });
 
       const json = await res.json();
-      return json.secure_url || null;
+      console.log("CLOUDINARY LOCAL:", json);
+
+      return json.secure_url; // ← este es el link final
     } catch (err) {
-      console.log("ERROR CLOUDINARY:", err);
+      console.log("ERROR CLOUDINARY LOCAL:", err);
       return null;
     }
   };
 
-  const handleImage = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
 
-    // Mostrar cargando
-    setImageUri("loading");
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
+    });
 
-    try {
-      const data = new FormData();
-      data.append("file", file);
-      data.append("upload_preset", CLOUDINARY_PRESET);
+    if (!result.canceled && result.assets?.length) {
+      const localUri = result.assets[0].uri;
 
-      const res = await fetch(CLOUDINARY_URL, {
-        method: "POST",
-        body: data,
-      });
+      // mostrar preview temporal:
+      setImageUri(localUri);
 
-      const json = await res.json();
+      // subir a Cloudinary
+      const cloudUrl = await uploadImageToCloudinary(localUri);
 
-      if (json.secure_url) {
-        setImageUri(json.secure_url);
-        console.log("📤 Imagen subida a Cloudinary:", json.secure_url);
+      if (cloudUrl) {
+        setImageUri(cloudUrl); // link definitivo
+        console.log("📤 Imagen local subida:", cloudUrl);
       } else {
-        console.error("Cloudinary error:", json);
-        alert("Error al subir imagen a Cloudinary");
-        setImageUri(undefined);
+        Alert.alert("Error", "No se pudo subir la imagen");
       }
-    } catch (err) {
-      console.error("Cloudinary exception:", err);
-      alert("Error al subir imagen");
-      setImageUri(undefined);
     }
   };
 
-  // =====================================================
-  // GUARDAR LOCAL
-  // =====================================================
+  /* =========================================================
+     GUARDAR LOCAL
+     ========================================================= */
   const handleSave = async () => {
     if (!draftCoord) return;
-    if (!title.trim()) return alert("Pon un nombre");
+    if (!title.trim()) {
+      Alert.alert("Falta nombre", "Pon un nombre para el lugar.");
+      return;
+    }
+    if (!currentUser || !currentUser._id) {
+      Alert.alert(
+        "Sesión requerida",
+        "Debes iniciar sesión para crear locales."
+      );
+      return;
+    }
+
+    const finalCategory = category || "General";
 
     const payload = {
       nombre: title.trim(),
-      categoria: category || "General",
+      categoria: finalCategory, // string igual que en web
       telefono: phone.trim(),
       direccion: description.trim(),
       imagen: imageUri ?? "",
       lat: draftCoord.latitude,
       lng: draftCoord.longitude,
+      creadoPor: currentUser._id,
       userId: currentUser._id,
     };
 
     try {
-      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
-      const method = editingId ? "PATCH" : "POST";
+      if (!editingId) {
+        // ➕ Crear local
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        if (!res.ok) {
+          console.log("Error al crear local", data);
+          Alert.alert("Error", data.mensaje || "No se pudo crear el local.");
+          return;
+        }
 
-      const data = await res.json();
-      if (!res.ok) return alert("Error al guardar");
+        const saved = data.local || data;
+        const item = mapLocalToPlace(saved);
+        const arr = [item, ...places];
+        setPlaces(arr);
+        closeForm();
+        setSelected(item);
+        openDetail();
+        animateTo(item.coord);
+      } else {
+        // ✏️ Editar local
+        const res = await fetch(`${API_URL}/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
 
-      const saved = mapLocalToPlace(data.local || data);
+        if (!res.ok) {
+          console.log("Error al actualizar local", data);
+          Alert.alert(
+            "Error",
+            data.mensaje || "No se pudo actualizar el local."
+          );
+          return;
+        }
 
-      if (!editingId) setPlaces((p) => [saved, ...p]);
-      else
-        setPlaces((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-
-      setFormOpen(false);
-      setSelected(saved);
-      setDetailOpen(true);
-      flyTo(saved);
+        const updated = mapLocalToPlace(data.local || data);
+        const arr = places.map((p) => (p.id === updated.id ? updated : p));
+        setPlaces(arr);
+        closeForm();
+        setSelected(updated);
+        openDetail();
+        animateTo(updated.coord);
+        setEditingId(null);
+      }
     } catch (e) {
-      alert("Error guardando.");
+      console.log("Error en handleSave", e);
+      Alert.alert("Error", "No se pudo conectar al servidor.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar?")) return;
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const data = await res.json();
 
-    const res = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-    });
+      if (!res.ok) {
+        console.log("Error al eliminar local", data);
+        Alert.alert("Error", data.mensaje || "No se pudo eliminar el local.");
+        return;
+      }
 
-    if (res.ok) setPlaces((prev) => prev.filter((p) => p.id !== id));
-    setDetailOpen(false);
-    setSelected(null);
+      const arr = places.filter((p) => p.id !== id);
+      setPlaces(arr);
+      closeDetail();
+      setSelected(null);
+    } catch (e) {
+      console.log("Error en handleDelete", e);
+      Alert.alert("Error", "No se pudo conectar al servidor.");
+    }
   };
 
-  // =====================================================
-  // UI
-  // =====================================================
+  const s = styles(t);
+  const formTY = form.interpolate({
+    inputRange: [0, 1],
+    outputRange: [380, 0],
+  });
+  const detailTY = detail.interpolate({
+    inputRange: [0, 1],
+    outputRange: [260, 0],
+  });
+
   return (
-    <Screen>
-      {/* HEADER */}
-      <Header>
-        <SearchWrap>
-          <IconBtn onClick={() => router.replace("/LocalesScreen")}>
+    <View style={s.screen}>
+      {/* Header */}
+      <View style={s.header}>
+        <View style={s.searchWrap}>
+          <TouchableOpacity onPress={handleBack} style={s.iconBtn}>
             <ArrowLeft size={18} color="#e5e7eb" />
-          </IconBtn>
-        </SearchWrap>
-
-        <HeaderActions>
-          <Chip onClick={() => setListOpen(true)}>
+          </TouchableOpacity>
+          <TextInput
+            placeholder="Buscar (demo)"
+            placeholderTextColor={t.sub}
+            style={s.searchInput}
+          />
+        </View>
+        <View style={s.headerActions}>
+          <TouchableOpacity
+            onPress={() => setListOpen(true)}
+            activeOpacity={0.9}
+            style={chipStyles.chip}
+          >
             <List size={16} color="#111827" />
-            <ChipText>Mis lugares</ChipText>
-          </Chip>
-        </HeaderActions>
-      </Header>
+            <Text style={s.chipText}> Mis lugares</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setFollowMe((v) => !v)}
+            activeOpacity={0.9}
+            style={[
+              chipStyles.chip,
+              followMe && { backgroundColor: "#F59E0B" },
+            ]}
+          >
+            <Navigation size={16} color="#111827" />
+            <Text style={s.chipText}>
+              {" "}
+              {followMe ? "Siguiéndote" : "Mi ubicación"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      <MapContainer ref={mapContainer} />
+      {/* MAPA */}
+      <MapView
+        ref={mapRef}
+        style={{
+          flex: 1,
+          borderBottomLeftRadius: 18,
+          borderBottomRightRadius: 18,
+          overflow: "hidden",
+        }}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={initialRegion}
+        onRegionChangeComplete={setRegion}
+        onPanDrag={() => followMe && setFollowMe(false)}
+        onLongPress={onLongPress}
+        customMapStyle={scheme === "dark" ? darkStyle : lightStyle}
+      >
+        {places.map((p) => (
+          <Marker
+            key={p.id}
+            coordinate={p.coord}
+            onPress={() => {
+              setSelected(p);
+              openDetail();
+            }}
+          >
+            <PinView selected={selected?.id === p.id} />
+          </Marker>
+        ))}
 
-      <Legend>
-        <LegendTitle>Añadir lugar</LegendTitle>
-        <LegendText>Haz clic en el mapa para colocar un pin</LegendText>
-      </Legend>
+        {userLoc && (
+          <Marker
+            coordinate={userLoc}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges
+            zIndex={9999}
+          >
+            <UserPuck />
+          </Marker>
+        )}
+      </MapView>
 
-      {/* DETALLE */}
-      {detailOpen && selected && (
-        <Sheet>
-          <Card>
-            <RowBetween>
-              <Title>{selected.title}</Title>
-              <IconBtn onClick={() => setDetailOpen(false)}>
-                <X size={18} />
-              </IconBtn>
-            </RowBetween>
+      {/* Leyenda */}
+      <View style={s.legend}>
+        <Text style={s.legendTitle}>Añadir lugar</Text>
+        <Text style={{ color: t.sub, fontSize: 12, marginTop: 2 }}>
+          Mantén presionado el mapa para colocar un pin
+        </Text>
+      </View>
 
-            {selected.imageUri && <Img src={selected.imageUri} />}
+      {/* Sheet: Detalle */}
+      {selected && (
+        <Animated.View
+          style={[s.sheetWrap, { transform: [{ translateY: detailTY }] }]}
+        >
+          <View style={s.sheetCard}>
+            <View style={s.rowBetween}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text
+                  style={[s.title, { fontSize: 16 }]}
+                  numberOfLines={1}
+                >
+                  {selected.title}
+                </Text>
+                <Text style={s.sub} numberOfLines={1}>
+                  {selected.category} · {selected.phone || "Sin teléfono"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  closeDetail();
+                  setSelected(null);
+                }}
+              >
+                <X size={18} color={t.sub} />
+              </TouchableOpacity>
+            </View>
 
-            {selected.description && (
-              <Description>{selected.description}</Description>
+            {!!selected.imageUri && (
+              <Image
+                source={{ uri: selected.imageUri }}
+                style={{
+                  width: "100%",
+                  height: 140,
+                  borderRadius: 12,
+                  marginTop: 10,
+                }}
+              />
             )}
 
-            <SubInfo>
-              <span>{selected.category}</span>
-              {selected.phone && <span> · {selected.phone}</span>}
-            </SubInfo>
+            {!!selected.description && (
+              <Text style={{ color: t.text, marginTop: 10 }}>
+                {selected.description}
+              </Text>
+            )}
 
-            <RowBetween style={{ marginTop: 10 }}>
-              <BtnOutlineSm onClick={() => handleDelete(selected.id)}>
+            <View style={[s.rowBetween, { marginTop: 12 }]}>
+              <TouchableOpacity
+                onPress={() => handleDelete(selected.id)}
+                style={[s.btnOutlineSm, { borderColor: "#ef4444" }]}
+                activeOpacity={0.9}
+              >
                 <Trash2 size={14} color="#ef4444" />
-              </BtnOutlineSm>
-              <BtnOutlineSm
-                onClick={() => {
+                <Text style={[s.btnOutlineText, { color: "#ef4444" }]}>
+                  {" "}
+                  Eliminar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  closeDetail();
                   setDraftCoord(selected.coord);
                   setTitle(selected.title);
                   setPhone(selected.phone);
                   setDescription(selected.description);
                   setImageUri(selected.imageUri);
-                  setCategory(selected.category);
+                  setCategory(selected.category || "General");
                   setEditingId(selected.id);
-                  setDetailOpen(false);
-                  setFormOpen(true);
+                  openForm();
                 }}
+                style={s.btnOutlineSm}
+                activeOpacity={0.9}
               >
-                <Save size={14} /> Editar
-              </BtnOutlineSm>
-            </RowBetween>
-          </Card>
-        </Sheet>
+                <Save size={14} color={t.text} />
+                <Text style={s.btnOutlineText}> Editar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
       )}
 
-      {/* FORM */}
-      {formOpen && (
-        <FormSheet>
-          <FormCard>
-            <RowBetween>
-              <Title>{editingId ? "Editar lugar" : "Nuevo lugar"}</Title>
-              <IconBtn
-                onClick={() => {
-                  setFormOpen(false);
+      {/* Sheet: Formulario */}
+      <Animated.View
+        style={[s.formWrap, { transform: [{ translateY: formTY }] }]}
+        pointerEvents="box-none"
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={s.formCard}>
+            <View style={s.rowBetween}>
+              <Text style={[s.title, { fontSize: 16 }]}>
+                {editingId ? "Editar lugar" : "Nuevo lugar"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  closeForm();
                   setEditingId(null);
                 }}
               >
-                <X size={18} />
-              </IconBtn>
-            </RowBetween>
+                <X size={18} color={t.sub} />
+              </TouchableOpacity>
+            </View>
 
-            <Label>Nombre del local</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-
-            <Label>Categoría</Label>
-            <Select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: 8 }}
+              keyboardShouldPersistTaps="handled"
             >
-              {categories.length === 0 ? (
-                <option>Cargando...</option>
+              <FormField label="Nombre del local">
+                <Input
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Ej. Restaurante La Casa"
+                />
+              </FormField>
+
+              <FormField label="Categoría">
+                <TouchableOpacity
+                  onPress={() => setCategoryModalOpen(true)}
+                  activeOpacity={0.9}
+                  style={{
+                    backgroundColor: t.card,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: t.border,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: category ? t.text : t.sub,
+                      fontSize: 14,
+                    }}
+                  >
+                    {category || "Selecciona una categoría"}
+                  </Text>
+                </TouchableOpacity>
+              </FormField>
+
+              <FormField label="Teléfono">
+                <Input
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+591 70000000"
+                  keyboardType="phone-pad"
+                />
+              </FormField>
+
+              <FormField label="Descripción">
+                <Textarea
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Descripción corta del lugar..."
+                />
+              </FormField>
+
+              <Text style={s.inputLabel}>Imagen</Text>
+              {imageUri ? (
+                <TouchableOpacity onPress={handleImage} activeOpacity={0.9}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={{ width: "100%", height: 140, borderRadius: 12 }}
+                  />
+                </TouchableOpacity>
               ) : (
-                categories.map((c) => (
-                  <option key={c._id} value={c.nombre}>
-                    {c.nombre}
-                  </option>
-                ))
+                <TouchableOpacity
+                  onPress={handleImage}
+                  style={s.uploadBox}
+                  activeOpacity={0.9}
+                >
+                  <ImagePlus size={20} color={t.sub} />
+                  <Text
+                    style={{ color: t.sub, marginTop: 6, fontSize: 12 }}
+                  >
+                    Subir imagen
+                  </Text>
+                </TouchableOpacity>
               )}
-            </Select>
 
-            <Label>Teléfono</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-
-            <Label>Descripción</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-
-            <Label>Imagen</Label>
-            {imageUri === "loading" ? (
-              <UploadBox>Cargando imagen...</UploadBox>
-            ) : imageUri ? (
-              <Img src={imageUri} />
-            ) : (
-              <UploadBox>
-                <ImagePlus size={20} />
-              </UploadBox>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImage}
-              style={{ marginTop: 8 }}
-            />
-
-            <PrimaryBtn onClick={handleSave}>
-              {editingId ? "Guardar cambios" : "Guardar local"}
-            </PrimaryBtn>
-          </FormCard>
-        </FormSheet>
-      )}
-
-      {/* LISTA */}
-      {listOpen && (
-        <ModalBg onClick={() => setListOpen(false)}>
-          <ListCard onClick={(e) => e.stopPropagation()}>
-            <RowBetween>
-              <Title>Mis lugares ({places.length})</Title>
-              <IconBtn onClick={() => setListOpen(false)}>
-                <X size={18} />
-              </IconBtn>
-            </RowBetween>
-
-            {places.map((p) => (
-              <ListRow
-                key={p.id}
-                onClick={() => {
-                  setSelected(p);
-                  setListOpen(false);
-                  setDetailOpen(true);
-                  flyTo(p);
-                }}
+              <TouchableOpacity
+                onPress={handleSave}
+                activeOpacity={0.9}
+                style={s.primaryBtn}
               >
-                <RowLeft>
-                  <MiniImgBox>
-                    {p.imageUri ? (
-                      <MiniImg src={p.imageUri} />
-                    ) : (
-                      <Camera size={18} color="#e5e7eb" />
-                    )}
-                  </MiniImgBox>
-                  <div>
-                    <TitleSm>{p.title}</TitleSm>
-                    <SubSm>{p.phone || p.category}</SubSm>
-                  </div>
-                </RowLeft>
-              </ListRow>
-            ))}
-          </ListCard>
-        </ModalBg>
-      )}
-    </Screen>
+                <Text style={s.primaryBtnText}>
+                  {editingId ? "Guardar cambios" : "Guardar local"}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/* Lista Modal */}
+      <Modal
+        visible={listOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setListOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: t.overlay }}>
+          <View style={{ flex: 1, justifyContent: "flex-end" }}>
+            <View style={s.listCard}>
+              <View style={s.rowBetween}>
+                <Text style={[s.title, { fontSize: 16 }]}>
+                  Mis lugares ({places.length})
+                </Text>
+                <TouchableOpacity onPress={() => setListOpen(false)}>
+                  <X size={18} color={t.sub} />
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={places}
+                keyExtractor={(i) => i.id}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                contentContainerStyle={{ paddingTop: 8, paddingBottom: 10 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => {
+                      setListOpen(false);
+                      setSelected(item);
+                      openDetail();
+                      animateTo(item.coord);
+                    }}
+                    style={s.listRow}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
+                        flex: 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 10,
+                          backgroundColor: "#111827",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {item.imageUri ? (
+                          <Image
+                            source={{ uri: item.imageUri }}
+                            style={{ width: 44, height: 44, borderRadius: 10 }}
+                          />
+                        ) : (
+                          <Camera size={18} color="#e5e7eb" />
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[s.title, { fontSize: 14 }]}
+                          numberOfLines={1}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          style={[s.sub, { fontSize: 12 }]}
+                          numberOfLines={1}
+                        >
+                          {item.category} ·{" "}
+                          {item.phone || "Sin teléfono"}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[s.sub, { fontSize: 12 }]}>
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal selección de categoría */}
+      <Modal
+        visible={categoryModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryModalOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: t.overlay }}>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "flex-end",
+            }}
+          >
+            <View style={s.listCard}>
+              <View style={s.rowBetween}>
+                <Text style={[s.title, { fontSize: 16 }]}>
+                  Seleccionar categoría
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setCategoryModalOpen(false)}
+                >
+                  <X size={18} color={t.sub} />
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={categories}
+                keyExtractor={(c) => c._id}
+                ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+                contentContainerStyle={{
+                  paddingTop: 8,
+                  paddingBottom: 12,
+                }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={{
+                      padding: 10,
+                      borderRadius: 10,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: t.border,
+                      backgroundColor:
+                        category === item.nombre
+                          ? "rgba(251,191,36,0.15)"
+                          : t.card,
+                    }}
+                    onPress={() => {
+                      setCategory(item.nombre);
+                      setCategoryModalOpen(false);
+                    }}
+                  >
+                    <Text style={{ color: t.text, fontSize: 14 }}>
+                      {item.nombre}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
-/* ============================= ESTILOS ============================= */
+/* =========================================================
+   Subcomponentes
+   ========================================================= */
+function PinView({ selected }: { selected: boolean }) {
+  return (
+    <View style={{ alignItems: "center" }}>
+      <View
+        style={{
+          width: selected ? 44 : 34,
+          height: selected ? 44 : 34,
+          borderRadius: 999,
+          backgroundColor: "#F59E0B",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <MapPin size={selected ? 22 : 18} color="#111827" />
+      </View>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 999,
+          backgroundColor: "#FCD34D",
+          position: "absolute",
+          right: -2,
+          top: -2,
+        }}
+      />
+    </View>
+  );
+}
 
-const Screen = styled.div`
-  width: 100%;
-  height: 100vh;
-  position: relative;
-  overflow: hidden;
-  background: transparent;
-`;
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const scheme = useColorScheme();
+  const t = scheme === "dark" ? palette.dark : palette.light;
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text
+        style={{
+          color: t.text,
+          fontSize: 12,
+          marginBottom: 6,
+          fontWeight: "600",
+        }}
+      >
+        {label}
+      </Text>
+      {children}
+    </View>
+  );
+}
 
-const MapContainer = styled.div`
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-`;
+function Input(props: React.ComponentProps<typeof TextInput>) {
+  const scheme = useColorScheme();
+  const t = scheme === "dark" ? palette.dark : palette.light;
+  return (
+    <TextInput
+      {...props}
+      placeholderTextColor={t.sub}
+      style={[
+        {
+          backgroundColor: t.card,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: t.border,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          color: t.text,
+        },
+        props.style,
+      ]}
+    />
+  );
+}
 
-const Header = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 12px;
-  z-index: 10;
-`;
+function Textarea(props: React.ComponentProps<typeof TextInput>) {
+  const scheme = useColorScheme();
+  const t = scheme === "dark" ? palette.dark : palette.light;
+  return (
+    <TextInput
+      {...props}
+      multiline
+      placeholderTextColor={t.sub}
+      style={[
+        {
+          backgroundColor: t.card,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: t.border,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          minHeight: 90,
+          textAlignVertical: "top",
+          color: t.text,
+        },
+        props.style,
+      ]}
+    />
+  );
+}
 
-const SearchWrap = styled.div`
-  display: flex;
-  gap: 8px;
-  align-items: center;
-`;
+function UserPuck() {
+  const BOX = 80,
+    R1 = 48,
+    R2 = 40;
+  const v1 = React.useRef(new Animated.Value(0)).current;
+  const v2 = React.useRef(new Animated.Value(0)).current;
 
-const IconBtn = styled.button`
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(17, 17, 19, 0.75);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-`;
+  React.useEffect(() => {
+    const loop = (v: Animated.Value, d: number) =>
+      Animated.loop(
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 1400,
+          delay: d,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        { resetBeforeIteration: true }
+      ).start();
+    loop(v1, 0);
+    loop(v2, 400);
+  }, [v1, v2]);
 
-const HeaderActions = styled.div`
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-`;
+  const s1 = v1.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.5] });
+  const o1 = v1.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] });
+  const s2 = v2.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.6] });
+  const o2 = v2.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
 
-const Chip = styled.div`
-  background: #fbbf24;
-  border-radius: 10px;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-`;
+  return (
+    <View
+      style={{
+        width: BOX,
+        height: BOX,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      pointerEvents="none"
+    >
+      <View
+        style={{
+          position: "absolute",
+          width: 64,
+          height: 64,
+          borderRadius: 999,
+          backgroundColor: "#F59E0B",
+          opacity: 0.18,
+        }}
+      />
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: R1,
+          height: R1,
+          borderRadius: 999,
+          backgroundColor: "#F59E0B",
+          opacity: o1,
+          transform: [{ scale: s1 }],
+        }}
+      />
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: R2,
+          height: R2,
+          borderRadius: 999,
+          backgroundColor: "#F59E0B",
+          opacity: o2,
+          transform: [{ scale: s2 }],
+        }}
+      />
+      <View
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 999,
+          backgroundColor: "#FCD34D",
+        }}
+      />
+    </View>
+  );
+}
 
-const ChipText = styled.span`
-  color: #111827;
-  font-weight: 700;
-  font-size: 12px;
-`;
+/* =========================================================
+   Estilos
+   ========================================================= */
+const styles = (t: typeof palette.light | typeof palette.dark) =>
+  StyleSheet.create({
+    iconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(17,17,19,0.75)",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: "rgba(148,163,184,0.25)",
+    },
+    screen: { flex: 1, backgroundColor: t.bg },
+    header: {
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 8,
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      zIndex: 2,
+    },
+    searchWrap: { flexDirection: "row", alignItems: "center" },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      backgroundColor: t.card,
+      color: t.text,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      marginRight: 8,
+    },
+    headerActions: { flexDirection: "row", gap: 10, marginTop: 10 },
+    chipText: { color: "#111827", fontWeight: "700", fontSize: 12 },
 
-const Legend = styled.div`
-  position: absolute;
-  right: 10px;
-  bottom: 90px;
-  background: #0f0f10;
-  border-radius: 12px;
-  padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  z-index: 10;
-`;
+    legend: {
+      position: "absolute",
+      right: 10,
+      bottom: 90,
+      backgroundColor: t.legendBg,
+      borderColor: t.border,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 12,
+      padding: 10,
+    },
+    legendTitle: { color: t.legendText, fontWeight: "800" },
 
-const LegendTitle = styled.div`
-  color: #fff;
-  font-weight: 800;
-`;
+    sheetWrap: {
+      position: "absolute",
+      left: 12,
+      right: 12,
+      bottom: 12 + (Platform.OS === "ios" ? 8 : 0),
+    },
+    sheetCard: {
+      backgroundColor: t.card,
+      borderRadius: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      padding: 14,
+      shadowColor: "#000",
+      shadowOpacity: 0.12,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
 
-const LegendText = styled.div`
-  color: #9ca3af;
-  font-size: 12px;
-  margin-top: 2px;
-`;
+    formWrap: { position: "absolute", left: 0, right: 0, bottom: 0 },
+    formCard: {
+      backgroundColor: t.card,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      padding: 14,
+      maxHeight: 420,
+    },
 
-const Sheet = styled.div`
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 12px;
-  z-index: 20;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-`;
+    rowBetween: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
 
-const Card = styled.div`
-  width: 100%;
-  max-width: 480px;
-  background: #0f0f10;
-  border-radius: 18px 18px 0 0;
-  padding: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
-  max-height: 60vh;
-  overflow-y: auto;
-  pointer-events: auto;
-`;
+    title: { color: t.text, fontWeight: "800" },
+    sub: { color: t.sub },
 
-const RowBetween = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
+    inputLabel: {
+      color: t.text,
+      fontSize: 12,
+      marginTop: 10,
+      marginBottom: 6,
+      fontWeight: "600",
+    },
 
-const Title = styled.div`
-  color: #e5e7eb;
-  font-weight: 800;
-`;
+    uploadBox: {
+      height: 140,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: t.border,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: t.card,
+    },
 
-const SubInfo = styled.div`
-  color: #9ca3af;
-  margin-top: 6px;
-  font-size: 12px;
-`;
+    primaryBtn: {
+      marginTop: 12,
+      backgroundColor: "#FBBF24",
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    primaryBtnText: { color: "#111827", fontWeight: "800" },
 
-const Description = styled.div`
-  color: #e5e7eb;
-  margin-top: 10px;
-`;
+    btnOutlineSm: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: "transparent",
+      borderRadius: 10,
+      flexDirection: "row",
+    },
+    btnOutlineText: { color: t.text, fontWeight: "600", fontSize: 12 },
 
-const Img = styled.img`
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 12px;
-  margin-top: 10px;
-`;
+    listCard: {
+      backgroundColor: t.card,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      maxHeight: "65%",
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 12,
+    },
+    listRow: {
+      backgroundColor: t.card,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      padding: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+  });
 
-const BtnOutlineSm = styled.button`
-  border: 1px solid #444;
-  background: transparent;
-  border-radius: 10px;
-  padding: 8px 12px;
-  color: #e5e7eb;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-`;
+const chipStyles = StyleSheet.create({
+  chip: {
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#FBBF24",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+});
 
-/* FORM */
+/* =========================================================
+   Estilos de mapa (Google)
+   ========================================================= */
+const darkStyle = [
+  { elementType: "geometry", stylers: [{ color: "#0b132b" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a9b1c3" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b132b" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#1c2541" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text",
+    stylers: [{ visibility: "off" }],
+  },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
 
-const FormSheet = styled.div`
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 70px;
-  z-index: 30;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-`;
-
-const FormCard = styled.div`
-  width: 100%;
-  max-width: 480px;
-  background: #0f0f10;
-  border-radius: 18px 18px 0 0;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 16px;
-  overflow-x: hidden;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
-`;
-
-const Label = styled.div`
-  color: #e5e7eb;
-  font-size: 12px;
-  margin-top: 10px;
-  margin-bottom: 6px;
-  font-weight: 600;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  padding: 10px 12px;
-  background: #0f0f10;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  color: #e5e7eb;
-`;
-
-const Select = styled.select`
-  width: 100%;
-  padding: 10px 12px;
-  background: #0f0f10;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  color: #e5e7eb;
-`;
-
-const Textarea = styled.textarea`
-  width: 100%;
-  min-height: 90px;
-  padding: 10px 12px;
-  background: #0f0f10;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  color: #e5e7eb;
-`;
-
-const UploadBox = styled.div`
-  height: 140px;
-  border-radius: 12px;
-  border: 1px dashed rgba(148, 163, 184, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #0f0f10;
-  margin-top: 4px;
-`;
-
-const PrimaryBtn = styled.button`
-  margin-top: 12px;
-  background: #fbbf24;
-  border-radius: 12px;
-  padding: 12px;
-  width: 100%;
-  color: #111827;
-  font-weight: 800;
-  cursor: pointer;
-`;
-
-const ModalBg = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: 40;
-`;
-
-const ListCard = styled.div`
-  width: 100%;
-  background: #0f0f10;
-  border-radius: 18px 18px 0 0;
-  padding: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  max-height: 65%;
-  overflow-y: auto;
-`;
-
-const ListRow = styled.div`
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  margin-top: 8px;
-  cursor: pointer;
-`;
-
-const RowLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const MiniImgBox = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: #111827;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const MiniImg = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  object-fit: cover;
-`;
-
-const TitleSm = styled.div`
-  color: #e5e7eb;
-  font-size: 14px;
-  font-weight: 800;
-`;
-
-const SubSm = styled.div`
-  color: #9ca3af;
-  font-size: 12px;
-`;
+const lightStyle = [
+  { elementType: "geometry", stylers: [{ color: "#eaeef5" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#6b7280" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#ffffff" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text",
+    stylers: [{ visibility: "off" }],
+  },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];

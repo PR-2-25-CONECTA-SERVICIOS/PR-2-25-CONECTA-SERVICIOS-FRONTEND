@@ -15,7 +15,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { loadUserSession, saveUserSession } from "../../utils/secureStore";
 
-const API_URL = "http://localhost:3000/api/usuarios/";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/";
 
 export default function EditProfileScreen() {
   const router = useRouter();

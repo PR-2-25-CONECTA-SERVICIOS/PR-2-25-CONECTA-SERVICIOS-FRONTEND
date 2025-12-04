@@ -7,14 +7,15 @@ import {
   AlertTriangle,
   ArrowLeft,
   Camera,
-  Clock,
   MapPin,
-  Send
+  Send,
+  Star
 } from "lucide-react-native";
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Image,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -25,16 +26,18 @@ import {
   View,
 } from "react-native";
 
-// 🔥 Importar AuthContext
 import { useAuth } from "@/context/AuthContext";
 
-const API_URL = "http://localhost:3000/api/locales";
+// =====================
+// CONFIG
+// =====================
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
-// ------------------------------
-//     TYPES
-// ------------------------------
+// =====================
+// TYPES
+// =====================
 interface IHours {
   open: string;
   close: string;
@@ -48,21 +51,23 @@ interface ILocal {
   reseñas: number;
   distancia?: string;
   imagen?: string;
+
   telefono?: string;
+  direccion?: string;
 
   lat?: number;
   lng?: number;
-  url?: string;
 
+  url?: string;
   fotos?: string[];
   servicios?: string[];
   tagsEspeciales?: string[];
 
   reclamos?: any[];
-
   verificado: boolean;
   destacado: boolean;
 
+  creadoPor?: any;
   horas?: {
     mon?: IHours;
     tue?: IHours;
@@ -72,14 +77,8 @@ interface ILocal {
     sat?: IHours;
     sun?: IHours;
   };
-
-  direccion?: string;
-  creadoPor?: any;
 }
 
-// ------------------------------
-// DOCUMENT TYPE
-// ------------------------------
 type DocFile = {
   name: string;
   type: string;
@@ -87,9 +86,9 @@ type DocFile = {
   uploading: boolean;
 };
 
-// ===============================
+// =====================
 // UNIVERSAL BASE64
-// ===============================
+// =====================
 const getBase64Universal = async (uri: string) => {
   if (Platform.OS === "web") {
     return await new Promise((resolve, reject) => {
@@ -108,47 +107,45 @@ const getBase64Universal = async (uri: string) => {
     });
   }
 
-  // 📱 Android / iOS
   return await FileSystem.readAsStringAsync(uri, {
     encoding: "base64",
   });
 };
 
-// ======================================
+// =====================
 // MAIN COMPONENT
-// ======================================
+// =====================
 export default function BusinessScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-
   const { user } = useAuth();
+
   const [profile, setProfile] = useState<any>(null);
-
   const [local, setLocal] = useState<ILocal | null>(null);
+
   const [open, setOpen] = useState(false);
-
-  // FORM RECLAMO
   const [msg, setMsg] = useState("");
+
   const [docs, setDocs] = useState<DocFile[]>([]);
-
   const canSubmit = msg.trim() !== "";
-const myClaim = local?.reclamos?.find(
-  (r: any) => r.userId === user._id
-);
 
-  // ===============================
-  // CARGAR PERFIL DEL USUARIO
-  // ===============================
+const myClaim = local?.reclamos
+  ?.filter((r: any) => r && r.userId) // elimina nulls y reclamos corruptos
+  ?.find((r: any) => r.userId === user?._id) || null;
+
+
+  // ==========================
+  // LOAD USER PROFILE
+  // ==========================
   useEffect(() => {
     if (!user || !user._id) return;
 
     const loadProfile = async () => {
       try {
         const res = await fetch(
-          `http://localhost:3000/api/usuarios/${user._id}`
+          `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${user._id}`
         );
         const data = await res.json();
-
         setProfile({
           name: data.nombre,
           email: data.correo,
@@ -162,9 +159,9 @@ const myClaim = local?.reclamos?.find(
     loadProfile();
   }, [user]);
 
-  // ===============================
-  // CARGAR LOCAL
-  // ===============================
+  // ==========================
+  // LOAD LOCAL
+  // ==========================
   useFocusEffect(
     useCallback(() => {
       if (id) loadLocal();
@@ -181,9 +178,9 @@ const myClaim = local?.reclamos?.find(
     }
   };
 
-  // ===============================
-  // SUBIR DOCUMENTO CLOUDINARY
-  // ===============================
+  // ==========================
+  // UPLOAD DOC TO CLOUDINARY
+  // ==========================
   const uploadDocumentToCloudinary = async (doc: DocFile) => {
     try {
       const data = new FormData();
@@ -199,11 +196,7 @@ const myClaim = local?.reclamos?.find(
       });
 
       const json = await res.json();
-
-      if (!res.ok) {
-        console.log("❌ Error Cloudinary:", json);
-        return null;
-      }
+      if (!res.ok) return null;
 
       return json.secure_url;
     } catch (err) {
@@ -212,9 +205,9 @@ const myClaim = local?.reclamos?.find(
     }
   };
 
-  // ===============================
+  // ==========================
   // SUBMIT CLAIM
-  // ===============================
+  // ==========================
   const submitClaim = async () => {
     try {
       const uploadedDocs: string[] = [];
@@ -227,21 +220,19 @@ const myClaim = local?.reclamos?.find(
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  userId: user._id,                 // 👈 NUEVO
-  nombrePropietario: profile?.name,
-  correo: profile?.email,
-  telefono: profile?.phone,
-  mensaje: msg,
-  documentos: uploadedDocs,
-}),
-
+        body: JSON.stringify({
+          userId: user._id,
+          nombrePropietario: profile?.name,
+          correo: profile?.email,
+          telefono: profile?.phone,
+          mensaje: msg,
+          documentos: uploadedDocs,
+        }),
       });
 
-      const json = await res.json();
-      console.log("📩 Reclamo enviado:", json);
-
+      await res.json();
       await loadLocal();
+
       setOpen(false);
       setMsg("");
       setDocs([]);
@@ -250,6 +241,9 @@ body: JSON.stringify({
     }
   };
 
+  // ==========================
+  // LOADING
+  // ==========================
   if (!local || !profile) {
     return (
       <View style={styles.loadCenter}>
@@ -257,7 +251,6 @@ body: JSON.stringify({
       </View>
     );
   }
-
 
   // ======================================
   // UI
@@ -271,14 +264,12 @@ body: JSON.stringify({
           style={{ width: "100%", height: "100%" }}
         />
 
-        <View style={{ position: "absolute", top: 12, left: 12 }}>
-          <TouchableOpacity
-            onPress={() => router.push("/LocalesScreen")}
-            style={styles.backBtn}
-          >
-            <ArrowLeft size={18} color="#e5e7eb" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => router.push("/LocalesScreen")}
+          style={styles.backBtn}
+        >
+          <ArrowLeft size={18} color="#e5e7eb" />
+        </TouchableOpacity>
 
         <View style={styles.heroOverlay}>
           <Text style={styles.heroTitle}>{local.nombre}</Text>
@@ -288,24 +279,57 @@ body: JSON.stringify({
 
       {/* SCROLLVIEW */}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
-        {/* INFO */}
+        {/* ==================== */}
+        {/* INFO PRINCIPAL */}
+        {/* ==================== */}
         <Card>
           <View style={{ padding: 12 }}>
-
+            <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
+              <Star size={16} color="#fbbf24" fill="#fbbf24" />
+              <Text style={styles.textStrong}>{local.calificacion}</Text>
+              <Text style={styles.textMuted}>({local.reseñas} reseñas)</Text>
+            </View>
 
             <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>
               {local.direccion || "Dirección no definida"}
             </RowIcon>
-
-            <RowIcon icon={<Clock size={16} color="#9ca3af" />}>
-              {local.horas?.mon
-                ? `${local.horas.mon.open} - ${local.horas.mon.close}`
-                : "Horario no disponible"}
-            </RowIcon>
           </View>
         </Card>
 
-        {/* RECLAMAR NEGOCIO */}
+        {/* =============================================== */}
+        {/* MINI MAPA — SOLO SI VERIFICADO */}
+        {/* =============================================== */}
+        {local.verificado && local.lat && local.lng && (
+          <Card>
+            <View style={{ padding: 0 }}>
+              <Image
+                style={{
+                  width: "100%",
+                  height: 150,
+                  borderTopLeftRadius: 14,
+                  borderTopRightRadius: 14,
+                }}
+                source={{
+                  uri: `https://maps.locationiq.com/v3/staticmap?key=pk.7c9595e54972eac7089fd1495d8002d0&center=${local.lat},${local.lng}&zoom=15&size=600x300&markers=${local.lat},${local.lng}`,
+                }}
+                resizeMode="cover"
+              />
+
+              <View style={{ padding: 12 }}>
+                <Text style={styles.textStrong}>
+                  {local.direccion || "Dirección no disponible"}
+                </Text>
+                <Text style={[styles.textMuted, { marginTop: 2 }]}>
+                  La ubicación es aproximada
+                </Text>
+              </View>
+            </View>
+          </Card>
+        )}
+
+        {/* =============================================== */}
+        {/* PROPIETARIO + BOTÓN DE RECLAMO */}
+        {/* =============================================== */}
         <Card>
           <View style={{ padding: 12 }}>
             <View style={[styles.rowBetween, { marginBottom: 8 }]}>
@@ -321,38 +345,47 @@ body: JSON.stringify({
                 </View>
               </View>
 
-{/* LÓGICA DEL BOTÓN DE RECLAMO */}
-{!local.verificado && (
-  <>
+              {/* Lógica final del botón */}
+              {!local.verificado && (
+                <>
+                  {myClaim && myClaim.estado === "pendiente" && (
+                    <BadgePending />
+                  )}
 
-    {/* SI YA HICE RECLAMO */}
-    {myClaim && myClaim.estado === "pendiente" && (
-      <BadgePending />
-    )}
+                  {myClaim && myClaim.estado === "rechazado" && (
+                    <Btn
+                      variant="outline"
+                      size="sm"
+                      onPress={() => setOpen(true)}
+                    >
+                      <AlertTriangle size={14} color="#e5e7eb" />
+                      <Text style={{ color: "#e5e7eb" }}>
+                        {"  "}Reclamar negocio
+                      </Text>
+                    </Btn>
+                  )}
 
-    {/* SI MI RECLAMO FUE RECHAZADO → puedo reclamar de nuevo */}
-    {myClaim && myClaim.estado === "rechazado" && (
-      <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
-        <AlertTriangle size={14} color="#e5e7eb" />
-        <Text style={{ color: "#e5e7eb" }}>  Reclamar negocio</Text>
-      </Btn>
-    )}
-
-    {/* SI NUNCA HE RECLAMADO → mostrar botón */}
-    {!myClaim && (
-      <Btn variant="outline" size="sm" onPress={() => setOpen(true)}>
-        <AlertTriangle size={14} color="#e5e7eb" />
-        <Text style={{ color: "#e5e7eb" }}>  Reclamar negocio</Text>
-      </Btn>
-    )}
-  </>
-)}
-
+                  {!myClaim && (
+                    <Btn
+                      variant="outline"
+                      size="sm"
+                      onPress={() => setOpen(true)}
+                    >
+                      <AlertTriangle size={14} color="#e5e7eb" />
+                      <Text style={{ color: "#e5e7eb" }}>
+                        {"  "}Reclamar negocio
+                      </Text>
+                    </Btn>
+                  )}
+                </>
+              )}
             </View>
           </View>
         </Card>
 
+        {/* =============================================== */}
         {/* ADVERTENCIA */}
+        {/* =============================================== */}
         {!local.verificado && (
           <Card
             style={{
@@ -377,11 +410,109 @@ body: JSON.stringify({
             </View>
           </Card>
         )}
+
+        {/* =============================================== */}
+        {/* EXTRAS (solo si verificado) */}
+        {/* =============================================== */}
+        {local.verificado && (
+          <>
+            {/* SITIO WEB */}
+            {local.url && (
+              <Card>
+                <View style={{ padding: 12 }}>
+                  <Text style={styles.textStrong}>Sitio web oficial</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      let link = local.url!;
+                      if (!link.startsWith("http")) {
+                        link = "https://" + link;
+                      }
+                      Linking.openURL(link).catch(() => {});
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#60a5fa",
+                        textDecorationLine: "underline",
+                        marginTop: 6,
+                      }}
+                    >
+                      {local.url}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Card>
+            )}
+
+            {/* SERVICIOS */}
+            {local.servicios && local.servicios.length > 0 && (
+              <Card>
+                <View style={{ padding: 12 }}>
+                  <Text style={styles.textStrong}>Servicios que ofrece</Text>
+                  <View style={[styles.grid2gap, { marginTop: 8 }]}>
+                    {local.servicios.map((srv, idx) => (
+                      <BadgeSecondary key={idx}>{srv}</BadgeSecondary>
+                    ))}
+                  </View>
+                </View>
+              </Card>
+            )}
+
+            {/* GALERÍA */}
+            {local.fotos && local.fotos.length > 0 && (
+              <Card>
+                <View style={{ padding: 12 }}>
+                  <Text style={styles.textStrong}>Galería del local</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: 8,
+                    }}
+                  >
+                    {local.fotos.map((f, idx) => (
+                      <ImageWithFallback
+                        key={idx}
+                        src={f}
+                        style={{
+                          width: 90,
+                          height: 90,
+                          borderRadius: 12,
+                          backgroundColor: "#1f2937",
+                        }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </Card>
+            )}
+
+            {/* TAGS */}
+            {local.tagsEspeciales && local.tagsEspeciales.length > 0 && (
+              <Card>
+                <View style={{ padding: 12 }}>
+                  <Text style={styles.textStrong}>Hashtags especiales</Text>
+                  <View style={[styles.grid2gap, { marginTop: 8 }]}>
+                    {local.tagsEspeciales.map((tag, idx) => (
+                      <BadgeSecondary key={idx} small>
+                        {tag}
+                      </BadgeSecondary>
+                    ))}
+                  </View>
+                </View>
+              </Card>
+            )}
+          </>
+        )}
       </ScrollView>
 
-      {/* MODAL RECLAMO */}
+      {/* ====================== */}
+      {/* MODAL DE RECLAMO */}
+      {/* ====================== */}
       <Modal visible={open} transparent animationType="fade">
         <View style={styles.modalOverlay} />
+
         <View style={styles.modalCenter}>
           <View style={styles.claimModalCard}>
             <Text style={styles.claimTitle}>Reclamar Negocio</Text>
@@ -389,12 +520,11 @@ body: JSON.stringify({
               Completa los datos para verificar tu identidad.
             </Text>
 
-            {/* CAMPOS AUTO */}
+            {/* CAMPOS (solo lectura) */}
             <Field label="Nombre completo">
               <Input
                 value={profile.name}
                 editable={false}
-                selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
@@ -403,7 +533,6 @@ body: JSON.stringify({
               <Input
                 value={profile.email}
                 editable={false}
-                selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
@@ -412,11 +541,11 @@ body: JSON.stringify({
               <Input
                 value={profile.phone || "Sin número"}
                 editable={false}
-                selectTextOnFocus={false}
                 style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
               />
             </Field>
 
+            {/* MENSAJE */}
             <Field label="Mensaje">
               <Textarea value={msg} onChangeText={setMsg} />
             </Field>
@@ -433,10 +562,9 @@ body: JSON.stringify({
 
                   if (!res.canceled) {
                     const asset = res.assets[0];
-
                     const base64 = await getBase64Universal(asset.uri);
-                    let fileName = asset.name;
 
+                    let fileName = asset.name;
                     if (!fileName) {
                       const ext = asset.mimeType?.split("/")[1] || "pdf";
                       fileName = `documento_${Date.now()}.${ext}`;
@@ -448,12 +576,12 @@ body: JSON.stringify({
                         name: fileName,
                         type: asset.mimeType,
                         base64,
-                        uploading: false,
+                        uploading: false, 
                       },
                     ]);
                   }
                 } catch (err) {
-                  console.log("❌ Error seleccionando documento:", err);
+                  console.log("❌ Error docs:", err);
                 }
               }}
             >
@@ -461,25 +589,23 @@ body: JSON.stringify({
               <Text style={styles.uploadDocText}> Subir documento</Text>
             </TouchableOpacity>
 
+            {/* LISTA DOCS */}
             <View style={{ marginTop: 14 }}>
               {docs.map((doc, i) => (
                 <Text key={i} style={styles.docItem}>
-                  {doc.uploading
-                    ? "📤 Subiendo documento..."
-                    : `📄 ${doc.name} (${doc.type})`}
+                  📄 {doc.name}
                 </Text>
               ))}
             </View>
 
+            {/* BOTONES */}
             <View style={styles.modalBtnRow}>
               <Btn
                 variant="outline"
                 style={{ flex: 1 }}
                 onPress={() => setOpen(false)}
               >
-                <Text style={[styles.textStrong, { color: "#e5e7eb" }]}>
-                  Cancelar
-                </Text>
+                <Text style={{ color: "#e5e7eb" }}>Cancelar</Text>
               </Btn>
 
               <Btn
@@ -500,6 +626,11 @@ body: JSON.stringify({
     </View>
   );
 }
+
+// =====================
+// COMPONENTES UI
+// =====================
+
 function BadgePending() {
   return (
     <View
@@ -519,10 +650,6 @@ function BadgePending() {
   );
 }
 
-/* ==============================
-          ELEMENTOS UI
-============================== */
-
 function Card({ children, style }: any) {
   return (
     <View
@@ -530,7 +657,7 @@ function Card({ children, style }: any) {
         {
           backgroundColor: "#0f0f10",
           borderRadius: 14,
-          borderWidth: StyleSheet.hairlineWidth,
+          borderWidth: 1,
           borderColor: "rgba(148,163,184,0.2)",
           marginBottom: 12,
         },
@@ -542,11 +669,27 @@ function Card({ children, style }: any) {
   );
 }
 
-function Field({ label, children }: any) {
+function BadgeSecondary({ children, small }: any) {
   return (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      {children}
+    <View
+      style={{
+        backgroundColor: "rgba(148,163,184,0.12)",
+        borderColor: "rgba(148,163,184,0.25)",
+        borderWidth: 1,
+        paddingHorizontal: small ? 8 : 10,
+        paddingVertical: small ? 2 : 4,
+        borderRadius: 999,
+      }}
+    >
+      <Text
+        style={{
+          color: "#e5e7eb",
+          fontWeight: "700",
+          fontSize: small ? 10 : 12,
+        }}
+      >
+        {children}
+      </Text>
     </View>
   );
 }
@@ -569,6 +712,15 @@ function Textarea(props: any) {
       placeholderTextColor="#6b7280"
       style={[styles.textareaBase, props.style]}
     />
+  );
+}
+
+function Field({ label, children }: any) {
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      {children}
+    </View>
   );
 }
 
@@ -607,9 +759,19 @@ function Btn({ children, onPress, variant, style, disabled }: any) {
   );
 }
 
-/* ==============================
-              STYLES
-============================== */
+function ImageWithFallback({ src, style }: any) {
+  const [err, setErr] = useState(false);
+  if (err || !src)
+    return <View style={[{ backgroundColor: "#1f2937" }, style]} />;
+
+  return (
+    <Image source={{ uri: src }} style={style} onError={() => setErr(true)} />
+  );
+}
+
+// =====================
+// STYLES
+// =====================
 const styles = StyleSheet.create({
   loadCenter: {
     flex: 1,
@@ -622,6 +784,15 @@ const styles = StyleSheet.create({
   textMuted: { color: "#9ca3af" },
   textBody: { color: "#d1d5db" },
 
+  /* AÑADE ESTO ⬇⬇⬇⬇ */
+  inputLabel: {
+    color: "#e5e7eb",
+    fontSize: 12,
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+  /* AÑADE ESTO ⬆⬆⬆⬆ */
+
   row: { flexDirection: "row", alignItems: "center" },
   rowBetween: {
     flexDirection: "row",
@@ -630,6 +801,9 @@ const styles = StyleSheet.create({
   },
 
   backBtn: {
+    position: "absolute",
+    top: 12,
+    left: 12,
     width: 40,
     height: 40,
     borderRadius: 10,
@@ -640,21 +814,14 @@ const styles = StyleSheet.create({
 
   heroOverlay: {
     position: "absolute",
-    left: 0,
-    right: 0,
     bottom: 0,
     padding: 12,
+    width: "100%",
     backgroundColor: "rgba(0,0,0,0.45)",
   },
-  heroTitle: { color: "#fff", fontWeight: "800", fontSize: 20 },
-  heroSubtitle: { color: "rgba(255,255,255,0.9)", marginTop: 2 },
 
-  inputLabel: {
-    color: "#e5e7eb",
-    fontSize: 12,
-    marginBottom: 6,
-    fontWeight: "600",
-  },
+  heroTitle: { color: "#fff", fontWeight: "800", fontSize: 20 },
+  heroSubtitle: { color: "#fff", opacity: 0.9, marginTop: 2 },
 
   inputBase: {
     backgroundColor: "#111827",
@@ -701,7 +868,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  uploadDocText: { color: "#fbbf24", fontWeight: "700" },
+  uploadDocText: {
+    color: "#fbbf24",
+    fontWeight: "700",
+  },
 
   docItem: { color: "#9ca3af", marginTop: 4 },
 
@@ -710,6 +880,7 @@ const styles = StyleSheet.create({
     inset: 0,
     backgroundColor: "rgba(0,0,0,0.7)",
   },
+
   modalCenter: {
     flex: 1,
     justifyContent: "center",
@@ -747,9 +918,12 @@ const styles = StyleSheet.create({
   btnDefault: { backgroundColor: "#111827", borderColor: "#111827" },
   btnOutline: { backgroundColor: "transparent", borderColor: "#374151" },
 
-  sendBtn: {
-    backgroundColor: "#fbbf24",
-    borderColor: "#fbbf24",
-  },
+  sendBtn: { backgroundColor: "#fbbf24", borderColor: "#fbbf24" },
   sendBtnText: { color: "#111827", fontWeight: "900" },
+
+  grid2gap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
 });

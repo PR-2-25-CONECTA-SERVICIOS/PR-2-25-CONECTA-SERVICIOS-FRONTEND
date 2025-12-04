@@ -27,7 +27,7 @@ import {
 import { loadUserSession } from "../../utils/secureStore";
 
 // 📌 Ruta correcta (solo para solicitudes)
-const USER_API = "http://localhost:3000/api/usuarios";
+const USER_API = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios";
 
 // Tipos
 type Status = "finalizado" | "pendiente" | "cancelado" | "aceptado";
@@ -307,7 +307,7 @@ useEffect(() => {
                 if (!ratingTarget) return;
 
 await fetch(
-  `http://localhost:3000/api/usuarios/${session.id}/solicitudes/${ratingTarget.id}/calificar`,
+  `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${session.id}/solicitudes/${ratingTarget.id}/calificar`,
   {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

@@ -25,7 +25,7 @@ const palette = {
 /* ==========================
    API
 ========================== */
-const API_URL = "http://localhost:3000/api/locales";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
 
 /* ==========================
    Tipo del local

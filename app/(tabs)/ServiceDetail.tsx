@@ -24,7 +24,7 @@ import {
 
 import { useAuth } from "@/context/AuthContext"; // ⭐ IMPORTANTE – USAR USER REAL
 
-const API_URL = "http://localhost:3000/api/servicios";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/servicios";
 
 interface IService {
   _id: string;
@@ -107,7 +107,7 @@ useEffect(() => {
 
   const loadMyServices = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
+      const res = await fetch(`https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${user._id}`);
       const json = await res.json();
 
       // json.servicios es un array de objetos
@@ -246,7 +246,11 @@ const phone = service?.propietario?.telefono;
           </View>
         </View>
 
-
+        <View style={styles.availabilityBadge}>
+          <Text style={service.disponible ? styles.availableText : styles.notAvailableText}>
+            {service.disponible ? "Disponible" : "No disponible"}
+          </Text>
+        </View>
       </View>
 
       {/* BODY */}
@@ -334,7 +338,8 @@ const phone = service?.propietario?.telefono;
         {/* CTA */}
 {/* CTA */}
 <View style={{ paddingHorizontal: 16 }}>
-{isMyService ? (
+
+  {isMyService ? (
   // 👉 Si es mi servicio
   <View style={[styles.ctaBtn, { backgroundColor: "#444", opacity: 0.5 }]}>
     <Text style={styles.ctaBtnText}>Este es tu servicio</Text>

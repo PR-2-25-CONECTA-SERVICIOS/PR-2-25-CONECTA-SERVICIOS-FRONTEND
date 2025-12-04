@@ -1,6 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { useRouter } from 'expo-router';
-import { Heart, MapPin, Search, Star } from 'lucide-react-native';
+import { useRouter } from "expo-router";
+import { Heart, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
@@ -13,7 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
 import { useAuth } from "context/AuthContext";
 
@@ -38,7 +38,7 @@ interface IService {
 // =======================================
 // Backend URL
 // =======================================
-const API_URL = "http://localhost:3000/api/servicios";
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/servicios";
 
 // =======================================
 // Componente principal
@@ -46,8 +46,8 @@ const API_URL = "http://localhost:3000/api/servicios";
 export default function ServiceCatalogScreen() {
   const router = useRouter();
 
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
 
   const [services, setServices] = useState<IService[]>([]);
   const [highlighted, setHighlighted] = useState<IService[]>([]);
@@ -60,7 +60,7 @@ export default function ServiceCatalogScreen() {
   // =======================================
   // Responsive Grid
   // =======================================
-  const { width } = Dimensions.get('window');
+  const { width } = Dimensions.get("window");
   const isWide = width >= 720;
   const numColumns = isWide ? 3 : 2;
 
@@ -74,12 +74,11 @@ export default function ServiceCatalogScreen() {
   // =======================================
   const loadCategories = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/categorias");
+      const res = await fetch("https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias");
       const data = await res.json();
 
       const names = data.map((c: any) => c.nombre);
       setCategories(["Todos", ...names]);
-
     } catch (err) {
       console.log("❌ Error cargando categorías:", err);
     } finally {
@@ -99,7 +98,6 @@ export default function ServiceCatalogScreen() {
       const high = await fetch(`${API_URL}/destacados`);
       const jsonHigh = await high.json();
       setHighlighted(jsonHigh);
-
     } catch (error) {
       console.error("❌ Error cargando servicios:", error);
     }
@@ -137,7 +135,9 @@ export default function ServiceCatalogScreen() {
 
       const loadProfile = async () => {
         try {
-          const res = await fetch(`http://localhost:3000/api/usuarios/${user._id}`);
+          const res = await fetch(
+            `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${user._id}`
+          );
           const raw = await res.text();
           const data = JSON.parse(raw);
 
@@ -169,7 +169,6 @@ export default function ServiceCatalogScreen() {
 
       const json = await res.json();
       setServices(json);
-
     } catch (e) {
       console.log("Error filtrando:", e);
     }
@@ -214,8 +213,8 @@ export default function ServiceCatalogScreen() {
           <View style={styles.badgeDark}>
             <Star size={12} color="#fbbf24" />
             <Text style={styles.badgeDarkText}>
-              {item.calificacion || 0}{' '}
-              <Text style={{ color: '#9ca3af' }}>({item.opiniones || 0})</Text>
+              {item.calificacion || 0}{" "}
+              <Text style={{ color: "#9ca3af" }}>({item.opiniones || 0})</Text>
             </Text>
           </View>
 
@@ -245,7 +244,6 @@ export default function ServiceCatalogScreen() {
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-
         {/* HEADER */}
         <View style={styles.header}>
           <View>
@@ -253,13 +251,11 @@ export default function ServiceCatalogScreen() {
               ¡Hola, {profile?.name || "Usuario"}!
             </Text>
 
-            <Text style={styles.subGreeting}>
-              ¿Qué servicio necesitas hoy?
-            </Text>
+            <Text style={styles.subGreeting}>¿Qué servicio necesitas hoy?</Text>
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push('/ProfileViewScreen')}
+            onPress={() => router.replace('/ProfileViewScreen')}
             style={styles.profileBtn}
             activeOpacity={0.9}
           >
@@ -302,7 +298,7 @@ export default function ServiceCatalogScreen() {
             horizontal
             data={categories}
             renderItem={renderCategory}
-            keyExtractor={item => item}
+            keyExtractor={(item) => item}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesRow}
           />
@@ -315,7 +311,7 @@ export default function ServiceCatalogScreen() {
 
             <FlatList
               data={highlighted}
-              keyExtractor={item => item._id}
+              keyExtractor={(item) => item._id}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 16 }}
@@ -338,7 +334,7 @@ export default function ServiceCatalogScreen() {
                       <View style={styles.topRow}>
                         <View style={styles.badgeGold}>
                           <Text style={styles.badgeGoldText}>
-                            {item.disponible ? 'Disponible' : 'No disp.'}
+                            {item.disponible ? "Disponible" : "No disp."}
                           </Text>
                         </View>
 
@@ -351,8 +347,8 @@ export default function ServiceCatalogScreen() {
                         <View style={styles.badgeDark}>
                           <Star size={12} color="#fbbf24" />
                           <Text style={styles.badgeDarkText}>
-                            {item.calificacion || 0}{' '}
-                            <Text style={{ color: '#9ca3af' }}>
+                            {item.calificacion || 0}{" "}
+                            <Text style={{ color: "#9ca3af" }}>
                               ({item.opiniones || 0})
                             </Text>
                           </Text>
@@ -393,19 +389,20 @@ export default function ServiceCatalogScreen() {
 
           <FlatList
             data={services}
-            keyExtractor={item => item._id}
+            keyExtractor={(item) => item._id}
             numColumns={numColumns}
             showsVerticalScrollIndicator={false}
             columnWrapperStyle={{
               gap: horizontalGap,
               paddingHorizontal: gridPadding,
             }}
-            ItemSeparatorComponent={() => <View style={{ height: horizontalGap }} />}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: horizontalGap }} />
+            )}
             scrollEnabled={false}
             renderItem={renderService}
           />
         </View>
-
       </ScrollView>
     </View>
   );
@@ -417,27 +414,27 @@ export default function ServiceCatalogScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: "#0b0b0b",
     paddingTop: Platform.select({ ios: 52, android: 36 }),
   },
 
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   greeting: {
     fontSize: 22,
-    color: '#fbbf24',
-    fontWeight: '800',
+    color: "#fbbf24",
+    fontWeight: "800",
   },
 
   subGreeting: {
     fontSize: 13,
-    color: '#cbd5e1',
+    color: "#cbd5e1",
     marginTop: 2,
   },
 
@@ -445,9 +442,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 999,
-    backgroundColor: '#fbbf24',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#fbbf24",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   profileImage: {
@@ -457,25 +454,25 @@ const styles = StyleSheet.create({
   },
 
   profileInitials: {
-    color: '#111827',
-    fontWeight: '900',
+    color: "#111827",
+    fontWeight: "900",
   },
 
   searchRow: {
     paddingHorizontal: 16,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 10,
   },
 
   searchWrap: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    alignItems: 'center',
-    backgroundColor: 'rgba(17,17,19,0.75)',
+    alignItems: "center",
+    backgroundColor: "rgba(17,17,19,0.75)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.25)',
+    borderColor: "rgba(148,163,184,0.25)",
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -483,7 +480,7 @@ const styles = StyleSheet.create({
 
   searchInput: {
     flex: 1,
-    color: '#e5e7eb',
+    color: "#e5e7eb",
     fontSize: 14,
     paddingVertical: 8,
   },
@@ -497,27 +494,27 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#111113',
+    backgroundColor: "#111113",
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: "rgba(148,163,184,0.2)",
     marginRight: 8,
   },
 
   categoryButtonSelected: {
-    backgroundColor: 'rgba(251,191,36,0.15)',
-    borderColor: 'rgba(251,191,36,0.6)',
+    backgroundColor: "rgba(251,191,36,0.15)",
+    borderColor: "rgba(251,191,36,0.6)",
   },
 
   categoryText: {
-    color: '#e5e7eb',
+    color: "#e5e7eb",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   categoryTextSelected: {
-    color: '#fbbf24',
-    fontWeight: '800',
+    color: "#fbbf24",
+    fontWeight: "800",
   },
 
   section: {
@@ -526,78 +523,78 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: '#e5e7eb',
-    fontWeight: '800',
+    color: "#e5e7eb",
+    fontWeight: "800",
     fontSize: 16,
     paddingHorizontal: 16,
     marginBottom: 8,
   },
 
   highlightCard: {
-    backgroundColor: '#0f0f10',
+    backgroundColor: "#0f0f10",
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: "rgba(148,163,184,0.2)",
   },
 
   highlightImageWrap: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
     height: 150,
   },
 
   highlightImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
 
   topRow: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     left: 10,
     right: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 
   bottomRow: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     left: 10,
     right: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 
   badgeGold: {
-    backgroundColor: 'rgba(251,191,36,0.9)',
+    backgroundColor: "rgba(251,191,36,0.9)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
 
   badgeGoldText: {
-    color: '#111827',
-    fontWeight: '900',
+    color: "#111827",
+    fontWeight: "900",
     fontSize: 11,
   },
 
   badgeDark: {
-    backgroundColor: 'rgba(17,17,19,0.7)',
+    backgroundColor: "rgba(17,17,19,0.7)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.35)',
+    borderColor: "rgba(148,163,184,0.35)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
 
   badgeDarkText: {
-    color: '#e5e7eb',
-    fontWeight: '700',
+    color: "#e5e7eb",
+    fontWeight: "700",
     fontSize: 11,
   },
 
@@ -605,11 +602,11 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(17,17,19,0.7)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17,17,19,0.7)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.35)',
+    borderColor: "rgba(148,163,184,0.35)",
   },
 
   highlightBody: {
@@ -618,47 +615,47 @@ const styles = StyleSheet.create({
   },
 
   highlightName: {
-    color: '#e5e7eb',
-    fontWeight: '800',
+    color: "#e5e7eb",
+    fontWeight: "800",
   },
 
   highlightDesc: {
-    color: '#cbd5e1',
+    color: "#cbd5e1",
     fontSize: 12,
   },
 
   highlightPrice: {
-    color: '#fbbf24',
-    fontWeight: '900',
+    color: "#fbbf24",
+    fontWeight: "900",
     marginTop: 4,
   },
 
   serviceCard: {
-    backgroundColor: '#0f0f10',
+    backgroundColor: "#0f0f10",
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148,163,184,0.2)',
+    borderColor: "rgba(148,163,184,0.2)",
   },
 
   serviceImageWrap: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
     height: 110,
   },
 
   serviceImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
 
   overlayRow: {
-    position: 'absolute',
+    position: "absolute",
     left: 8,
     right: 8,
     bottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 
   serviceBody: {
@@ -667,18 +664,18 @@ const styles = StyleSheet.create({
   },
 
   serviceName: {
-    color: '#e5e7eb',
-    fontWeight: '800',
+    color: "#e5e7eb",
+    fontWeight: "800",
   },
 
   serviceCategory: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 12,
   },
 
   servicePrice: {
-    color: '#fbbf24',
-    fontWeight: '900',
+    color: "#fbbf24",
+    fontWeight: "900",
     marginTop: 2,
   },
 });

@@ -13,7 +13,7 @@ import { Button } from "../../../components/ui/button";
 // ===========================
 // 🔗 URL BACKEND
 // ===========================
-const API_URL = "http://localhost:3000/api/auth/register";  
+const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/auth/register";  
 // ⚠️ Cambia la IP por la tuya si es necesario
 
 export default function RegisterScreen() {
