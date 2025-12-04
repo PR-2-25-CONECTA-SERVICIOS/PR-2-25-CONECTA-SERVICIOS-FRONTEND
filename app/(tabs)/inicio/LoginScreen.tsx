@@ -22,48 +22,51 @@ const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+const [hasError, setHasError] = useState(false);
 
   const handleLogin = async () => {
-    setMsg("");
+  setMsg("");
+  setHasError(false); // reset color rojo
 
-    if (!email || !password) {
-      setMsg("Completa ambos campos.");
+  if (!email || !password) {
+    setMsg("Correo o contraseña incorrectos");
+    setHasError(true);
+    return;
+  }
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ correo: email, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      // Error genérico
+      setMsg("Correo o contraseña incorrectos");
+      setHasError(true);
       return;
     }
 
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo: email, password }),
-      });
+    await login({
+      _id: data.usuario._id,
+      nombre: data.usuario.nombre,
+      correo: data.usuario.correo,
+      rol: data.usuario.rol,
+      avatar: data.usuario.avatar,
+    });
 
-      const data = await res.json();
+    router.push("/(tabs)");
 
-      if (!res.ok) {
-        setMsg(data.mensaje || "Credenciales incorrectas");
-        return;
-      }
+  } catch (err) {
+    console.log("Error:", err);
+    setMsg("Error de conexión");
+    setHasError(true);
+  }
+};
 
-      // Guardar sesión local (user)
-
-await login({
-  _id: data.usuario._id,
-  nombre: data.usuario.nombre,
-  correo: data.usuario.correo,
-  rol: data.usuario.rol,
-  avatar: data.usuario.avatar,
-});
-
-
-      // Ir al home
-      router.push("/(tabs)");
-
-    } catch (err) {
-      console.log("Error:", err);
-      setMsg("No se pudo conectar al servidor");
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -80,7 +83,8 @@ await login({
 
       <View style={styles.inputContainer}>
         {/* Email */}
-        <View style={styles.inputField}>
+        <View style={[styles.inputField, hasError && styles.errorBorder]}>
+
           <Ionicons name="mail" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
@@ -93,7 +97,8 @@ await login({
         </View>
 
         {/* Password */}
-        <View style={styles.inputField}>
+        <View style={[styles.inputField, hasError && styles.errorBorder]}>
+
           <Ionicons name="lock-closed" size={20} color="gray" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
@@ -117,9 +122,6 @@ await login({
 </TouchableOpacity>
 
 
-        <TouchableOpacity>
-          <Text style={styles.forgotPassword}>¿Olvidaste tu contraseña?</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Registro */}
@@ -158,6 +160,11 @@ const styles = StyleSheet.create({
     opacity: 0.05,
     zIndex: -1,
   },
+  errorBorder: {
+  borderWidth: 1,
+  borderColor: "#ff4d4d",
+},
+
   title: {
     fontSize: 30,
     fontWeight: "bold",

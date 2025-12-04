@@ -43,7 +43,7 @@ const [errors, setErrors] = useState<{name?:string, phone?:string, email?:string
         const session = await loadUserSession();
 
         if (!session?._id) {
-          router.replace("/Login/LoginScreen");
+          router.replace("/inicio/LoginScreen");
           return;
         }
 

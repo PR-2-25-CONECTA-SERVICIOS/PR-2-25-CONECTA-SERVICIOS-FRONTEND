@@ -28,9 +28,7 @@ export default function TabLayout() {
 
   // Rutas donde no debe aparecer la TabBar
   const HIDE_SET = new Set([
-    "/Login/LoginScreen",
-    "/Login/RegisterScreen",
-    "/Login/SplashScreen",
+
     "/inicio/LoginScreen",
     "/inicio/RegisterScreen",
     "/inicio/SplashScreen",
@@ -70,12 +68,7 @@ export default function TabLayout() {
     "profile-stack",
 
     // LOGIN
-    "Login/LoginScreen",
-    "Login/RegisterScreen",
-    "Login/SplashScreen",
-        "login/LoginScreen",
-    "login/RegisterScreen",
-    "login/SplashScreen",
+
         "inicio/LoginScreen",
     "inicio/RegisterScreen",
     "inicio/SplashScreen",

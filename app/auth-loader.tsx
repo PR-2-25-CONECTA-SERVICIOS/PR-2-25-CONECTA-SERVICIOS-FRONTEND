@@ -18,5 +18,5 @@ export default function AuthLoader() {
     );
   }
 
-  return user ? <Redirect href="/(tabs)" /> : <Redirect href="/Login/LoginScreen" />;
+  return user ? <Redirect href="/(tabs)" /> : <Redirect href="/inicio/LoginScreen" />;
 }

@@ -515,11 +515,7 @@ const stats = useMemo(() => {
         <View style={{ flex: 1 }}>
           <View style={styles.rowCenter}>
             <Text style={styles.providerName}>{providerData.name}</Text>
-            {providerData.verified && (
-              <View style={styles.badgeSecondary}>
-                <Text style={styles.badgeSecondaryText}>Verificado</Text>
-              </View>
-            )}
+
           </View>
           <Text style={styles.providerSubtitle}>{providerData.service}</Text>
 
