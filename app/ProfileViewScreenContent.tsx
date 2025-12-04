@@ -681,9 +681,7 @@ export default function ProfileViewScreenContent() {
                 <Text style={styles.grayText}>{profile.email}</Text>
                 <Text style={styles.grayText}>{profile.phone}</Text>
 
-                <Text style={styles.ratingText}>
-                  ⭐ {profile.rating} ({profile.reviews})
-                </Text>
+
               </View>
             </View>
 
