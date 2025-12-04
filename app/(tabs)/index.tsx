@@ -1,6 +1,8 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { Heart, MapPin, Search, Star } from "lucide-react-native";
+import MarqueeText from "../../components/MarqueeText";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
@@ -117,14 +119,13 @@ export default function ServiceCatalogScreen() {
   // =======================================
   // Auto refresco cada 10s
   // =======================================
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadInitialData();
-      filterFromBackend();
-    }, 10000);
+useEffect(() => {
+  const interval = setInterval(() => {
+    filterFromBackend(); // solo aplica filtro actual
+  }, 10000);
+  return () => clearInterval(interval);
+}, [search, selectedCategory]); // si cambia filtro, refresca el intervalo
 
-    return () => clearInterval(interval);
-  }, []);
 
   // =======================================
   // Cargar perfil del usuario
@@ -220,17 +221,28 @@ export default function ServiceCatalogScreen() {
 
           <View style={styles.badgeDark}>
             <MapPin size={12} color="#e5e7eb" />
-            <Text style={styles.badgeDarkText}>{item.direccion || "1 km"}</Text>
+<MarqueeText style={styles.badgeDarkText}>
+  {item.direccion || "1 km"}
+</MarqueeText>
           </View>
         </View>
       </View>
 
       <View style={styles.serviceBody}>
-        <Text numberOfLines={1} style={styles.serviceName}>
-          {item.nombre}
-        </Text>
-        <Text style={styles.serviceCategory}>{item.categoria}</Text>
-        <Text style={styles.servicePrice}>{item.precio || "$ -"}</Text>
+<View style={styles.serviceBody}>
+  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.serviceName}>
+    {item.nombre}
+  </Text>
+
+  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.serviceCategory}>
+    {item.categoria}
+  </Text>
+
+  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.servicePrice}>
+    {item.precio || "$ -"}
+  </Text>
+</View>
+
       </View>
     </TouchableOpacity>
   );
@@ -437,6 +449,41 @@ const styles = StyleSheet.create({
     color: "#cbd5e1",
     marginTop: 2,
   },
+serviceName: { 
+  color:"#e5e7eb",
+  fontWeight:"800",
+  flexShrink:1,
+  width:"100%",
+  overflow:"hidden", 
+},
+
+serviceCategory:{ 
+  color:"#9ca3af",
+  fontSize:12,
+  flexShrink:1,
+  width:"100%",
+  overflow:"hidden",
+},
+
+servicePrice: {
+  color:"#fbbf24",
+  fontWeight:"900",
+  marginTop: 2,
+  flexShrink:1,
+  width:"100%",
+  overflow:"hidden",
+},
+
+badgeDarkText:{ 
+  color:"#e5e7eb",
+  fontWeight:"700",
+  fontSize:11,
+  flexShrink:1,
+  maxWidth:70,         // más chico para que corte
+  overflow:"hidden", 
+},
+
+
 
   profileBtn: {
     width: 40,
@@ -522,6 +569,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
+
+highlightName:{
+  color:"#e5e7eb",
+  fontWeight:"800",
+  flexShrink:1,
+  maxWidth:"100%"
+},
+
+highlightDesc:{
+  color:"#cbd5e1",
+  fontSize:12,
+  flexShrink:1,
+  maxWidth:"100%",
+},
+
   sectionTitle: {
     color: "#e5e7eb",
     fontWeight: "800",
@@ -592,11 +654,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  badgeDarkText: {
-    color: "#e5e7eb",
-    fontWeight: "700",
-    fontSize: 11,
-  },
+
 
   heartBtn: {
     width: 30,
@@ -614,15 +672,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
 
-  highlightName: {
-    color: "#e5e7eb",
-    fontWeight: "800",
-  },
 
-  highlightDesc: {
-    color: "#cbd5e1",
-    fontSize: 12,
-  },
 
   highlightPrice: {
     color: "#fbbf24",
@@ -658,24 +708,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  serviceBody: {
-    padding: 10,
-    gap: 4,
-  },
+serviceBody:{
+  padding:10,
+  gap:4,
+  overflow:"hidden",      // ← obligatorio
+  width:"100%",           // ← da límite real
+}
 
-  serviceName: {
-    color: "#e5e7eb",
-    fontWeight: "800",
-  },
 
-  serviceCategory: {
-    color: "#9ca3af",
-    fontSize: 12,
-  },
 
-  servicePrice: {
-    color: "#fbbf24",
-    fontWeight: "900",
-    marginTop: 2,
-  },
+
+
 });
