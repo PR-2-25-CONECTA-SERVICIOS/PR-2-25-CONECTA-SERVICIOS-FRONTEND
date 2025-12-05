@@ -7,11 +7,10 @@ import {
   Camera,
   ImagePlus,
   List,
-  MapPin,
   Navigation,
   Save,
   Trash2,
-  X,
+  X
 } from "lucide-react-native";
 import React, {
   useEffect,
@@ -145,6 +144,7 @@ export default function MapAddScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const [places, setPlaces] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
@@ -155,6 +155,7 @@ export default function MapAddScreen() {
 
   const mapRef = useRef<MapView | null>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
+const [formVisible, setFormVisible] = useState(false);
 
   // Formulario
   const [draftCoord, setDraftCoord] = useState<{
@@ -174,20 +175,25 @@ export default function MapAddScreen() {
   // Sheets
   const form = useRef(new Animated.Value(0)).current;
   const detail = useRef(new Animated.Value(0)).current;
-  const openForm = () =>
-    Animated.timing(form, {
-      toValue: 1,
-      duration: 280,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  const closeForm = () =>
-    Animated.timing(form, {
-      toValue: 0,
-      duration: 220,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+const openForm = () => {
+  setFormVisible(true);
+  Animated.timing(form, {
+    toValue: 1,
+    duration: 280,
+    easing: Easing.out(Easing.cubic),
+    useNativeDriver: true,
+  }).start();
+};
+  const closeForm = () => {
+  Animated.timing(form, {
+    toValue: 0,
+    duration: 200,
+    easing: Easing.in(Easing.cubic),
+    useNativeDriver: true,
+  }).start(() => {
+    setFormVisible(false);
+  });
+};
   const openDetail = () =>
     Animated.timing(detail, {
       toValue: 1,
@@ -307,21 +313,27 @@ export default function MapAddScreen() {
     );
 
   const onLongPress = (e: any) => {
-    const coord = e.nativeEvent.coordinate;
-    setDraftCoord(coord);
-    setTitle("");
-    setPhone("");
-    setDescription("");
-    setImageUri(undefined);
-    setEditingId(null); // nuevo local, no edición
-    // Por defecto, usar primera categoría disponible
-    if (categories.length > 0) {
-      setCategory(categories[0].nombre);
-    } else {
-      setCategory("General");
-    }
+  const coord = e.nativeEvent.coordinate;
+
+  setDraftCoord(coord);
+  setEditingId(null);
+  setTitle("");
+  setPhone("");
+  setDescription("");
+  setImageUri(undefined);
+
+  // categoría por defecto
+  if (categories.length > 0) setCategory(categories[0].nombre);
+  else setCategory("General");
+
+  // 1) acercar el mapa
+  animateTo(coord);
+
+  // 2) mostrar modal luego del zoom
+  setTimeout(() => {
     openForm();
-  };
+  }, 300);
+};
 
   /* =========================================================
      CLOUDINARY
@@ -557,16 +569,19 @@ export default function MapAddScreen() {
         customMapStyle={scheme === "dark" ? darkStyle : lightStyle}
       >
         {places.map((p) => (
-          <Marker
-            key={p.id}
-            coordinate={p.coord}
-            onPress={() => {
-              setSelected(p);
-              openDetail();
-            }}
-          >
-            <PinView selected={selected?.id === p.id} />
-          </Marker>
+<Marker
+  key={p.id}
+  coordinate={p.coord}
+  onPress={() => {
+    setSelected(p);
+    openDetail();
+    animateTo(p.coord);
+  }}
+>
+  <PinView item={p} selected={selected?.id === p.id} />
+</Marker>
+
+
         ))}
 
         {userLoc && (
@@ -591,6 +606,7 @@ export default function MapAddScreen() {
 
       {/* Sheet: Detalle */}
       {selected && (
+        
         <Animated.View
           style={[s.sheetWrap, { transform: [{ translateY: detailTY }] }]}
         >
@@ -637,7 +653,8 @@ export default function MapAddScreen() {
 
             <View style={[s.rowBetween, { marginTop: 12 }]}>
               <TouchableOpacity
-                onPress={() => handleDelete(selected.id)}
+                onPress={() => setConfirmDeleteOpen(true)}
+
                 style={[s.btnOutlineSm, { borderColor: "#ef4444" }]}
                 activeOpacity={0.9}
               >
@@ -671,6 +688,8 @@ export default function MapAddScreen() {
       )}
 
       {/* Sheet: Formulario */}
+      {formVisible && (
+
       <Animated.View
         style={[s.formWrap, { transform: [{ translateY: formTY }] }]}
         pointerEvents="box-none"
@@ -785,7 +804,7 @@ export default function MapAddScreen() {
           </View>
         </KeyboardAvoidingView>
       </Animated.View>
-
+)}
       {/* Lista Modal */}
       <Modal
         visible={listOpen}
@@ -937,6 +956,76 @@ export default function MapAddScreen() {
           </View>
         </View>
       </Modal>
+      <Modal
+  visible={confirmDeleteOpen}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setConfirmDeleteOpen(false)}
+>
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    }}
+  >
+    <View
+      style={{
+        backgroundColor: t.card,
+        padding: 20,
+        borderRadius: 16,
+        width: "85%",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: t.border,
+      }}
+    >
+      <Text
+        style={{
+          color: t.text,
+          fontSize: 16,
+          fontWeight: "700",
+          marginBottom: 10,
+        }}
+      >
+        ¿Eliminar este lugar?
+      </Text>
+
+      <Text style={{ color: t.sub, marginBottom: 20 }}>
+        Esta acción no se puede deshacer.
+      </Text>
+
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10 }}>
+        <TouchableOpacity
+          onPress={() => setConfirmDeleteOpen(false)}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Text style={{ color: t.text, fontWeight: "600" }}>Cancelar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            setConfirmDeleteOpen(false);
+            handleDelete(selected?.id!);
+          }}
+          style={{
+            backgroundColor: "#ef4444",
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: "white", fontWeight: "700" }}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 }
@@ -944,35 +1033,67 @@ export default function MapAddScreen() {
 /* =========================================================
    Subcomponentes
    ========================================================= */
-function PinView({ selected }: { selected: boolean }) {
+function PinView({ item, selected }: { item: Place; selected: boolean }) {
+  const [track, setTrack] = useState(true);
+
+  const size = selected ? 48 : 42;
+  const dotSize = selected ? 12 : 10;
+  const border = 3;
+
+  const hasImage = item.imageUri && item.imageUri.trim() !== "";
+
+  // Si no hay imagen, apagamos tracking
+  useEffect(() => {
+    if (!hasImage) setTrack(false);
+  }, [hasImage]);
+
   return (
     <View style={{ alignItems: "center" }}>
       <View
         style={{
-          width: selected ? 44 : 34,
-          height: selected ? 44 : 34,
-          borderRadius: 999,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          overflow: "hidden",
+          borderWidth: border,
+          borderColor: "#F59E0B",
           backgroundColor: "#F59E0B",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <MapPin size={selected ? 22 : 18} color="#111827" />
+        {hasImage ? (
+          <Image
+            source={{ uri: item.imageUri }}
+            resizeMode="cover"
+            onLoad={() => setTimeout(() => setTrack(false), 80)}
+            onError={() => setTrack(false)}
+            style={{
+              width: "100%",
+              height: "100%",
+              opacity: 1,
+            }}
+          />
+        ) : (
+          <Text style={{ color: "#111827", fontWeight: "700", fontSize: 10 }}>
+            Sin foto
+          </Text>
+        )}
       </View>
+
       <View
         style={{
-          width: 8,
-          height: 8,
+          width: dotSize,
+          height: dotSize,
           borderRadius: 999,
-          backgroundColor: "#FCD34D",
-          position: "absolute",
-          right: -2,
-          top: -2,
+          backgroundColor: "#F59E0B",
+          marginTop: -4,
         }}
       />
     </View>
   );
 }
+
 
 function FormField({
   label,

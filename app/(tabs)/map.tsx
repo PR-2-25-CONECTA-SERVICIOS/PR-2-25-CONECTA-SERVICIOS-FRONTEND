@@ -3,10 +3,8 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  MapPin,
   Navigation,
-  Star,
-  X,
+  X
 } from "lucide-react-native";
 import React, {
   useEffect,
@@ -14,6 +12,8 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Image } from "react-native";
+
 import {
   Animated,
   Easing,
@@ -66,16 +66,24 @@ function mapLocalToItem(local: any): ProviderItem {
     id: local._id,
     title: local.nombre ?? "Sin nombre",
     category: local.categoria ?? "General",
+
     coord: {
       latitude: isNaN(lat) ? -17.3835 : lat,
       longitude: isNaN(lng) ? -66.163 : lng,
     },
-    rating: local.calificacion ?? 0,
-    price: local.distancia ?? "Sin info",
-    status: local.destacado ? "available" : "unavailable",
+
+    // reemplazamos rating por estado de verificación
+    rating: local.verificado ? 1 : 0, // solo un marcador booleano
+
+    // mostramos teléfono en price
+    price: local.telefono || "Sin teléfono",
+
+    status: local.verificado ? "available" : "unavailable",
+
     image: local.imagen,
   };
 }
+
 
 /* =========================
    Paleta por tema
@@ -368,6 +376,8 @@ export default function MapScreen() {
         onRegionChangeComplete={setRegion}
         onPanDrag={onPan}
         customMapStyle={scheme === "dark" ? darkStyle : lightStyle}
+
+
       >
         {/* Pines desde backend (filtrados) */}
         {filtered.map((m) => (
@@ -396,15 +406,7 @@ export default function MapScreen() {
         )}
       </MapView>
 
-      {/* Leyenda */}
-      {legendOpen && (
-        <View style={s.legend}>
-          <Text style={s.legendTitle}>Leyenda</Text>
-          <LegendRow color="#F59E0B" label="Disponible" />
-          <LegendRow color="#9CA3AF" label="No disponible" />
-          <LegendRow color="#FCD34D" label="Tu ubicación" />
-        </View>
-      )}
+
 
       {/* Bottom sheet detalle */}
       <Animated.View
@@ -450,21 +452,25 @@ export default function MapScreen() {
               </View>
 
               <View style={[s.row, { gap: 10, marginTop: 10 }]}>
-                <View style={[s.row, { gap: 4 }]}>
-                  <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                  <Text style={s.textStrong}>
-                    {selected.rating?.toFixed(1) ?? "0.0"}
-                  </Text>
-                </View>
-                <StatusPill status={selected.status} />
+<View style={[s.row, { gap: 6 }]}>
+  <Text style={[s.textStrong, { color: selected.rating === 1 ? "#4ade80" : "#f87171" }]}>
+    {selected.rating === 1 ? "Verificado" : "No verificado"}
+  </Text>
+</View>
+
                 <Text style={[s.textStrong, { marginLeft: "auto" }]}>
                   {selected.price}
                 </Text>
               </View>
 
-              <TouchableOpacity activeOpacity={0.9} style={s.primaryBtn}>
-                <Text style={s.primaryBtnText}>Ver detalle</Text>
-              </TouchableOpacity>
+<TouchableOpacity
+  activeOpacity={0.9}
+  style={s.primaryBtn}
+  onPress={() => router.push(`/BusinessScreen?id=${selected.id}`)}
+>
+  <Text style={s.primaryBtnText}>Ver detalle</Text>
+</TouchableOpacity>
+
             </View>
           )}
         </View>
@@ -640,77 +646,89 @@ function UserPuck() {
   );
 }
 
-function StatusPill({ status }: { status: "available" | "unavailable" }) {
-  const color = status === "available" ? "#F59E0B" : "#9CA3AF";
-  const text = status === "available" ? "Disponible" : "No disponible";
-  return (
-    <View
-      style={{
-        borderColor: color,
-        borderWidth: 1,
-        borderRadius: 999,
-        paddingVertical: 3,
-        paddingHorizontal: 8,
-      }}
-    >
-      <Text style={{ color, fontWeight: "700", fontSize: 12 }}>{text}</Text>
-    </View>
-  );
-}
 
-function Pin({
-  item,
-  selected,
-  onPress,
-}: {
+
+function Pin({ item, selected, onPress }: {
   item: ProviderItem;
   selected: boolean;
   onPress: () => void;
 }) {
-  const scale = useRef(new Animated.Value(selected ? 1.15 : 1)).current;
-  React.useEffect(() => {
-    Animated.spring(scale, {
-      toValue: selected ? 1.15 : 1,
-      useNativeDriver: true,
-      friction: 6,
-    }).start();
-  }, [selected]);
 
-  const outer = "#F59E0B";
-  const dot = item.status === "available" ? "#FCD34D" : "#9CA3AF";
+  const [track, setTrack] = useState(true);
+
+  const size = selected ? 48 : 42;
+  const dotSize = selected ? 12 : 10;
+  const border = 3;
+
+  const hasImage = item.image && item.image.trim() !== "";
+
+  // 🔥 Si NO hay imagen -> apagar tracking inmediatamente
+  useEffect(() => {
+    if (!hasImage) {
+      setTrack(false);
+    }
+  }, [hasImage]);
 
   return (
-    <Marker coordinate={item.coord} onPress={onPress} tracksViewChanges={false}>
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <View style={{ alignItems: "center" }}>
-          <View
-            style={{
-              width: selected ? 44 : 34,
-              height: selected ? 44 : 34,
-              borderRadius: 999,
-              backgroundColor: outer,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MapPin size={selected ? 22 : 18} color="#111827" />
-          </View>
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              backgroundColor: dot,
-              position: "absolute",
-              right: -2,
-              top: -2,
-            }}
-          />
+    <Marker
+      coordinate={item.coord}
+      onPress={onPress}
+      tracksViewChanges={track}
+    >
+      <View style={{ alignItems: "center" }}>
+
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            overflow: "hidden",
+            borderWidth: border,
+            borderColor: "#F59E0B",
+            backgroundColor: "#F59E0B",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {hasImage ? (
+            <Image
+              source={{ uri: item.image }}
+              resizeMode="cover"
+              onLoad={() => {
+                // pequeño delay para evitar desaparecer
+                setTimeout(() => setTrack(false), 80);
+              }}
+              onError={() => setTrack(false)}     // ← evita desaparecer
+              style={{
+                width: "100%",
+                height: "100%",
+                opacity: 1,
+              }}
+            />
+          ) : (
+            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 10 }}>
+              Sin foto
+            </Text>
+          )}
         </View>
-      </Animated.View>
+
+        <View
+          style={{
+            width: dotSize,
+            height: dotSize,
+            borderRadius: 999,
+            backgroundColor: "#F59E0B",
+            marginTop: -4,
+          }}
+        />
+
+      </View>
     </Marker>
   );
 }
+
+
+
 
 function ListModal({
   open,
@@ -798,15 +816,13 @@ function ListModal({
                       marginTop: 8,
                     }}
                   >
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                    >
-                      <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                      <Text style={{ color: t.text, fontWeight: "700" }}>
-                        {item.rating?.toFixed(1) ?? "0.0"}
-                      </Text>
-                    </View>
-                    <StatusPill status={item.status} />
+<Text style={{ 
+  color: item.rating === 1 ? "#4ade80" : "#f87171", 
+  fontWeight: "700" 
+}}>
+  {item.rating === 1 ? "Verificado" : "No verificado"}
+</Text>
+
                   </View>
                 </TouchableOpacity>
               )}
