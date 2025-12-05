@@ -1,7 +1,6 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { Heart, MapPin, Search, Star } from "lucide-react-native";
-import MarqueeText from "../../components/MarqueeText";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -219,12 +218,7 @@ useEffect(() => {
             </Text>
           </View>
 
-          <View style={styles.badgeDark}>
-            <MapPin size={12} color="#e5e7eb" />
-<MarqueeText style={styles.badgeDarkText}>
-  {item.direccion || "1 km"}
-</MarqueeText>
-          </View>
+
         </View>
       </View>
 

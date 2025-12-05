@@ -31,7 +31,12 @@ type Local = {
   destacado?: boolean;
   verificado?: boolean;
   horario?: Hours;
+
+  // 🔥 Agregar estos campos porque existen en Mongo
+  telefono?: string;
+  direccion?: string;
 };
+
 
 const CATEGORIES = ['Todos', 'Restaurante', 'Cafetería', 'Supermercado', 'Ferretería', 'Farmacia'];
 
@@ -158,29 +163,54 @@ const loadCategories = async () => {
     );
   };
 
-  const renderLocal = ({ item }: { item: Local }) => {
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push(`/BusinessScreen?id=${item._id}`)}
-        activeOpacity={0.85}
-      >
-        <Image source={{ uri: item.imagen }} style={styles.cardImage} />
-        <View style={styles.cardBody}>
-          <View >
-            <Text style={styles.cardTitle}>{item.nombre}</Text>
+const renderLocal = ({ item }: { item: Local }) => {
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => router.push(`/BusinessScreen?id=${item._id}`)}
+      activeOpacity={0.85}
+    >
+      <Image source={{ uri: item.imagen }} style={styles.cardImage} />
 
-          </View>
+      <View style={styles.cardBody}>
+    
+    {/* Nombre */}
+    <Text style={styles.cardTitle} numberOfLines={1}>
+      {item.nombre}
+    </Text>
 
-          <Text style={styles.cardCategory}>{item.categoria}</Text>
+    {/* Badge verificado arriba a la derecha dentro del card */}
+    {item.verificado ? (
+      <View style={styles.badgeVerified}>
+        <Ionicons name="checkmark-circle" size={14} color="#fff" />
+        <Text style={styles.badgeText}></Text>
+      </View>
+    ) : (
+      <View style={styles.badgeNotVerified}>
+        <Ionicons name="alert-circle" size={13} color="#fff" />
+      </View>
+    )}
+
+    <Text style={styles.cardCategory}>{item.categoria}</Text>
+
+    {item.direccion && (
+      <Text style={{ color:"#9ca3af", fontSize:12 }} numberOfLines={1}>
+        📍 {item.direccion}
+      </Text>
+    )}
+
+    {item.telefono && (
+      <Text style={{ color:"#cbd5e1", fontSize:12 }}>
+        📞 {item.telefono}
+      </Text>
+    )}
+</View>
+
+    </TouchableOpacity>
+  );
+};
 
 
-
-
-        </View>
-      </TouchableOpacity>
-    );
-  };
 
   // ==========================================================
   // RENDER
@@ -355,7 +385,6 @@ const styles = StyleSheet.create({
   featuredContent: { padding: 12 },
   heartBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: '#0008', padding: 6, borderRadius: 20 },
   badge: { position: 'absolute', top: 10, left: 10, backgroundColor: '#FFD700', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { color: '#0b0d11', fontWeight: '800', fontSize: 12 },
 
   card: {
     flexDirection: 'row',
@@ -367,9 +396,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardImage: { width: 96, height: 96 },
-  cardBody: { flex: 1, padding: 12 },
-  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  cardCategory: { color: '#cbd5e1', marginTop: 2, marginBottom: 6 },
+cardBody: { 
+  flex: 1,
+  padding: 12,
+  position: "relative",       // 👈 necesario para ubicar el badge dentro
+},
+cardTitle: {
+  color: '#fff',
+  fontSize: 16,
+  fontWeight: '800',
+  flexShrink: 1,       // 🔥 permite reducir pero no empujar el badge
+  maxWidth: "95%",      // 🔥 el badge ocupa 25% aprox
+},  cardCategory: { color: '#cbd5e1', marginTop: 2, marginBottom: 6 },
 
   inline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rateText: { color: '#FFD700', fontWeight: '700' },
@@ -379,4 +417,43 @@ const styles = StyleSheet.create({
   status: { fontSize: 12, fontWeight: '700' },
   statusOpen: { color: '#4ade80' },
   statusClosed: { color: '#f97316' },
+
+
+rowBetween: {
+  flexDirection: "row",
+  alignItems: "center",
+  width: "100%",
+},
+
+badgeVerified:{
+  position:"absolute",
+  top:0,
+  right:0,
+  backgroundColor:"#d6d310ff",
+  paddingHorizontal:6,
+  paddingVertical:2,
+  borderRadius:6,
+  flexDirection:"row",
+  alignItems:"center",
+  gap:3
+},
+
+badgeNotVerified:{
+  position:"absolute",
+  top:0,
+  right:0,
+  backgroundColor:"#6b7280",
+  paddingHorizontal:5,
+  paddingVertical:2,
+  borderRadius:6,
+  alignItems:"center",
+  justifyContent:"center"
+},
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "700",
+  maxWidth: 80, // evita romper diseño en pantallas pequeñas
+},
+
 });
