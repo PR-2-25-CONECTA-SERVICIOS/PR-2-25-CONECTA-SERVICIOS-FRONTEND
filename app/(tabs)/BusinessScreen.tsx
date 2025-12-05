@@ -188,12 +188,7 @@ export default function BusinessScreen() {
 
       data.append("file", file64);
       data.append("upload_preset", CLOUDINARY_PRESET);
-
-      // ❗ CAMBIAR ESTO
-      // data.append("resource_type", "raw"); // <- eliminar esta línea
-
-      // Agregar lo siguiente 👇
-      data.append("resource_type", "auto"); // permitirá visualizar PDF
+      data.append("resource_type", "auto");
 
       const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
         method: "POST",
@@ -203,8 +198,12 @@ export default function BusinessScreen() {
       const json = await res.json();
       if (!res.ok) return null;
 
-      // URL que visualiza directamente PDF
-      return json.secure_url;
+      return {
+        url: json.secure_url,
+        name: json.original_filename + "." + json.format, // <── nombre real
+        public_id: json.public_id, // <─ útil si luego quieres borrar
+        type: json.format,
+      };
     } catch (err) {
       console.log("❌ Error subiendo documento:", err);
       return null;
@@ -216,11 +215,14 @@ export default function BusinessScreen() {
   // ==========================
   const submitClaim = async () => {
     try {
-      const uploadedDocs: string[] = [];
+      const uploadedDocs = [];
 
       for (const doc of docs) {
-        const url = await uploadDocumentToCloudinary(doc);
-        if (url) uploadedDocs.push(url);
+        const uploaded = await uploadDocumentToCloudinary(doc);
+        if (uploaded) {
+          uploadedDocs.push(uploaded);
+          // ahora será [{url,name,public_id,type}]
+        }
       }
 
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
@@ -232,7 +234,7 @@ export default function BusinessScreen() {
           correo: profile?.email,
           telefono: profile?.phone,
           mensaje: msg,
-          documentos: uploadedDocs,
+          documentos: uploadedDocs, // ya no es solo link
         }),
       });
 
