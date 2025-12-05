@@ -181,49 +181,54 @@ export default function BusinessScreen() {
   // ==========================
   // UPLOAD DOC TO CLOUDINARY
   // ==========================
-  const uploadDocumentToCloudinary = async (doc: DocFile) => {
-    try {
-      const data = new FormData();
-      const file64 = `data:${doc.type};base64,${doc.base64}`;
+const uploadDocumentToCloudinary = async (doc: DocFile) => {
+  try {
+    const data = new FormData();
+    const file64 = `data:${doc.type};base64,${doc.base64}`;
 
-      data.append("file", file64);
-      data.append("upload_preset", CLOUDINARY_PRESET);
-      data.append("resource_type", "auto");
+    data.append("file", file64);
+    data.append("upload_preset", CLOUDINARY_PRESET);
+    data.append("resource_type", "auto");
 
-      const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
-        method: "POST",
-        body: data,
-      });
+    const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
+      method: "POST",
+      body: data,
+    });
 
-      const json = await res.json();
-      if (!res.ok) return null;
+    const json = await res.json();
+    console.log("📤 Respuesta Cloudinary =>", json); // <--- verificar aquí
 
-      return {
-        url: json.secure_url,
-        name: json.original_filename + "." + json.format, // <── nombre real
-        public_id: json.public_id, // <─ útil si luego quieres borrar
-        type: json.format,
-      };
-    } catch (err) {
-      console.log("❌ Error subiendo documento:", err);
-      return null;
-    }
-  };
+    if (!json.secure_url) return null;   // si falla retornará null
+
+    return {
+      url: json.secure_url,
+      public_id: json.public_id,
+      original_name: json.original_filename + "." + json.format,
+      format: json.format,
+      size: json.bytes,
+    };
+
+  } catch (error) {
+    console.log("❌ Error subiendo archivo", error);
+    return null;
+  }
+};
+
 
   // ==========================
   // SUBMIT CLAIM
   // ==========================
   const submitClaim = async () => {
     try {
-      const uploadedDocs = [];
+const uploadedDocs = [];
 
-      for (const doc of docs) {
-        const uploaded = await uploadDocumentToCloudinary(doc);
-        if (uploaded) {
-          uploadedDocs.push(uploaded);
-          // ahora será [{url,name,public_id,type}]
-        }
-      }
+for (const doc of docs) {
+  const uploaded = await uploadDocumentToCloudinary(doc);
+  if (uploaded) uploadedDocs.push(uploaded);  // <-- objeto con info completa
+}
+
+console.log("📌 Datos que se enviarán al backend:", uploadedDocs);
+
 
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
         method: "POST",
