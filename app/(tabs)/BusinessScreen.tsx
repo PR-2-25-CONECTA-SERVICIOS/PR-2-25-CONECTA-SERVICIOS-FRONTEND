@@ -32,7 +32,8 @@ import { useAuth } from "@/context/AuthContext";
 // =====================
 const API_URL =
   "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
-const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/auto/upload";
+;
 const CLOUDINARY_PRESET = "imagescloudexp";
 
 // =====================
@@ -188,31 +189,34 @@ const uploadDocumentToCloudinary = async (doc: DocFile) => {
 
     data.append("file", file64);
     data.append("upload_preset", CLOUDINARY_PRESET);
-    data.append("resource_type", "auto");
 
-    const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
-      method: "POST",
-      body: data,
-    });
+    const res = await fetch(
+      "https://api.cloudinary.com/v1_1/deqxfxbaa/auto/upload", // <-- FINAL
+      {
+        method: "POST",
+        body: data,
+      }
+    );
 
     const json = await res.json();
-    console.log("📤 Respuesta Cloudinary =>", json); // <--- verificar aquí
+    console.log("📤 Cloudinary:", json);
 
-    if (!json.secure_url) return null;   // si falla retornará null
+    if (!json.secure_url) return null;
 
     return {
-      url: json.secure_url,
+      url: json.secure_url,                       // abrirá correcto
       public_id: json.public_id,
       original_name: json.original_filename + "." + json.format,
       format: json.format,
       size: json.bytes,
     };
 
-  } catch (error) {
-    console.log("❌ Error subiendo archivo", error);
+  } catch (err) {
+    console.log("❌ Error Cloudinary", err);
     return null;
   }
 };
+
 
 
   // ==========================
@@ -659,9 +663,17 @@ function BadgePending() {
         borderColor: "#fbbf24",
         borderWidth: 1,
         borderRadius: 10,
+        flexShrink: 1,         // 👈 evita overflow horizontal
+        maxWidth: "100%",      // 👈 no deja desbordar pantalla
       }}
     >
-      <Text style={{ color: "#fbbf24", fontWeight: "700" }}>
+      <Text
+        style={{
+          color: "#fbbf24",
+          fontWeight: "700",
+          flexWrap: "wrap",    // 👈 texto multilínea
+        }}
+      >
         Tu solicitud está en revisión
       </Text>
     </View>

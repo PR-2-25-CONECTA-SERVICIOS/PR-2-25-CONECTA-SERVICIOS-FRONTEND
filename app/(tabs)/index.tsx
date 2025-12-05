@@ -239,7 +239,7 @@ useEffect(() => {
   </Text>
 
   <Text numberOfLines={1} ellipsizeMode="tail" style={styles.servicePrice}>
-    {item.precio || "$ -"}
+    {item.precio || "$ -"} Bs
   </Text>
 </View>
 

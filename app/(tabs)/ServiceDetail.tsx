@@ -2,11 +2,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   CheckCircle2,
-  Heart,
   MapPin,
   MessageCircle,
   Phone,
-  Share,
   Star
 } from "lucide-react-native";
 
@@ -236,21 +234,10 @@ const phone = service?.propietario?.telefono;
             <ArrowLeft size={18} color="#e5e7eb" />
           </TouchableOpacity>
 
-          <View style={styles.iconRow}>
-            <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)} style={styles.iconBtn}>
-              <Heart size={18} color={isFavorite ? "#ef4444" : "#e5e7eb"} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn}>
-              <Share size={18} color="#e5e7eb" />
-            </TouchableOpacity>
-          </View>
+
         </View>
 
-        <View style={styles.availabilityBadge}>
-          <Text style={service.disponible ? styles.availableText : styles.notAvailableText}>
-            {service.disponible ? "Disponible" : "No disponible"}
-          </Text>
-        </View>
+
       </View>
 
       {/* BODY */}

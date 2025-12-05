@@ -38,6 +38,8 @@ type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";
 type Req = {
   id: string;
   client: string;
+    phone?: string | null; // 👈 añadir aquí
+
   service: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
@@ -215,23 +217,26 @@ setServicePrice(s.precio || "");
         const rawReq = await resReq.text();
         console.log("📥 Solicitudes:", resReq.status, rawReq);
 
-        if (resReq.ok) {
-          const dataReq = JSON.parse(rawReq);
+if (resReq.ok) {
+  const dataReq = JSON.parse(rawReq);
 
-          const mapped: Req[] = dataReq.map((r: any) => ({
-            id: r._id,
-            client: r.cliente?.nombre || "Cliente",
-            service: r.descripcion || "",
-            date:
-              r.fechaCita ||
-              (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
-            time: r.horaCita || "",
-            status: mapEstadoToStatus(r.estado),
-            price: r.precio || s.precio || "",
-            location: r.categoria || "Sin dirección",
-            clientAvatar: r.cliente?.foto || "",
-            urgent: false,
-          }));
+  const mapped: Req[] = dataReq.map((r: any) => ({
+    id: r._id,
+    client: r.cliente?.nombre || "Cliente",
+    phone: r.cliente?.telefono || r.cliente?.phone || null,   // 🔥 acepta ambos
+  // ← 🔥 aquí se agrega teléfono
+    service: r.descripcion || "",
+    date:
+      r.fechaCita ||
+      (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
+    time: r.horaCita || "",
+    status: mapEstadoToStatus(r.estado),
+    price: r.precio || s.precio || "",
+    location: r.categoria || "Sin dirección",
+    clientAvatar: r.cliente?.foto || "",
+    urgent: false,
+  }));
+
 
           setRequests(mapped);
           // Actualizar trabajos completados y rating desde reseñas reales
@@ -275,20 +280,22 @@ useEffect(() => {
       .then((res) => res.json())
       .then((data) => {
         const mapped = data.map((r: any) => ({
-          id: r._id,
-          client: r.cliente?.nombre || "Cliente",
-          service: r.descripcion || "",
-          date:
-            r.fechaCita ||
-            (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
-          time: r.horaCita || "",
-          status: mapEstadoToStatus(r.estado),
-          price: r.precio || servicePrice || "",
+  id: r._id,
+  client: r.cliente?.nombre || "Cliente",
+  phone: r.cliente?.telefono || r.cliente?.phone || null,   // 🔥 acepta ambos
+   // ← 🔥 agregado aquí también
+  service: r.descripcion || "",
+  date:
+    r.fechaCita ||
+    (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
+  time: r.horaCita || "",
+  status: mapEstadoToStatus(r.estado),
+  price: r.precio || servicePrice || "",
+  location: r.categoria || "Sin dirección",
+  clientAvatar: r.cliente?.foto || "",
+  urgent: false,
+}));
 
-          location: r.categoria || "Sin dirección",
-          clientAvatar: r.cliente?.foto || "",
-          urgent: false,
-        }));
 
         setRequests(mapped);
       })
@@ -373,11 +380,25 @@ useEffect(() => {
     updateRequestStatusBackend(req, "cancelled");
   };
 
-  const openWhatsAppAcceptance = (req: Req) => {
-    const msg = `¡Hola ${req.client}! 👋 Soy ${providerData.name}. Acepté tu solicitud de "${req.service}" para el ${req.date} a las ${req.time} en ${req.location}. ¿Coordinamos detalles por aquí?`;
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    Linking.openURL(url).catch(() => {});
-  };
+const openWhatsAppAcceptance = (req: Req) => {
+  if (!req.phone) {
+    alert("Este cliente no tiene número registrado.");
+    return;
+  }
+
+  // Limpia caracteres extra
+  const phone = req.phone.replace(/\D/g, "");
+
+  const msg = `¡Hola ${req.client}! 👋\nAcepté tu solicitud de "${req.service}".\n📅 ${req.date} a las ${req.time}\n📍 ${req.location}\n¿Coordinamos por aquí?`;
+
+  const url = `https://wa.me/591${phone}?text=${encodeURIComponent(msg)}`; 
+  // 🔥 asumiendo Bolivia (+591)
+
+  Linking.openURL(url).catch(() => {
+    alert("No se pudo abrir WhatsApp");
+  });
+};
+
 
   // ====================================================
   // PROGRAMAR CITA

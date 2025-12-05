@@ -9,11 +9,15 @@ interface ButtonProps {
 
 export const Button: React.FC<ButtonProps> = ({ onPress, children, style }) => {
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.button, style]}>  {/* Aquí combinamos los estilos */}
-      <Text style={styles.text}>{children}</Text>
+    <TouchableOpacity onPress={onPress} style={[styles.button, style]}>
+      {typeof children === "string" 
+        ? <Text style={styles.text}>{children}</Text>
+        : children
+      }
     </TouchableOpacity>
   );
 };
+
 
 const styles = StyleSheet.create({
   button: {
