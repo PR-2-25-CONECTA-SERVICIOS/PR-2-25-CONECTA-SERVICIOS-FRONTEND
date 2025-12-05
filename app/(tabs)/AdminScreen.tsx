@@ -1,4 +1,6 @@
 // --------------- IMPORTS ---------------
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import {
   AlertTriangle,
   Calendar,
@@ -9,20 +11,25 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 
 // ---------------- CONSTANTES ------------------
-const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
-const CATEGORY_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias";
+const API_URL =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
+const CATEGORY_URL =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias";
 
 // ---------------- TIPOS ------------------
 type Status = "pendiente" | "aprobado" | "rechazado";
@@ -40,9 +47,36 @@ interface ClaimItem {
   documentos: string[];
   estado: Status;
   fecha: string;
-  userId: string;   // 👈 NUEVO: ID del usuario que reclama
+  userId: string; // 👈 NUEVO: ID del usuario que reclama
 }
+const downloadDocument = async (url: string) => {
+  try {
+    const fileName = url.split("/").pop() || `documento_${Date.now()}.pdf`;
+    const fileUri = FileSystem.documentDirectory + fileName;
 
+    console.log("Descargando desde:", url);
+
+    // 📥 Descargar archivo
+    const { uri } = await FileSystem.downloadAsync(url, fileUri);
+
+    console.log("📄 Guardado en:", uri);
+
+    // Aviso
+    if (Platform.OS === "android") {
+      ToastAndroid.show("📥 Archivo descargado", ToastAndroid.LONG);
+    } else {
+      Alert.alert("Descargado", "El archivo se guardó correctamente");
+    }
+
+    // Abrir/compartir PDF
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri);
+    }
+  } catch (err) {
+    console.error("❌ Error descargando:", err);
+    Alert.alert("Error", "No se pudo descargar el documento");
+  }
+};
 
 // =======================================================
 //                     COMPONENTE PRINCIPAL
@@ -116,18 +150,17 @@ export default function AdminScreen() {
     }
   };
 
-useEffect(() => {
-  loadClaims();
-  loadCategories();
-
-  // 🔁 Auto-refresh cada 5 segundos
-  const interval = setInterval(() => {
+  useEffect(() => {
     loadClaims();
-  }, 5000);
+    loadCategories();
 
-  return () => clearInterval(interval);
-}, []);
+    // 🔁 Auto-refresh cada 5 segundos
+    const interval = setInterval(() => {
+      loadClaims();
+    }, 5000);
 
+    return () => clearInterval(interval);
+  }, []);
 
   // Stats KPI
   const stats = useMemo(
@@ -152,43 +185,43 @@ useEffect(() => {
   }, [search, tab, claims]);
 
   // Aprobación
-const approveClaim = async (item: ClaimItem) => {
-  try {
-    await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        estado: "aprobado",
-        verificado: true,
-        userId: item.userId,          // 👈 PASARLO EXPLÍCITO
-      }),
-    });
-    setConfirm(null);
-    setSelected(null);
-    loadClaims();
-  } catch (err) {
-    console.log("❌ Error aprobando reclamo:", err);
-  }
-};
+  const approveClaim = async (item: ClaimItem) => {
+    try {
+      await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "aprobado",
+          verificado: true,
+          userId: item.userId, // 👈 PASARLO EXPLÍCITO
+        }),
+      });
+      setConfirm(null);
+      setSelected(null);
+      loadClaims();
+    } catch (err) {
+      console.log("❌ Error aprobando reclamo:", err);
+    }
+  };
 
-const rejectClaim = async (item: ClaimItem) => {
-  try {
-    await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        estado: "rechazado",
-        verificado: false,
-        userId: item.userId,          // (opcional pero consistente)
-      }),
-    });
-    setConfirm(null);
-    setSelected(null);
-    loadClaims();
-  } catch (err) {
-    console.log("❌ Error rechazando reclamo:", err);
-  }
-};
+  const rejectClaim = async (item: ClaimItem) => {
+    try {
+      await fetch(`${API_URL}/${item.localId}/reclamos/${item.claimId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "rechazado",
+          verificado: false,
+          userId: item.userId, // (opcional pero consistente)
+        }),
+      });
+      setConfirm(null);
+      setSelected(null);
+      loadClaims();
+    } catch (err) {
+      console.log("❌ Error rechazando reclamo:", err);
+    }
+  };
 
   // =======================================================
   //                      RENDER
@@ -592,10 +625,7 @@ const rejectClaim = async (item: ClaimItem) => {
                       alignItems: "center",
                       justifyContent: "space-between",
                     }}
-                    onPress={() => {
-                      // Abrirá el documento en otra pestaña (web)
-                      window.open(d, "_blank");
-                    }}
+                    onPress={() => downloadDocument(d)}
                   >
                     <Text style={{ color: "#e5e7eb", flex: 1 }}>
                       📄 Documento {i + 1}

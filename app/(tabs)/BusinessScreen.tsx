@@ -8,7 +8,7 @@ import {
   ArrowLeft,
   Camera,
   MapPin,
-  Send
+  Send,
 } from "lucide-react-native";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -30,7 +30,8 @@ import { useAuth } from "@/context/AuthContext";
 // =====================
 // CONFIG
 // =====================
-const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
+const API_URL =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
 const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
@@ -128,10 +129,10 @@ export default function BusinessScreen() {
   const [docs, setDocs] = useState<DocFile[]>([]);
   const canSubmit = msg.trim() !== "";
 
-const myClaim = local?.reclamos
-  ?.filter((r: any) => r && r.userId) // elimina nulls y reclamos corruptos
-  ?.find((r: any) => r.userId === user?._id) || null;
-
+  const myClaim =
+    local?.reclamos
+      ?.filter((r: any) => r && r.userId) // elimina nulls y reclamos corruptos
+      ?.find((r: any) => r.userId === user?._id) || null;
 
   // ==========================
   // LOAD USER PROFILE
@@ -187,9 +188,14 @@ const myClaim = local?.reclamos
 
       data.append("file", file64);
       data.append("upload_preset", CLOUDINARY_PRESET);
-      data.append("resource_type", "raw");
 
-      const res = await fetch(CLOUDINARY_URL, {
+      // ❗ CAMBIAR ESTO
+      // data.append("resource_type", "raw"); // <- eliminar esta línea
+
+      // Agregar lo siguiente 👇
+      data.append("resource_type", "auto"); // permitirá visualizar PDF
+
+      const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
         method: "POST",
         body: data,
       });
@@ -197,6 +203,7 @@ const myClaim = local?.reclamos
       const json = await res.json();
       if (!res.ok) return null;
 
+      // URL que visualiza directamente PDF
       return json.secure_url;
     } catch (err) {
       console.log("❌ Error subiendo documento:", err);
@@ -287,13 +294,11 @@ const myClaim = local?.reclamos
               <Text style={styles.textStrong}>Número:</Text>
 
               <Text style={styles.textBody}>{local.telefono}</Text>
-
             </View>
             <View style={[styles.row, { gap: 6, marginBottom: 10 }]}>
               <Text style={styles.textStrong}>Categoría:</Text>
 
               <Text style={styles.textBody}>{local.categoria}</Text>
-
             </View>
 
             <RowIcon icon={<MapPin size={16} color="#9ca3af" />}>
@@ -582,7 +587,7 @@ const myClaim = local?.reclamos
                         name: fileName,
                         type: asset.mimeType,
                         base64,
-                        uploading: false, 
+                        uploading: false,
                       },
                     ]);
                   }
