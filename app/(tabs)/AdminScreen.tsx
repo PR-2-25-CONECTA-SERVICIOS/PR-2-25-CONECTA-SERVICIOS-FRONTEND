@@ -51,7 +51,14 @@ interface ClaimItem {
 }
 const downloadDocument = async (url: string) => {
   try {
-    const fileName = url.split("/").pop() || `documento_${Date.now()}.pdf`;
+    // 📌 Obtener nombre del archivo y asegurar extensión .pdf
+    let fileName = url.split("/").pop() || `documento_${Date.now()}.pdf`;
+
+    // Si no contiene extensión, se la agregamos
+    if (!fileName.toLowerCase().includes(".pdf")) {
+      fileName = fileName + ".pdf";
+    }
+
     const fileUri = FileSystem.documentDirectory + fileName;
 
     console.log("Descargando desde:", url);
@@ -61,22 +68,23 @@ const downloadDocument = async (url: string) => {
 
     console.log("📄 Guardado en:", uri);
 
-    // Aviso
     if (Platform.OS === "android") {
       ToastAndroid.show("📥 Archivo descargado", ToastAndroid.LONG);
     } else {
       Alert.alert("Descargado", "El archivo se guardó correctamente");
     }
 
-    // Abrir/compartir PDF
+    // Abrir / compartir luego de descargar
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(uri);
     }
+
   } catch (err) {
     console.error("❌ Error descargando:", err);
     Alert.alert("Error", "No se pudo descargar el documento");
   }
 };
+
 
 // =======================================================
 //                     COMPONENTE PRINCIPAL

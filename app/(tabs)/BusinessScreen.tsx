@@ -26,13 +26,14 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/context/AuthContext";
+import { Keyboard, TouchableWithoutFeedback } from "react-native";
 
 // =====================
 // CONFIG
 // =====================
 const API_URL =
   "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
-const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload";
+const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/deqxfxbaa/auto/upload";
 const CLOUDINARY_PRESET = "imagescloudexp";
 
 // =====================
@@ -188,24 +189,24 @@ export default function BusinessScreen() {
 
       data.append("file", file64);
       data.append("upload_preset", CLOUDINARY_PRESET);
-      data.append("resource_type", "auto");
 
-      const res = await fetch(CLOUDINARY_URL.replace("/raw/", "/auto/"), {
-        method: "POST",
-        body: data,
-      });
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/deqxfxbaa/raw/upload",
+        {
+          method: "POST",
+          body: data,
+        }
+      );
 
       const json = await res.json();
-      if (!res.ok) return null;
+      console.log("📤 Cloudinary:", json);
 
-      return {
-        url: json.secure_url,
-        name: json.original_filename + "." + json.format, // <── nombre real
-        public_id: json.public_id, // <─ útil si luego quieres borrar
-        type: json.format,
-      };
+      if (!json.secure_url) return null;
+
+      // 👇 DEVOLVEMOS SOLO LA URL (string)
+      return json.secure_url;
     } catch (err) {
-      console.log("❌ Error subiendo documento:", err);
+      console.log("❌ Error Cloudinary", err);
       return null;
     }
   };
@@ -215,15 +216,17 @@ export default function BusinessScreen() {
   // ==========================
   const submitClaim = async () => {
     try {
-      const uploadedDocs = [];
+      const uploadedUrls: string[] = [];
 
+      // 📌 SUBIR CADA DOC A CLOUDINARY Y GUARDAR SOLO LA URL
       for (const doc of docs) {
-        const uploaded = await uploadDocumentToCloudinary(doc);
-        if (uploaded) {
-          uploadedDocs.push(uploaded);
-          // ahora será [{url,name,public_id,type}]
+        const url = await uploadDocumentToCloudinary(doc);
+        if (url) {
+          uploadedUrls.push(url);
         }
       }
+
+      console.log("📌 URLs enviadas al backend:", uploadedUrls);
 
       const res = await fetch(`${API_URL}/${id}/reclamar`, {
         method: "POST",
@@ -234,13 +237,14 @@ export default function BusinessScreen() {
           correo: profile?.email,
           telefono: profile?.phone,
           mensaje: msg,
-          documentos: uploadedDocs, // ya no es solo link
+          documentos: uploadedUrls, // 👈 AHORA SÍ: [ "https://..." ]
         }),
       });
 
-      await res.json();
-      await loadLocal();
+      const result = await res.json();
+      console.log("📥 RESPUESTA BACKEND:", result, "STATUS:", res.status);
 
+      await loadLocal();
       setOpen(false);
       setMsg("");
       setDocs([]);
@@ -524,116 +528,133 @@ export default function BusinessScreen() {
       {/* MODAL DE RECLAMO */}
       {/* ====================== */}
       <Modal visible={open} transparent animationType="fade">
-        <View style={styles.modalOverlay} />
+        {/* Cerrar teclado tocando fuera */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
 
         <View style={styles.modalCenter}>
-          <View style={styles.claimModalCard}>
-            <Text style={styles.claimTitle}>Reclamar Negocio</Text>
-            <Text style={styles.claimSubtitle}>
-              Completa los datos para verificar tu identidad.
-            </Text>
+          {/* Esto evita que al tocar dentro del modal se cierre el teclado */}
+          <TouchableWithoutFeedback
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          >
+            <View style={styles.claimModalCard}>
+              <Text style={styles.claimTitle}>Reclamar Negocio</Text>
+              <Text style={styles.claimSubtitle}>
+                Completa los datos para verificar tu identidad.
+              </Text>
 
-            {/* CAMPOS (solo lectura) */}
-            <Field label="Nombre completo">
-              <Input
-                value={profile.name}
-                editable={false}
-                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
-              />
-            </Field>
+              {/* CAMPOS (solo lectura) */}
+              <Field label="Nombre completo">
+                <Input
+                  value={profile.name}
+                  editable={false}
+                  style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
+                />
+              </Field>
 
-            <Field label="Correo">
-              <Input
-                value={profile.email}
-                editable={false}
-                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
-              />
-            </Field>
+              <Field label="Correo">
+                <Input
+                  value={profile.email}
+                  editable={false}
+                  style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
+                />
+              </Field>
 
-            <Field label="Teléfono">
-              <Input
-                value={profile.phone || "Sin número"}
-                editable={false}
-                style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
-              />
-            </Field>
+              <Field label="Teléfono">
+                <Input
+                  value={profile.phone || "Sin número"}
+                  editable={false}
+                  style={{ backgroundColor: "#1f2937", opacity: 0.7 }}
+                />
+              </Field>
 
-            {/* MENSAJE */}
-            <Field label="Mensaje">
-              <Textarea value={msg} onChangeText={setMsg} />
-            </Field>
+              {/* MENSAJE */}
+              <Field label="Mensaje">
+                <Textarea value={msg} onChangeText={setMsg} />
+              </Field>
 
-            {/* SUBIR DOCUMENTO */}
-            <TouchableOpacity
-              style={styles.uploadDocBtn}
-              onPress={async () => {
-                try {
-                  const res = await DocumentPicker.getDocumentAsync({
-                    copyToCacheDirectory: true,
-                    multiple: false,
-                  });
+              {/* SUBIR DOCUMENTO */}
+              <TouchableOpacity
+                style={styles.uploadDocBtn}
+                onPress={async () => {
+                  try {
+                    const res = await DocumentPicker.getDocumentAsync({
+                      copyToCacheDirectory: true,
+                      multiple: false,
+                    });
 
-                  if (!res.canceled) {
-                    const asset = res.assets[0];
-                    const base64 = await getBase64Universal(asset.uri);
+                    if (!res.canceled) {
+                      const asset = res.assets[0];
+                      const base64 = await getBase64Universal(asset.uri);
 
-                    let fileName = asset.name;
-                    if (!fileName) {
-                      const ext = asset.mimeType?.split("/")[1] || "pdf";
-                      fileName = `documento_${Date.now()}.${ext}`;
+                      const mime = asset.mimeType || "application/pdf"; // 👈 por si viene undefined
+                      let fileName =
+                        asset.name || `documento_${Date.now()}.pdf`;
+
+                      setDocs((prev) => [
+                        ...prev,
+                        {
+                          name: fileName,
+                          type: mime,
+                          base64,
+                          uploading: false,
+                        },
+                      ]);
+
+                      console.log("📄 DOCS EN STATE:", [
+                        ...docs,
+                        {
+                          name: fileName,
+                          type: mime,
+                          base64: "[base64...]",
+                          uploading: false,
+                        },
+                      ]);
                     }
-
-                    setDocs((prev) => [
-                      ...prev,
-                      {
-                        name: fileName,
-                        type: asset.mimeType,
-                        base64,
-                        uploading: false,
-                      },
-                    ]);
+                  } catch (err) {
+                    console.log("❌ Error docs:", err);
                   }
-                } catch (err) {
-                  console.log("❌ Error docs:", err);
-                }
-              }}
-            >
-              <Camera size={18} color="#fbbf24" />
-              <Text style={styles.uploadDocText}> Subir documento</Text>
-            </TouchableOpacity>
-
-            {/* LISTA DOCS */}
-            <View style={{ marginTop: 14 }}>
-              {docs.map((doc, i) => (
-                <Text key={i} style={styles.docItem}>
-                  📄 {doc.name}
-                </Text>
-              ))}
-            </View>
-
-            {/* BOTONES */}
-            <View style={styles.modalBtnRow}>
-              <Btn
-                variant="outline"
-                style={{ flex: 1 }}
-                onPress={() => setOpen(false)}
+                }}
               >
-                <Text style={{ color: "#e5e7eb" }}>Cancelar</Text>
-              </Btn>
+                <Camera size={18} color="#fbbf24" />
+                <Text style={styles.uploadDocText}> Subir documento</Text>
+              </TouchableOpacity>
 
-              <Btn
-                style={[
-                  styles.sendBtn,
-                  { flex: 1, opacity: canSubmit ? 1 : 0.5 },
-                ]}
-                disabled={!canSubmit}
-                onPress={submitClaim}
-              >
-                <Send size={16} color="#111827" />
-                <Text style={styles.sendBtnText}> Enviar</Text>
-              </Btn>
+              {/* LISTA DOCS */}
+              <View style={{ marginTop: 14 }}>
+                {docs.map((doc, i) => (
+                  <Text key={i} style={styles.docItem}>
+                    📄 {doc.name}
+                  </Text>
+                ))}
+              </View>
+
+              {/* BOTONES */}
+              <View style={styles.modalBtnRow}>
+                <Btn
+                  variant="outline"
+                  style={{ flex: 1 }}
+                  onPress={() => setOpen(false)}
+                >
+                  <Text style={{ color: "#e5e7eb" }}>Cancelar</Text>
+                </Btn>
+
+                <Btn
+                  style={[
+                    styles.sendBtn,
+                    { flex: 1, opacity: canSubmit ? 1 : 0.5 },
+                  ]}
+                  disabled={!canSubmit}
+                  onPress={submitClaim}
+                >
+                  <Send size={16} color="#111827" />
+                  <Text style={styles.sendBtnText}> Enviar</Text>
+                </Btn>
+              </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </View>
       </Modal>
     </View>
@@ -654,9 +675,17 @@ function BadgePending() {
         borderColor: "#fbbf24",
         borderWidth: 1,
         borderRadius: 10,
+        flexShrink: 1, // 👈 evita overflow horizontal
+        maxWidth: "100%", // 👈 no deja desbordar pantalla
       }}
     >
-      <Text style={{ color: "#fbbf24", fontWeight: "700" }}>
+      <Text
+        style={{
+          color: "#fbbf24",
+          fontWeight: "700",
+          flexWrap: "wrap", // 👈 texto multilínea
+        }}
+      >
         Tu solicitud está en revisión
       </Text>
     </View>
