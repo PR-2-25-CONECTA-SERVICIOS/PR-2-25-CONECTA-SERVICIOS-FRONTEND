@@ -10,7 +10,7 @@ import {
   Navigation,
   Save,
   Trash2,
-  X
+  X,
 } from "lucide-react-native";
 import React, {
   useEffect,
@@ -41,8 +41,10 @@ import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
 // ⚠️ Si pruebas en dispositivo físico, cambia localhost por la IP de tu PC
-const API_URL = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
-const CATEGORY_API = "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias";
+const API_URL =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/locales";
+const CATEGORY_API =
+  "https://pr-2-25-conecta-servicios-backend.onrender.com/api/categorias";
 
 // 🔗 Cloudinary
 const CLOUDINARY_URL =
@@ -148,23 +150,23 @@ export default function MapAddScreen() {
   const scheme = useColorScheme();
   const t = scheme === "dark" ? palette.dark : palette.light;
 
-const initialCenter = useMemo(
-  () => ({
-    latitude: -17.3835,
-    longitude: -66.163,
-  }),
-  []
-);
+  const initialCenter = useMemo(
+    () => ({
+      latitude: -17.3835,
+      longitude: -66.163,
+    }),
+    []
+  );
 
-// si no lo usas, puedes borrar esto por completo
-// const [region, setRegion] = useState(initialCenter);
+  // si no lo usas, puedes borrar esto por completo
+  // const [region, setRegion] = useState(initialCenter);
 
   const [followMe, setFollowMe] = useState(false);
   const [userLoc, setUserLoc] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const [places, setPlaces] = useState<Place[]>([]);
   const [selected, setSelected] = useState<Place | null>(null);
@@ -174,8 +176,8 @@ const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const watcher = useRef<Location.LocationSubscription | null>(null);
-const [formVisible, setFormVisible] = useState(false);
-const webRef = useRef<WebView | null>(null);
+  const [formVisible, setFormVisible] = useState(false);
+  const webRef = useRef<WebView | null>(null);
 
   // Formulario
   const [draftCoord, setDraftCoord] = useState<{
@@ -187,6 +189,10 @@ const webRef = useRef<WebView | null>(null);
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>(undefined);
 
+  // 👇 NUEVOS estados para controlar subida de imagen
+  const [previewUri, setPreviewUri] = useState<string | undefined>(undefined);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   // Categorías
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [category, setCategory] = useState<string>(""); // se setea al cargar categorías
@@ -195,25 +201,25 @@ const webRef = useRef<WebView | null>(null);
   // Sheets
   const form = useRef(new Animated.Value(0)).current;
   const detail = useRef(new Animated.Value(0)).current;
-const openForm = () => {
-  setFormVisible(true);
-  Animated.timing(form, {
-    toValue: 1,
-    duration: 280,
-    easing: Easing.out(Easing.cubic),
-    useNativeDriver: true,
-  }).start();
-};
+  const openForm = () => {
+    setFormVisible(true);
+    Animated.timing(form, {
+      toValue: 1,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
   const closeForm = () => {
-  Animated.timing(form, {
-    toValue: 0,
-    duration: 200,
-    easing: Easing.in(Easing.cubic),
-    useNativeDriver: true,
-  }).start(() => {
-    setFormVisible(false);
-  });
-};
+    Animated.timing(form, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setFormVisible(false);
+    });
+  };
   const openDetail = () =>
     Animated.timing(detail, {
       toValue: 1,
@@ -230,8 +236,8 @@ const openForm = () => {
     }).start();
 
   /* =========================================================
-     Cargar usuario + locales desde el backend
-     ========================================================= */
+    Cargar usuario + locales desde el backend
+    ========================================================= */
   useEffect(() => {
     (async () => {
       try {
@@ -268,8 +274,8 @@ const openForm = () => {
   }, []);
 
   /* =========================================================
-     Cargar categorías
-     ========================================================= */
+    Cargar categorías
+    ========================================================= */
   useEffect(() => {
     (async () => {
       try {
@@ -326,41 +332,40 @@ const openForm = () => {
     };
   }, [followMe]);
 
-const animateTo = (c: { latitude: number; longitude: number }) => {
-  const js = `
-    if (window.moveTo) window.moveTo(${c.latitude}, ${c.longitude});
-    true;
-  `;
-  webRef.current?.injectJavaScript(js);
-};
-
+  const animateTo = (c: { latitude: number; longitude: number }) => {
+    const js = `
+      if (window.moveTo) window.moveTo(${c.latitude}, ${c.longitude});
+      true;
+    `;
+    webRef.current?.injectJavaScript(js);
+  };
 
   const onLongPress = (e: any) => {
-  const coord = e.nativeEvent.coordinate;
+    const coord = e.nativeEvent.coordinate;
 
-  setDraftCoord(coord);
-  setEditingId(null);
-  setTitle("");
-  setPhone("");
-  setDescription("");
-  setImageUri(undefined);
+    setDraftCoord(coord);
+    setEditingId(null);
+    setTitle("");
+    setPhone("");
+    setDescription("");
+    setImageUri(undefined);
 
-  // categoría por defecto
-  if (categories.length > 0) setCategory(categories[0].nombre);
-  else setCategory("General");
+    // categoría por defecto
+    if (categories.length > 0) setCategory(categories[0].nombre);
+    else setCategory("General");
 
-  // 1) acercar el mapa
-  animateTo(coord);
+    // 1) acercar el mapa
+    animateTo(coord);
 
-  // 2) mostrar modal luego del zoom
-  setTimeout(() => {
-    openForm();
-  }, 300);
-};
+    // 2) mostrar modal luego del zoom
+    setTimeout(() => {
+      openForm();
+    }, 300);
+  };
 
   /* =========================================================
-     CLOUDINARY
-     ========================================================= */
+    CLOUDINARY
+    ========================================================= */
   const uploadImageToCloudinary = async (imageUri: string) => {
     try {
       const data = new FormData();
@@ -381,6 +386,11 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
       const json = await res.json();
       console.log("CLOUDINARY LOCAL:", json);
 
+      if (!res.ok || !json.secure_url) {
+        console.log("❌ Error Cloudinary:", json);
+        return null;
+      }
+
       return json.secure_url; // ← este es el link final
     } catch (err) {
       console.log("ERROR CLOUDINARY LOCAL:", err);
@@ -390,7 +400,10 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
 
   const handleImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return;
+    if (status !== "granted") {
+      Alert.alert("Permiso requerido", "Necesitamos acceso a tus fotos.");
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -401,26 +414,42 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
     if (!result.canceled && result.assets?.length) {
       const localUri = result.assets[0].uri;
 
-      // mostrar preview temporal:
-      setImageUri(localUri);
+      // 1) Mostrar preview local
+      setPreviewUri(localUri);
 
-      // subir a Cloudinary
-      const cloudUrl = await uploadImageToCloudinary(localUri);
+      // 2) Subir a Cloudinary
+      try {
+        setIsUploadingImage(true);
 
-      if (cloudUrl) {
-        setImageUri(cloudUrl); // link definitivo
-        console.log("📤 Imagen local subida:", cloudUrl);
-      } else {
-        Alert.alert("Error", "No se pudo subir la imagen");
+        const cloudUrl = await uploadImageToCloudinary(localUri);
+
+        if (cloudUrl) {
+          // Guardamos SOLO la URL de Cloudinary
+          setImageUri(cloudUrl);
+          console.log("📤 Imagen subida a Cloudinary:", cloudUrl);
+        } else {
+          Alert.alert("Error", "No se pudo subir la imagen");
+        }
+      } finally {
+        setIsUploadingImage(false);
       }
     }
   };
 
   /* =========================================================
-     GUARDAR LOCAL
-     ========================================================= */
+    GUARDAR LOCAL
+    ========================================================= */
   const handleSave = async () => {
     if (!draftCoord) return;
+
+    if (isUploadingImage) {
+      Alert.alert(
+        "Subiendo imagen",
+        "Espera a que termine de subir la imagen antes de guardar."
+      );
+      return;
+    }
+
     if (!title.trim()) {
       Alert.alert("Falta nombre", "Pon un nombre para el lugar.");
       return;
@@ -535,6 +564,9 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
     outputRange: [260, 0],
   });
 
+  // 👇 Usamos previewUri si existe, si no, imageUri
+  const shownImage = previewUri || imageUri;
+
   return (
     <View style={s.screen}>
       {/* Header */}
@@ -576,51 +608,51 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
       </View>
 
       {/* MAPA */}
-{/* MAPA */}
-<WebView
-  ref={webRef}
-  style={{
-    flex: 1,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    overflow: "hidden",
-  }}
-  source={{ html: MAP_HTML(places, draftCoord) }}
-  onMessage={(event) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
+      {/* MAPA */}
+      <WebView
+        ref={webRef}
+        style={{
+          flex: 1,
+          borderBottomLeftRadius: 18,
+          borderBottomRightRadius: 18,
+          overflow: "hidden",
+        }}
+        source={{ html: MAP_HTML(places, draftCoord) }}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data);
 
-      if (data.type === "marker-press") {
-        setSelected(data.item);
-        openDetail();
-      }
+            if (data.type === "marker-press") {
+              setSelected(data.item);
+              openDetail();
+            }
 
-      if (data.type === "long-press") {
-        const coord = data.coord || {};
-        const lat = Number(coord.lat);
-        const lng = Number(coord.lng);
+            if (data.type === "long-press") {
+              const coord = data.coord || {};
+              const lat = Number(coord.lat);
+              const lng = Number(coord.lng);
 
-        console.log("LONG PRESS RAW >>>", coord);
-        console.log("LONG PRESS PARSED >>>", { lat, lng });
+              console.log("LONG PRESS RAW >>>", coord);
+              console.log("LONG PRESS PARSED >>>", { lat, lng });
 
-        if (!isNaN(lat) && !isNaN(lng)) {
-          setDraftCoord({ latitude: lat, longitude: lng });
-          setEditingId(null);
-          setTitle("");
-          setPhone("");
-          setDescription("");
-          setImageUri(undefined);
-          openForm();
-        } else {
-          console.log("⚠️ lat/lng inválidos desde WebView", coord);
-        }
-      }
-    } catch (e) {
-      console.log("Mensaje inválido desde WebView:", e);
-    }
-  }}
-/>
-
+              if (!isNaN(lat) && !isNaN(lng)) {
+                setDraftCoord({ latitude: lat, longitude: lng });
+                setEditingId(null);
+                setTitle("");
+                setPhone("");
+                setDescription("");
+                setImageUri(undefined);
+                setPreviewUri(undefined);
+                openForm();
+              } else {
+                console.log("⚠️ lat/lng inválidos desde WebView", coord);
+              }
+            }
+          } catch (e) {
+            console.log("Mensaje inválido desde WebView:", e);
+          }
+        }}
+      />
 
       {/* Leyenda */}
       <View style={s.legend}>
@@ -632,7 +664,6 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
 
       {/* Sheet: Detalle */}
       {selected && (
-        
         <Animated.View
           style={[s.sheetWrap, { transform: [{ translateY: detailTY }] }]}
         >
@@ -680,7 +711,6 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
             <View style={[s.rowBetween, { marginTop: 12 }]}>
               <TouchableOpacity
                 onPress={() => setConfirmDeleteOpen(true)}
-
                 style={[s.btnOutlineSm, { borderColor: "#ef4444" }]}
                 activeOpacity={0.9}
               >
@@ -698,6 +728,7 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
                   setPhone(selected.phone);
                   setDescription(selected.description);
                   setImageUri(selected.imageUri);
+                  setPreviewUri(undefined);
                   setCategory(selected.category || "General");
                   setEditingId(selected.id);
                   openForm();
@@ -715,122 +746,136 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
 
       {/* Sheet: Formulario */}
       {formVisible && (
-
-      <Animated.View
-        style={[s.formWrap, { transform: [{ translateY: formTY }] }]}
-        pointerEvents="box-none"
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        <Animated.View
+          style={[s.formWrap, { transform: [{ translateY: formTY }] }]}
+          pointerEvents="box-none"
         >
-          <View style={s.formCard}>
-            <View style={s.rowBetween}>
-              <Text style={[s.title, { fontSize: 16 }]}>
-                {editingId ? "Editar lugar" : "Nuevo lugar"}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  closeForm();
-                  setEditingId(null);
-                }}
-              >
-                <X size={18} color={t.sub} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              contentContainerStyle={{ paddingBottom: 8 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              <FormField label="Nombre del local">
-                <Input
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="Ej. Restaurante La Casa"
-                />
-              </FormField>
-
-              <FormField label="Categoría">
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <View style={s.formCard}>
+              <View style={s.rowBetween}>
+                <Text style={[s.title, { fontSize: 16 }]}>
+                  {editingId ? "Editar lugar" : "Nuevo lugar"}
+                </Text>
                 <TouchableOpacity
-                  onPress={() => setCategoryModalOpen(true)}
-                  activeOpacity={0.9}
-                  style={{
-                    backgroundColor: t.card,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: t.border,
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                  onPress={() => {
+                    closeForm();
+                    setEditingId(null);
                   }}
                 >
-                  <Text
+                  <X size={18} color={t.sub} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                contentContainerStyle={{ paddingBottom: 8 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                <FormField label="Nombre del local">
+                  <Input
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="Ej. Restaurante La Casa"
+                  />
+                </FormField>
+
+                <FormField label="Categoría">
+                  <TouchableOpacity
+                    onPress={() => setCategoryModalOpen(true)}
+                    activeOpacity={0.9}
                     style={{
-                      color: category ? t.text : t.sub,
-                      fontSize: 14,
+                      backgroundColor: t.card,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: t.border,
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                     }}
                   >
-                    {category || "Selecciona una categoría"}
-                  </Text>
-                </TouchableOpacity>
-              </FormField>
+                    <Text
+                      style={{
+                        color: category ? t.text : t.sub,
+                        fontSize: 14,
+                      }}
+                    >
+                      {category || "Selecciona una categoría"}
+                    </Text>
+                  </TouchableOpacity>
+                </FormField>
 
-              <FormField label="Teléfono">
-                <Input
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+591 70000000"
-                  keyboardType="phone-pad"
-                />
-              </FormField>
-
-              <FormField label="Descripción">
-                <Textarea
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Descripción corta del lugar..."
-                />
-              </FormField>
-
-              <Text style={s.inputLabel}>Imagen</Text>
-              {imageUri ? (
-                <TouchableOpacity onPress={handleImage} activeOpacity={0.9}>
-                  <Image
-                    source={{ uri: imageUri }}
-                    style={{ width: "100%", height: 140, borderRadius: 12 }}
+                <FormField label="Teléfono">
+                  <Input
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+591 70000000"
+                    keyboardType="phone-pad"
                   />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={handleImage}
-                  style={s.uploadBox}
-                  activeOpacity={0.9}
-                >
-                  <ImagePlus size={20} color={t.sub} />
-                  <Text
-                    style={{ color: t.sub, marginTop: 6, fontSize: 12 }}
+                </FormField>
+
+                <FormField label="Descripción">
+                  <Textarea
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Descripción corta del lugar..."
+                  />
+                </FormField>
+
+                <Text style={s.inputLabel}>Imagen</Text>
+                {shownImage ? (
+                  <TouchableOpacity
+                    onPress={handleImage}
+                    activeOpacity={0.9}
                   >
-                    Subir imagen
+                    <Image
+                      source={{ uri: shownImage }}
+                      style={{ width: "100%", height: 140, borderRadius: 12 }}
+                    />
+                    {isUploadingImage && (
+                      <Text
+                        style={{
+                          color: t.sub,
+                          marginTop: 4,
+                          fontSize: 12,
+                        }}
+                      >
+                        Subiendo imagen...
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleImage}
+                    style={s.uploadBox}
+                    activeOpacity={0.9}
+                  >
+                    <ImagePlus size={20} color={t.sub} />
+                    <Text
+                      style={{ color: t.sub, marginTop: 6, fontSize: 12 }}
+                    >
+                      Subir imagen
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={handleSave}
+                  activeOpacity={0.9}
+                  style={s.primaryBtn}
+                >
+                  <Text style={s.primaryBtnText}>
+                    {editingId ? "Guardar cambios" : "Guardar local"}
                   </Text>
                 </TouchableOpacity>
-              )}
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      )}
 
-              <TouchableOpacity
-                onPress={handleSave}
-                activeOpacity={0.9}
-                style={s.primaryBtn}
-              >
-                <Text style={s.primaryBtnText}>
-                  {editingId ? "Guardar cambios" : "Guardar local"}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
-)}
       {/* Lista Modal */}
       <Modal
         visible={listOpen}
@@ -854,7 +899,10 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
                 data={places}
                 keyExtractor={(i) => i.id}
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                contentContainerStyle={{ paddingTop: 8, paddingBottom: 10 }}
+                contentContainerStyle={{
+                  paddingTop: 8,
+                  paddingBottom: 10,
+                }}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     activeOpacity={0.9}
@@ -887,7 +935,11 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
                         {item.imageUri ? (
                           <Image
                             source={{ uri: item.imageUri }}
-                            style={{ width: 44, height: 44, borderRadius: 10 }}
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 10,
+                            }}
                           />
                         ) : (
                           <Camera size={18} color="#e5e7eb" />
@@ -982,76 +1034,90 @@ const animateTo = (c: { latitude: number; longitude: number }) => {
           </View>
         </View>
       </Modal>
+
       <Modal
-  visible={confirmDeleteOpen}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setConfirmDeleteOpen(false)}
->
-  <View
-    style={{
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.5)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 20,
-    }}
-  >
-    <View
-      style={{
-        backgroundColor: t.card,
-        padding: 20,
-        borderRadius: 16,
-        width: "85%",
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: t.border,
-      }}
-    >
-      <Text
-        style={{
-          color: t.text,
-          fontSize: 16,
-          fontWeight: "700",
-          marginBottom: 10,
-        }}
+        visible={confirmDeleteOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmDeleteOpen(false)}
       >
-        ¿Eliminar este lugar?
-      </Text>
-
-      <Text style={{ color: t.sub, marginBottom: 20 }}>
-        Esta acción no se puede deshacer.
-      </Text>
-
-      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10 }}>
-        <TouchableOpacity
-          onPress={() => setConfirmDeleteOpen(false)}
+        <View
           style={{
-            paddingVertical: 10,
-            paddingHorizontal: 12,
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
           }}
         >
-          <Text style={{ color: t.text, fontWeight: "600" }}>Cancelar</Text>
-        </TouchableOpacity>
+          <View
+            style={{
+              backgroundColor: t.card,
+              padding: 20,
+              borderRadius: 16,
+              width: "85%",
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: t.border,
+            }}
+          >
+            <Text
+              style={{
+                color: t.text,
+                fontSize: 16,
+                fontWeight: "700",
+                marginBottom: 10,
+              }}
+            >
+              ¿Eliminar este lugar?
+            </Text>
 
-        <TouchableOpacity
-          onPress={() => {
-            setConfirmDeleteOpen(false);
-            handleDelete(selected?.id!);
-          }}
-          style={{
-            backgroundColor: "#ef4444",
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            borderRadius: 8,
-          }}
-        >
-          <Text style={{ color: "white", fontWeight: "700" }}>Eliminar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+            <Text style={{ color: t.sub, marginBottom: 20 }}>
+              Esta acción no se puede deshacer.
+            </Text>
 
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setConfirmDeleteOpen(false)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text
+                  style={{ color: t.text, fontWeight: "600" }}
+                >
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setConfirmDeleteOpen(false);
+                  handleDelete(selected?.id!);
+                }}
+                style={{
+                  backgroundColor: "#ef4444",
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                }}
+              >
+                <Text
+                  style={{ color: "white", fontWeight: "700" }}
+                >
+                  Eliminar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1101,7 +1167,13 @@ function PinView({ item, selected }: { item: Place; selected: boolean }) {
             }}
           />
         ) : (
-          <Text style={{ color: "#111827", fontWeight: "700", fontSize: 10 }}>
+          <Text
+            style={{
+              color: "#111827",
+              fontWeight: "700",
+              fontSize: 10,
+            }}
+          >
             Sin foto
           </Text>
         )}
@@ -1119,7 +1191,6 @@ function PinView({ item, selected }: { item: Place; selected: boolean }) {
     </View>
   );
 }
-
 
 function FormField({
   label,
@@ -1482,6 +1553,7 @@ const lightStyle = [
   },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
 ];
+
 const MAP_HTML = (places: any[], draftCoord: any) => `
 <!DOCTYPE html>
 <html>
@@ -1539,7 +1611,7 @@ const MAP_HTML = (places: any[], draftCoord: any) => `
 
   ${places
     .map(
-      p => `
+      (p) => `
         var icon${p.id} = L.divIcon({
           html: \`
             <div class="pin">
