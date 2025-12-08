@@ -66,6 +66,7 @@ export default function TabLayout() {
     "Splash",
     "map-add",
     "profile-stack",
+    "inicio",
 
     // LOGIN
 

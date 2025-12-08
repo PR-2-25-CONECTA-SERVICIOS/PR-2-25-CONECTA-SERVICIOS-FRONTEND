@@ -227,7 +227,7 @@ const validateForm = () => {
     <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+        <TouchableOpacity onPress={() =>  router.push("../ProfileViewScreen")} style={styles.iconBtn}>
           <ArrowLeft size={22} color="#e5e7eb" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Editar Perfil</Text>

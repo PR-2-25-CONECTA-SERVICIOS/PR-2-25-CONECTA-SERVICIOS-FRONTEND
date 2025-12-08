@@ -10,7 +10,6 @@ import {
   CheckCircle,
   CheckCircle2,
   Clock,
-  Eye,
   MessageCircle,
   Star,
   XCircle
@@ -38,6 +37,8 @@ type RequestStatus = "pending" | "accepted" | "completed" | "cancelled";
 type Req = {
   id: string;
   client: string;
+    phone?: string | null; // 👈 añadir aquí
+
   service: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
@@ -215,23 +216,26 @@ setServicePrice(s.precio || "");
         const rawReq = await resReq.text();
         console.log("📥 Solicitudes:", resReq.status, rawReq);
 
-        if (resReq.ok) {
-          const dataReq = JSON.parse(rawReq);
+if (resReq.ok) {
+  const dataReq = JSON.parse(rawReq);
 
-          const mapped: Req[] = dataReq.map((r: any) => ({
-            id: r._id,
-            client: r.cliente?.nombre || "Cliente",
-            service: r.descripcion || "",
-            date:
-              r.fechaCita ||
-              (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
-            time: r.horaCita || "",
-            status: mapEstadoToStatus(r.estado),
-            price: r.precio || s.precio || "",
-            location: r.categoria || "Sin dirección",
-            clientAvatar: r.cliente?.foto || "",
-            urgent: false,
-          }));
+  const mapped: Req[] = dataReq.map((r: any) => ({
+    id: r._id,
+    client: r.cliente?.nombre || "Cliente",
+    phone: r.cliente?.telefono || r.cliente?.phone || null,   // 🔥 acepta ambos
+  // ← 🔥 aquí se agrega teléfono
+    service: r.descripcion || "",
+    date:
+      r.fechaCita ||
+      (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
+    time: r.horaCita || "",
+    status: mapEstadoToStatus(r.estado),
+    price: r.precio || s.precio || "",
+    location: r.categoria || "Sin dirección",
+    clientAvatar: r.cliente?.foto || "",
+    urgent: false,
+  }));
+
 
           setRequests(mapped);
           // Actualizar trabajos completados y rating desde reseñas reales
@@ -275,20 +279,22 @@ useEffect(() => {
       .then((res) => res.json())
       .then((data) => {
         const mapped = data.map((r: any) => ({
-          id: r._id,
-          client: r.cliente?.nombre || "Cliente",
-          service: r.descripcion || "",
-          date:
-            r.fechaCita ||
-            (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
-          time: r.horaCita || "",
-          status: mapEstadoToStatus(r.estado),
-          price: r.precio || servicePrice || "",
+  id: r._id,
+  client: r.cliente?.nombre || "Cliente",
+  phone: r.cliente?.telefono || r.cliente?.phone || null,   // 🔥 acepta ambos
+   // ← 🔥 agregado aquí también
+  service: r.descripcion || "",
+  date:
+    r.fechaCita ||
+    (r.fechaSolicitud ? String(r.fechaSolicitud).slice(0, 10) : ""),
+  time: r.horaCita || "",
+  status: mapEstadoToStatus(r.estado),
+  price: r.precio || servicePrice || "",
+  location: r.categoria || "Sin dirección",
+  clientAvatar: r.cliente?.foto || "",
+  urgent: false,
+}));
 
-          location: r.categoria || "Sin dirección",
-          clientAvatar: r.cliente?.foto || "",
-          urgent: false,
-        }));
 
         setRequests(mapped);
       })
@@ -373,11 +379,26 @@ useEffect(() => {
     updateRequestStatusBackend(req, "cancelled");
   };
 
-  const openWhatsAppAcceptance = (req: Req) => {
-    const msg = `¡Hola ${req.client}! 👋 Soy ${providerData.name}. Acepté tu solicitud de "${req.service}" para el ${req.date} a las ${req.time} en ${req.location}. ¿Coordinamos detalles por aquí?`;
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    Linking.openURL(url).catch(() => {});
-  };
+const openWhatsAppAcceptance = (req: Req) => {
+  const rawPhone = req.phone || ""; // 📌 Acepta telefono o phone
+  const phone = rawPhone.replace(/\D/g, ""); // limpia guiones, espacios, ()
+
+  if (!phone || phone.length < 7) {
+    alert("Este cliente no tiene número válido registrado.");
+    return;
+  }
+
+  const msg = `¡Hola ${req.client}! 👋\nAcepté tu solicitud.\n\n¿Confirmamos detalles aquí?`;
+
+  // Bolivia +591
+  const url = `https://wa.me/591${phone}?text=${encodeURIComponent(msg)}`;
+
+  Linking.openURL(url).catch(() => {
+    alert("No se pudo abrir WhatsApp");
+  });
+};
+
+
 
   // ====================================================
   // PROGRAMAR CITA
@@ -419,37 +440,38 @@ useEffect(() => {
   };
 
   const saveSchedule = async () => {
-    if (!scheduleRequest) return;
-    try {
-      const res = await fetch(
-        `${SERVICES_API}/solicitudes/${scheduleRequest.id}/appointment`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fechaCita: schedDate,
-            horaCita: schedTime,
-          }),
-        }
-      );
-      const raw = await res.text();
-      console.log("📥 assign appointment:", res.status, raw);
+  if (!scheduleRequest) return;
+  try {
+    const res = await fetch(
+      `${SERVICES_API}/solicitudes/${scheduleRequest.id}/appointment`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fechaCita: schedDate,
+          horaCita: schedTime,
+        }),
+      }
+    );
 
-      if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) throw new Error("HTTP " + res.status);
 
-      // actualizar UI
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === scheduleRequest.id
-            ? { ...r, date: schedDate, time: schedTime, status: "accepted" }
-            : r
-        )
-      );
-      setScheduleModalVisible(false);
-    } catch (err) {
-      console.log("❌ Error guardando cita:", err);
-    }
-  };
+    // 🔥 Cuando se programe → solicitud queda aceptada y lista para finalizar
+    setRequests(prev =>
+      prev.map(r =>
+        r.id === scheduleRequest.id
+          ? { ...r, date: schedDate, time: schedTime, status: "accepted" }
+          : r
+      )
+    );
+
+    setScheduleModalVisible(false);
+
+  } catch (err) {
+    console.log("❌ Error guardando cita:", err);
+  }
+};
+
 
   // ====================================================
   // STATS (a partir de las solicitudes)
@@ -625,8 +647,7 @@ const stats = useMemo(() => {
                           )}
                         </View>
 
-                        <Text style={styles.grayTextSmall}>{req.service}</Text>
-                        <Text style={styles.grayTextSmall}>{req.location}</Text>
+                        <Text style={styles.grayTextSmall}>{scheduleRequest?.phone}</Text>
                       </View>
                     </View>
 
@@ -637,7 +658,7 @@ const stats = useMemo(() => {
                           fontWeight: "600",
                         }}
                       >
-                        {req.price}
+                        {req.price} Bs
                       </Text>
 
                       <View style={[styles.pill, isSmall && styles.pillSmall, { borderColor: pill.color }]}>
@@ -675,25 +696,42 @@ const stats = useMemo(() => {
                         </>
                       )}
 
-                      {req.status === "accepted" && (
-                        <TouchableOpacity
-                          style={styles.btnOutlineSm}
-                          onPress={() => openScheduleModal(req)}
-                        >
-                          <Calendar size={14} color="#e5e7eb" />
-                          <Text style={styles.btnOutlineText}> Programar</Text>
-                        </TouchableOpacity>
-                      )}
+{req.status === "accepted" && !req.date && (
+  // aún no programado → botón programar
+  <TouchableOpacity
+    style={styles.btnOutlineSm}
+    onPress={() => openScheduleModal(req)}
+  >
+    <Calendar size={14} color="#e5e7eb" />
+    <Text style={styles.btnOutlineText}> Programar</Text>
+  </TouchableOpacity>
+)}
 
-                      {req.status === "completed" && (
-                        <TouchableOpacity style={styles.btnOutlineSm}>
-                          <Eye size={14} color="#e5e7eb" />
-                          <Text style={styles.btnOutlineText}>
-                            {" "}
-                            Ver detalles
-                          </Text>
-                        </TouchableOpacity>
-                      )}
+{req.status === "accepted" && req.date && (
+  // ya programado → mostrar finalizar
+  <TouchableOpacity
+    style={[styles.btnOutlineSm, { borderColor: "#34d399" }]}
+    onPress={() => {
+      updateRequestStatusBackend(req, "completed");
+      setFinishModalVisible(true);
+      setRequests(prev =>
+        prev.map(r => r.id === req.id ? { ...r, status: "completed" } : r)
+      );
+    }}
+  >
+    <CheckCircle size={14} color="#34d399"/>
+    <Text style={[styles.btnOutlineText, { color: "#34d399" }]}>
+      Finalizar
+    </Text>
+  </TouchableOpacity>
+)}
+
+
+{req.status === "completed" && (
+   <Text style={[styles.grayTextSmall,{marginTop:6}]}>
+      Servicio finalizado ✔
+   </Text>
+)}
                     </View>
                   </View>
                 </View>
@@ -717,7 +755,7 @@ const stats = useMemo(() => {
                 <KV
                   label="Ingresos totales"
                   value={
-                    stats.income > 0 ? `$${stats.income.toFixed(2)}` : "$0"
+                    stats.income > 0 ? `${stats.income.toFixed(2)} Bs` : "$0"
                   }
                   valueColor="#34d399"
                 />
@@ -805,13 +843,11 @@ const stats = useMemo(() => {
             {acceptedRequest && (
               <View style={styles.modalDetails}>
                 <Row label="Cliente" value={acceptedRequest.client} />
-                <Row label="Servicio" value={acceptedRequest.service} />
                 <Row
                   label="Cuándo"
                   value={`${acceptedRequest.date} • ${acceptedRequest.time}`}
                 />
-                <Row label="Ubicación" value={acceptedRequest.location} />
-                <Row label="Precio estimado" value={acceptedRequest.price} />
+                <Row label="Precio/hora estimado" value={acceptedRequest.price +" Bs"}  />
               </View>
             )}
 
@@ -912,7 +948,7 @@ const stats = useMemo(() => {
                 style={styles.input}
                 placeholder="Duración (horas) — ej. 2"
                 placeholderTextColor="#9ca3af"
-                value={schedDuration}
+                
                 onChangeText={setSchedDuration}
                 keyboardType="numeric"
               />
@@ -920,7 +956,7 @@ const stats = useMemo(() => {
                 style={styles.input}
                 placeholder="Ubicación"
                 placeholderTextColor="#9ca3af"
-                value={schedLocation}
+                
                 onChangeText={setSchedLocation}
               />
               <TextInput
@@ -933,31 +969,46 @@ const stats = useMemo(() => {
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.btnWhatsapp, { marginTop: 12 }]}
-              onPress={openWhatsAppSchedule}
-            >
-              <MessageCircle size={16} color="#fff" />
-              <Text style={styles.btnWhatsappText}>Proponer por WhatsApp</Text>
-            </TouchableOpacity>
+{/* BOTÓN WHATSAPP - ahora con validación */}
+<TouchableOpacity
+  disabled={!schedDate || !schedTime || !schedDuration || !schedLocation}
+  style={[
+    styles.btnWhatsapp,
+    {
+      marginTop: 12,
+      opacity: (!schedDate || !schedTime || !schedDuration || !schedLocation) ? 0.4 : 1
+    }
+  ]}
+onPress={() => {
+  if (!scheduleRequest) return;
 
-{/* GUARDAR la programación */}
-<TouchableOpacity style={styles.btnGhost} onPress={saveSchedule}>
-  <Text style={styles.btnGhostText}>Guardar programación</Text>
+  const rawPhone = scheduleRequest.phone || "";
+  const phone = rawPhone.replace(/\D/g, "");
+
+  if (!phone) {
+    alert("Este cliente no tiene teléfono registrado.");
+    return;
+  }
+
+  const msg = `📅 *Programación del servicio*\n\nCliente: *${scheduleRequest.client}*\n🗓 *${schedDate}*\n⏰ *${schedTime}*\n⏱ *Duración: ${schedDuration}h*\n📍 *${schedLocation}*\n${schedNote ? `\n📝 Nota: ${schedNote}` : ""}\n\n¿Confirmamos la cita?`;
+
+  Linking.openURL(`https://wa.me/591${phone}?text=${encodeURIComponent(msg)}`);
+
+  // 🔥 Guardar programación en DB
+  saveSchedule(); // ya cierra modal y actualiza UI
+}}
+
+
+>
+  <MessageCircle size={16} color="#fff" />
+  <Text style={styles.btnWhatsappText}>Proponer por WhatsApp</Text>
 </TouchableOpacity>
+
+
+
 
 {/* FINALIZAR SERVICIO */}
-<TouchableOpacity
-  style={[styles.btnWhatsapp, { backgroundColor: "#34d399", marginTop: 4 }]}
-  onPress={() => {
-    updateRequestStatusBackend(scheduleRequest!, "completed");
-    setScheduleModalVisible(false);
-    setFinishModalVisible(true);
-  }}
->
-  <CheckCircle size={16} color="#fff" />
-  <Text style={styles.btnWhatsappText}>Dar por finalizado</Text>
-</TouchableOpacity>
+
 
             <TouchableOpacity
               style={styles.btnGhost}

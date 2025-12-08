@@ -12,7 +12,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Image } from "react-native";
 
 import {
   Animated,
@@ -28,11 +27,8 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import MapView, {
-  Marker,
-  PROVIDER_GOOGLE,
-  Region,
-} from "react-native-maps";
+import { WebView } from "react-native-webview";
+
 
 /* =========================
    API
@@ -121,17 +117,13 @@ export default function MapScreen() {
   const scheme = useColorScheme();
   const t = scheme === "dark" ? palette.dark : palette.light;
 
-  const initialRegion: Region = useMemo(
-    () => ({
-      latitude: -17.3835,
-      longitude: -66.163,
-      latitudeDelta: 0.015,
-      longitudeDelta: 0.015,
-    }),
-    []
-  );
+const [center] = useState({
+  latitude: -17.3835,
+  longitude: -66.163,
+});
 
-  const [region, setRegion] = useState(initialRegion);
+const webRef = useRef<WebView | null>(null);
+const [mapReady, setMapReady] = useState(false);
 
   const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [selected, setSelected] = useState<ProviderItem | null>(null);
@@ -147,7 +139,6 @@ export default function MapScreen() {
     longitude: number;
   } | null>(null);
   const [followMe, setFollowMe] = useState(false);
-  const mapRef = useRef<MapView | null>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
 
   // Animación bottom sheet
@@ -225,6 +216,15 @@ export default function MapScreen() {
         i.price.toLowerCase().includes(q)
     );
   }, [search, providers, selectedCategory]);
+useEffect(() => {
+  if (!mapReady) return; // esperamos a que el HTML haya cargado
+
+  const js = `
+    if (window.addMarkers) window.addMarkers(${JSON.stringify(filtered)});
+    true;
+  `;
+  webRef.current?.injectJavaScript(js);
+}, [filtered, mapReady]);
 
   // ============================
   // Ubicación
@@ -266,21 +266,24 @@ export default function MapScreen() {
     };
   }, [followMe]);
 
-  const animateTo = (center: { latitude: number; longitude: number }) => {
-    mapRef.current?.animateToRegion(
-      {
-        latitude: center.latitude,
-        longitude: center.longitude,
-        latitudeDelta: 0.012,
-        longitudeDelta: 0.012,
-      },
-      250
-    );
-  };
+const animateTo = (c: { latitude: number; longitude: number }) => {
+  if (!mapReady) return;  // opcional pero recomendable
 
-  const onPan = () => {
-    if (followMe) setFollowMe(false);
-  };
+  const js = `
+    if (window.moveTo) window.moveTo(${c.latitude}, ${c.longitude});
+    if (window.setUserLocation) window.setUserLocation(${c.latitude}, ${c.longitude});
+    true;
+  `;
+  webRef.current?.injectJavaScript(js);
+};
+
+const onMarkerPress = (item: ProviderItem) => {
+  setSelected(item);
+  showSheet();
+  animateTo(item.coord);
+};
+
+
 
   const s = styles(t);
 
@@ -363,48 +366,31 @@ export default function MapScreen() {
       </View>
 
       {/* MAPA */}
-      <MapView
-        ref={mapRef}
+            {/* MAPA (WebView + Leaflet) */}
+      <View
         style={{
           flex: 1,
           borderBottomLeftRadius: 18,
           borderBottomRightRadius: 18,
           overflow: "hidden",
         }}
-        provider={Platform.OS === "ios" ? PROVIDER_GOOGLE : undefined}
-        initialRegion={initialRegion}
-        onRegionChangeComplete={setRegion}
-        onPanDrag={onPan}
-        customMapStyle={scheme === "dark" ? darkStyle : lightStyle}
-
-
       >
-        {/* Pines desde backend (filtrados) */}
-        {filtered.map((m) => (
-          <Pin
-            key={m.id}
-            item={m}
-            selected={selected?.id === m.id}
-            onPress={() => {
-              setSelected(m);
-              showSheet();
-              animateTo(m.coord);
-            }}
-          />
-        ))}
+<WebView
+  ref={webRef}
+  originWhitelist={["*"]}
+  source={{ html: MAP_HTML }}
+  onLoadEnd={() => setMapReady(true)}
+  onMessage={(event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      onMarkerPress(data as ProviderItem);
+    } catch (e) {
+      console.log("Mensaje inválido desde WebView:", e);
+    }
+  }}
+/>
 
-        {/* Puck (tu ubicación) */}
-        {userLoc && (
-          <Marker
-            coordinate={userLoc}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={true}
-            zIndex={9999}
-          >
-            <UserPuck />
-          </Marker>
-        )}
-      </MapView>
+      </View>
 
 
 
@@ -648,84 +634,6 @@ function UserPuck() {
 
 
 
-function Pin({ item, selected, onPress }: {
-  item: ProviderItem;
-  selected: boolean;
-  onPress: () => void;
-}) {
-
-  const [track, setTrack] = useState(true);
-
-  const size = selected ? 48 : 42;
-  const dotSize = selected ? 12 : 10;
-  const border = 3;
-
-  const hasImage = item.image && item.image.trim() !== "";
-
-  // 🔥 Si NO hay imagen -> apagar tracking inmediatamente
-  useEffect(() => {
-    if (!hasImage) {
-      setTrack(false);
-    }
-  }, [hasImage]);
-
-  return (
-    <Marker
-      coordinate={item.coord}
-      onPress={onPress}
-      tracksViewChanges={track}
-    >
-      <View style={{ alignItems: "center" }}>
-
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            overflow: "hidden",
-            borderWidth: border,
-            borderColor: "#F59E0B",
-            backgroundColor: "#F59E0B",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {hasImage ? (
-            <Image
-              source={{ uri: item.image }}
-              resizeMode="cover"
-              onLoad={() => {
-                // pequeño delay para evitar desaparecer
-                setTimeout(() => setTrack(false), 80);
-              }}
-              onError={() => setTrack(false)}     // ← evita desaparecer
-              style={{
-                width: "100%",
-                height: "100%",
-                opacity: 1,
-              }}
-            />
-          ) : (
-            <Text style={{ color: "#111827", fontWeight: "700", fontSize: 10 }}>
-              Sin foto
-            </Text>
-          )}
-        </View>
-
-        <View
-          style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: 999,
-            backgroundColor: "#F59E0B",
-            marginTop: -4,
-          }}
-        />
-
-      </View>
-    </Marker>
-  );
-}
 
 
 
@@ -946,3 +854,152 @@ const lightStyle = [
   { featureType: "poi", elementType: "labels.text", stylers: [{ visibility: "off" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
 ];
+const MAP_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    html, body { margin:0; padding:0; }
+    #map { width: 100vw; height: 100vh; }
+  /* 🔹 Ocultar controles de zoom de Leaflet */
+  .leaflet-control-zoom {
+    display: none !important;
+  }
+    /* ==== Estilos del pin (igual que en React Native) ==== */
+    .cs-pin-wrapper-outer {
+      background: transparent;
+      border: none;
+    }
+
+    .cs-pin-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .cs-pin {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 3px solid #F59E0B;
+      background-color: #F59E0B;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      font-size: 10px;
+      font-weight: 700;
+      color: #111827;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .cs-pin img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cs-pin--nofoto {
+      /* ya tiene el fondo amarillo y el texto "Sin foto" centrado */
+    }
+
+    .cs-pin-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background-color: #F59E0B;
+      margin-top: -4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    var map = L.map('map').setView([-17.3835, -66.163], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    var markersLayer = L.layerGroup().addTo(map);
+    var userMarker = null;
+
+    window.addMarkers = function(data) {
+      markersLayer.clearLayers();
+      var bounds = [];
+
+      data.forEach(function(item) {
+        var lat = item.coord && item.coord.latitude;
+        var lng = item.coord && item.coord.longitude;
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+
+        bounds.push([lat, lng]);
+
+        var hasImage = item.image && item.image.trim() !== "";
+        var html = "";
+
+        if (hasImage) {
+          html =
+            '<div class="cs-pin-wrapper">' +
+              '<div class="cs-pin">' +
+                '<img src="' + item.image + '" />' +
+              '</div>' +
+              '<div class="cs-pin-dot"></div>' +
+            '</div>';
+        } else {
+          html =
+            '<div class="cs-pin-wrapper">' +
+              '<div class="cs-pin cs-pin--nofoto">Sin foto</div>' +
+              '<div class="cs-pin-dot"></div>' +
+            '</div>';
+        }
+
+        var icon = L.divIcon({
+          html: html,
+          className: "cs-pin-wrapper-outer",
+          iconSize: [42, 56],
+          iconAnchor: [21, 46]
+        });
+
+        var marker = L.marker([lat, lng], { icon: icon }).addTo(markersLayer);
+
+        marker.on("click", function() {
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(JSON.stringify(item));
+          }
+        });
+      });
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    };
+
+    window.moveTo = function(lat, lng) {
+      map.setView([lat, lng], 15);
+    };
+
+    window.setUserLocation = function(lat, lng) {
+      if (userMarker) {
+        userMarker.setLatLng([lat, lng]);
+      } else {
+        userMarker = L.circleMarker([lat, lng], {
+          radius: 6,
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.9
+        }).addTo(map);
+      }
+    };
+  </script>
+</body>
+</html>`;
