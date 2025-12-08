@@ -58,7 +58,15 @@ const statusPill = (s: string) => {
   }
 };
 
-const TABS = ["Todos", "Aceptados", "Pendientes", "Cancelados"] as const;
+// arriba del componente
+const TABS = ["Todos", "Aceptados", "Pendientes", "Finalizados"] as const;
+
+const tabToStatus: Record<(typeof TABS)[number], Status | null> = {
+  Todos: null,
+  Aceptados: "aceptado",
+  Pendientes: "pendiente",
+  Finalizados: "finalizado",
+};
 
 // Tema
 const palette = {
@@ -181,20 +189,20 @@ useEffect(() => {
 
 
   // Filtrado por tabs
-  const filtered = useMemo(() => {
-    if (tab === "Todos") return history;
-    return history.filter((i) => i.status === tab.toLowerCase());
-  }, [tab, history]);
+const filtered = useMemo(() => {
+  const status = tabToStatus[tab];    // 👈 mapeo etiqueta → status real
+  if (!status) return history;        // "Todos"
+  return history.filter((i) => i.status === status);
+}, [tab, history]);
 
-  const counts = useMemo(
-    () => ({
-      fin: history.filter((i) => i.status === "finalizado").length,
-      pen: history.filter((i) => i.status === "pendiente").length,
-      can: history.filter((i) => i.status === "cancelado").length,
-    }),
-    [history]
-  );
-
+const counts = useMemo(
+  () => ({
+    fin: history.filter((i) => i.status === "finalizado").length,
+    pen: history.filter((i) => i.status === "pendiente").length,
+    ace: history.filter((i) => i.status === "aceptado").length,
+  }),
+  [history]
+);
   const s = styles(theme, isSmall);
 
   return (
@@ -247,11 +255,12 @@ useEffect(() => {
         {/* RESUMEN */}
         <View style={s.summaryCard}>
           <Text style={s.summaryTitle}>Resumen</Text>
-          <View style={s.summaryRow}>
-            <SummaryBox s={s} label="Finalizados" value={counts.fin} color="#34D399" />
-            <SummaryBox s={s} label="Pendientes" value={counts.pen} color="#F59E0B" />
-            <SummaryBox s={s} label="Cancelados" value={counts.can} color="#EF4444" />
-          </View>
+<View style={s.summaryRow}>
+  <SummaryBox s={s} label="Finalizados" value={counts.fin} color="#34D399" />
+  <SummaryBox s={s} label="Pendientes" value={counts.pen} color="#F59E0B" />
+  <SummaryBox s={s} label="Aceptados"  value={counts.ace} color="#3B82F6" />
+</View>
+
         </View>
       </ScrollView>
 
@@ -301,35 +310,39 @@ useEffect(() => {
             />
 
             {/* ENVIAR RESEÑA */}
-            <TouchableOpacity
-              style={s.btnSubmit}
-              onPress={async () => {
-                if (!ratingTarget) return;
+<TouchableOpacity
+  style={[
+    s.btnSubmit,
+    ratingStars === 0 && { opacity: 0.4 } // 👈 deshabilitado visual
+  ]}
+  disabled={ratingStars === 0}            // 👈 no se puede presionar si 0
+  onPress={async () => {
+    if (!ratingTarget) return;
 
-await fetch(
-  `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${session.id}/solicitudes/${ratingTarget.id}/calificar`,
-  {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      calificacion: ratingStars,
-      reseña: ratingText,
-    }),
-  }
-);
+    await fetch(
+      `https://pr-2-25-conecta-servicios-backend.onrender.com/api/usuarios/${session.id}/solicitudes/${ratingTarget.id}/calificar`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          calificacion: ratingStars,
+          reseña: ratingText,
+        }),
+      }
+    );
 
+    setRatingModalVisible(false);
+    setRatingStars(0);
+    setRatingText("");
 
-                setRatingModalVisible(false);
-                setRatingStars(0);
-                setRatingText("");
-if (session) {
-  await loadHistory(session.id);
-}
-              }}
-            >
-              <CheckCircle size={16} color="#fff" />
-              <Text style={s.btnSubmitText}>Enviar calificación</Text>
-            </TouchableOpacity>
+    if (session) {
+      await loadHistory(session.id);
+    }
+  }}
+>
+  <CheckCircle size={16} color="#fff" />
+  <Text style={s.btnSubmitText}>Enviar calificación</Text>
+</TouchableOpacity>
 
             <TouchableOpacity
               style={s.btnCancel}

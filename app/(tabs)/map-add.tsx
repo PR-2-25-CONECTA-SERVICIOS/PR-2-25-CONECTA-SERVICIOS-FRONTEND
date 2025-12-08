@@ -35,11 +35,8 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import MapView, {
-  Marker,
-  PROVIDER_GOOGLE,
-  Region,
-} from "react-native-maps";
+import { WebView } from "react-native-webview";
+
 import { loadUserSession } from "../../utils/secureStore";
 
 // 🔗 Backend
@@ -95,6 +92,7 @@ const palette = {
     overlay: "rgba(0,0,0,0.65)",
   },
 } as const;
+const BACKEND_BASE = "https://pr-2-25-conecta-servicios-backend.onrender.com";
 
 /* =========================================================
    Helpers
@@ -103,12 +101,34 @@ function mapLocalToPlace(local: any): Place {
   const lat = Number(local.lat);
   const lng = Number(local.lng);
 
+  // 1. tomar cualquier campo posible
+  let rawImg: string | undefined =
+    local.imagen ||
+    local.image ||
+    local.imageUrl ||
+    local.img ||
+    "";
+
+  // 2. normalizar: si no empieza con http, le agregamos el dominio
+  let imageUri: string | undefined = undefined;
+  if (typeof rawImg === "string") {
+    rawImg = rawImg.trim();
+    if (rawImg.length > 0) {
+      if (rawImg.startsWith("http://") || rawImg.startsWith("https://")) {
+        imageUri = rawImg;
+      } else {
+        // ruta tipo "/uploads/xxx.jpg"
+        imageUri = `${BACKEND_BASE}${rawImg.startsWith("/") ? "" : "/"}${rawImg}`;
+      }
+    }
+  }
+
   return {
     id: local._id,
     title: local.nombre ?? "",
     phone: local.telefono ?? "",
     description: local.direccion ?? "",
-    imageUri: local.imagen,
+    imageUri,                               // 👈 ya normalizado
     category: local.categoria ?? "General",
     coord: {
       latitude: isNaN(lat) ? -17.3835 : lat,
@@ -128,17 +148,17 @@ export default function MapAddScreen() {
   const scheme = useColorScheme();
   const t = scheme === "dark" ? palette.dark : palette.light;
 
-  const initialRegion: Region = useMemo(
-    () => ({
-      latitude: -17.3835,
-      longitude: -66.163,
-      latitudeDelta: 0.015,
-      longitudeDelta: 0.015,
-    }),
-    []
-  );
+const initialCenter = useMemo(
+  () => ({
+    latitude: -17.3835,
+    longitude: -66.163,
+  }),
+  []
+);
 
-  const [region, setRegion] = useState(initialRegion);
+// si no lo usas, puedes borrar esto por completo
+// const [region, setRegion] = useState(initialCenter);
+
   const [followMe, setFollowMe] = useState(false);
   const [userLoc, setUserLoc] = useState<{
     latitude: number;
@@ -153,9 +173,9 @@ const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const mapRef = useRef<MapView | null>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
 const [formVisible, setFormVisible] = useState(false);
+const webRef = useRef<WebView | null>(null);
 
   // Formulario
   const [draftCoord, setDraftCoord] = useState<{
@@ -306,11 +326,14 @@ const openForm = () => {
     };
   }, [followMe]);
 
-  const animateTo = (c: { latitude: number; longitude: number }) =>
-    mapRef.current?.animateToRegion(
-      { ...c, latitudeDelta: 0.012, longitudeDelta: 0.012 },
-      250
-    );
+const animateTo = (c: { latitude: number; longitude: number }) => {
+  const js = `
+    if (window.moveTo) window.moveTo(${c.latitude}, ${c.longitude});
+    true;
+  `;
+  webRef.current?.injectJavaScript(js);
+};
+
 
   const onLongPress = (e: any) => {
   const coord = e.nativeEvent.coordinate;
@@ -553,48 +576,51 @@ const openForm = () => {
       </View>
 
       {/* MAPA */}
-      <MapView
-        ref={mapRef}
-        style={{
-          flex: 1,
-          borderBottomLeftRadius: 18,
-          borderBottomRightRadius: 18,
-          overflow: "hidden",
-        }}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={initialRegion}
-        onRegionChangeComplete={setRegion}
-        onPanDrag={() => followMe && setFollowMe(false)}
-        onLongPress={onLongPress}
-        customMapStyle={scheme === "dark" ? darkStyle : lightStyle}
-      >
-        {places.map((p) => (
-<Marker
-  key={p.id}
-  coordinate={p.coord}
-  onPress={() => {
-    setSelected(p);
-    openDetail();
-    animateTo(p.coord);
+{/* MAPA */}
+<WebView
+  ref={webRef}
+  style={{
+    flex: 1,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    overflow: "hidden",
   }}
->
-  <PinView item={p} selected={selected?.id === p.id} />
-</Marker>
+  source={{ html: MAP_HTML(places, draftCoord) }}
+  onMessage={(event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
 
+      if (data.type === "marker-press") {
+        setSelected(data.item);
+        openDetail();
+      }
 
-        ))}
+      if (data.type === "long-press") {
+        const coord = data.coord || {};
+        const lat = Number(coord.lat);
+        const lng = Number(coord.lng);
 
-        {userLoc && (
-          <Marker
-            coordinate={userLoc}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges
-            zIndex={9999}
-          >
-            <UserPuck />
-          </Marker>
-        )}
-      </MapView>
+        console.log("LONG PRESS RAW >>>", coord);
+        console.log("LONG PRESS PARSED >>>", { lat, lng });
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setDraftCoord({ latitude: lat, longitude: lng });
+          setEditingId(null);
+          setTitle("");
+          setPhone("");
+          setDescription("");
+          setImageUri(undefined);
+          openForm();
+        } else {
+          console.log("⚠️ lat/lng inválidos desde WebView", coord);
+        }
+      }
+    } catch (e) {
+      console.log("Mensaje inválido desde WebView:", e);
+    }
+  }}
+/>
+
 
       {/* Leyenda */}
       <View style={s.legend}>
@@ -1456,3 +1482,83 @@ const lightStyle = [
   },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
 ];
+const MAP_HTML = (places: any[], draftCoord: any) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1">
+  <style>
+    html, body { margin:0; padding:0; }
+    #map { width: 100vw; height: 100vh; }
+
+    .leaflet-control-zoom { display: none !important; }
+    .leaflet-control-attribution { display: none !important; }
+
+    .pin{
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 3px solid #F59E0B;
+      overflow: hidden;
+      background: #F59E0B;
+    }
+    .dot{
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #F59E0B;
+      margin: -4px auto 0;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+<div id="map"></div>
+
+<script>
+  var map = L.map('map', {
+    zoomControl:false
+  }).setView([-17.3835, -66.163], 15);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom: 19
+  }).addTo(map);
+
+  window.moveTo = (lat, lng) => {
+    map.setView([lat, lng], 16);
+  };
+
+  function post(data){
+    window.ReactNativeWebView.postMessage(JSON.stringify(data));
+  }
+
+  map.on("contextmenu", (e) => {
+    post({ type:"long-press", coord: e.latlng });
+  });
+
+  ${places
+    .map(
+      p => `
+        var icon${p.id} = L.divIcon({
+          html: \`
+            <div class="pin">
+              <img src="${p.imageUri}" style="width:100%;height:100%;border-radius:50%"/>
+            </div>
+            <div class="dot"></div>
+          \`,
+          iconSize:[52,60],
+          className:""
+        });
+        var m${p.id} = L.marker([${p.coord.latitude},${p.coord.longitude}],{icon:icon${p.id}})
+           .addTo(map)
+           .on("click", () => post({type:"marker-press", item:${JSON.stringify(
+             p
+           )}}));
+      `
+    )
+    .join("")}
+</script>
+</body>
+</html>
+`;
